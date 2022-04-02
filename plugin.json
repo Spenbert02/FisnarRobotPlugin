@@ -1,0 +1,8 @@
+{
+    "name": "Fisnar CSV Writer",
+    "author": "Spencer Bertram",
+    "version": "0.0.1",
+    "description": "Provides support for outputting Fisnar CSV Command Files",
+    "supported_sdk_versions": ["7.9.0"],
+    "i18n-catalog": "cura"
+}
