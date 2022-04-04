@@ -82,14 +82,33 @@ def getLastExtrudingCommandIndex(gcode_commands):
     return None  # this should never happen in any reasonable gcode file.
 
 
-def optimize_fisnar_commands(fisnar_commands):
-    # remove any redundant commands from fisnar command list
-    pass
+def optimizeFisnarOutputCommands(fisnar_commands):
+    # remove any redundant output commands from fisnar command list
+
+    for output in range(1, 5):  # for each output (integer from 1 to 4)
+        output_state = None
+        i = 0
+        while i < len(fisnar_commands):
+            if fisnar_commands[i][0] == "Output" and fisnar_commands[i][1] == output:  # is an output 1 command
+                if output_state is None:  # is the first output 1 command
+                    output_state = fisnar_commands[i][2]
+                    i += 1
+                elif fisnar_commands[i][2] == output_state:  # command is redundant
+                    fisnar_commands.pop(i)
+                else:
+                    output_state = fisnar_commands[i][2]
+                    i += 1
+            else:
+                i += 1
+
+        if output_state is None:
+            Logger.log("d", "output " + str(output) + " does not appear in Fisnar commands.")
 
 
 def g0_g1(command, curr_output, curr_pos):
     # turn a g0 or g1 command into a list of the corresponding fisnar commands
     # update the given curr_pos list
+
     ret_commands = []
 
     if command.has_param("E") and command.get_param("E") > 0:  # turn output on
@@ -105,29 +124,20 @@ def g0_g1(command, curr_output, curr_pos):
     if command.has_param("Z"):
         z = command.get_param("Z")
 
-    curr_pos = [x, y, z]
+    curr_pos[0], curr_pos[1], curr_pos[2] = x, y, z
     ret_commands.append(["Dummy Point", x, y, z])
 
     return ret_commands
 
 
-def invert_coords(commands):
+def invertCoords(commands, z_dim):
     # invert all coordinate directions for dummy points (modifies the given list)
 
     for i in range(len(commands)):
-        command = commands[i]
-        if command[0] == "Dummy Point":
-            command[1] = 200 - command[1]
-            command[2] = 200 - command[2]
-            command[3] = 100 - command[3]
-
-
-def offset_z(commands, offset):
-    # apply the specified offset to all z coordinates of dummy points (modifies the given list)
-    for i in range(len(commands)):
-        command = commands[i]
-        if command[0] == "Dummy Point":
-            command[3] = command[3] + offset
+        if commands[i][0] == "Dummy Point":
+            commands[i][1] = 200 - commands[i][1]
+            commands[i][2] = 200 - commands[i][2]
+            commands[i][3] = z_dim - commands[i][3]
 
 
 def convert(gcode_commands, extruder_outputs, z_max):
@@ -179,10 +189,15 @@ def convert(gcode_commands, extruder_outputs, z_max):
             elif command.get_command()[0] == "T":
                 curr_extruder = int(command.get_command()[1])
 
+    # turning off all outputs and ending program
+    for i in range(4):
+        fisnar_commands.append(["Output", i + 1, 0])
     fisnar_commands.append(["End Program"])
 
     # inverting and shifting coordinate system from gcode to fisnar
-    invert_coords(fisnar_commands)
-    offset_z(fisnar_commands, -(100 - z_max))
+    invertCoords(fisnar_commands, z_max)
+
+    # removing redundant output commands
+    optimizeFisnarOutputCommands(fisnar_commands)
 
     return fisnar_commands
