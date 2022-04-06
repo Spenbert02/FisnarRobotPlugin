@@ -10,3 +10,6 @@ dispensing processes. These robots also function well as direct-ink-writing
 do not come with support for printing CAD files, however. Their command language
 is unique and is not supported by any reliable slicer software. This plugin
 solves this issue.
+
+## Fisnar Commands Used
+'Z Clearance', 'Dummy Point', 'Output', 'Line Speed', 'End Program'.

@@ -142,7 +142,7 @@ def invertCoords(commands, z_dim):
 
 def convert(gcode_commands, extruder_outputs, z_max):
     # convert gcode to fisnar command 2d list. Assumes the extruder outputs given are valid.
-    # returns tuple(False, "error message string") if conversion goes awry. It shouldn't tho.
+    # returns False if conversion goes awry. It shouldn't tho.
     # currently (3/31), error checking will not be thoroughly implemented, as this should all
     # occur before the parameters are passed to this function
 
@@ -171,9 +171,9 @@ def convert(gcode_commands, extruder_outputs, z_max):
     for i in range(len(gcode_commands)):
         command = gcode_commands[i]
 
-        if command.has_param("F") and command.get_param("F") != curr_speed:  # line speed change
-            fisnar_commands.append(["Line Speed", command.get_param("F")])
-            curr_speed = command.get_param("F")
+        if command.has_param("F") and (command.get_param("F") / 60) != curr_speed:  # line speed change and converting from mm/min to mm/sec
+            fisnar_commands.append(["Line Speed", command.get_param("F") / 60])
+            curr_speed = command.get_param("F") / 60
 
         if (first_relevant_command_index <= i <= last_relevant_command_index):  # command needs to be converted
             if command.get_command() in ("G0", "G1"):

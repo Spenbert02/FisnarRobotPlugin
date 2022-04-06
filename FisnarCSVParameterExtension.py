@@ -1,6 +1,7 @@
 import copy
 import numpy
 import os.path
+import sys
 
 from typing import Optional, Union, List
 
@@ -15,19 +16,13 @@ from UM.Logger import Logger
 from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
-from UM.Signal import Signal, signalemitter
 
 
-@signalemitter
 class FisnarCSVParameterExtension(QObject, Extension):
 
     # for factory methods. This will be set to the instance of this class once initialized.
     # this class is only instantiated once, when Cura first opens.
     _instance = None
-
-    # signals for when extruders or print surface parameters are updated
-    parametersUpdated = Signal()  #  MUST emit five parameters
-    outputsUpdated = Signal()  # MUST emit five parameters
 
     def __init__(self, parent=None):
         # calling necessary super methods.
@@ -54,6 +49,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_2_output = None
         self.extruder_3_output = None
         self.extruder_4_output = None
+
 
         # setting up menus
         self.setMenuName("Fisnar Parameter Entry")
@@ -153,11 +149,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
-        # passing updated print area coords to FisnarCSVWriter
-        self.parametersUpdated.emit(self.fisnar_x_min, self.fisnar_x_max,
-                                    self.fisnar_y_min, self.fisnar_y_max,
-                                    self.fisnar_z_max)
-
     @pyqtProperty(int)
     def getNumExtruders(self):
         self.num_extruders = len(Application.getInstance().getExtrudersModel()._active_machine_extruders)
@@ -184,10 +175,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def setExtruderOutput(self, attribute, output_val):
         setattr(self, attribute, int(output_val))
         # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
-
-        # passing updated extruder outputs to FisnarCSVWriter
-        self.outputsUpdated.emit(self.num_extruders, self.extruder_1_output, self.extruder_2_output,
-                                 self.extruder_3_output, self.extruder_4_output)
 
     def showParameterEntryWindow(self):
         if not self.parameter_entry_window:  # ensure a window isn't already created

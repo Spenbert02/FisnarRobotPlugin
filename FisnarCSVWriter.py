@@ -12,15 +12,15 @@ catalog = i18nCatalog("cura")
 class FisnarCSVWriter(MeshWriter):
     def __init__(self):
         super().__init__(add_to_recent_files = False)  # don't want the spreadsheets to appear in recent files
-        self._application = Application.getInstance  # I dont need this. might be needed internally, so gonna leave it.
+        self._application = Application.getInstance()  # I dont need this. might be needed internally, so gonna leave it.
 
         # instantiating print surface parameters, to be updated by the FisnarCSVParameterExtension extension
         # these default values need to match the default values in the FisnarCSVParameterExtension class
-        self.fisnar_x_min = 0
-        self.fisnar_x_max = 200
-        self.fisnar_y_min = 0
-        self.fisnar_y_max = 200
-        self.fisnar_z_max = 100
+        self.fisnar_x_min = None
+        self.fisnar_x_max = None
+        self.fisnar_y_min = None
+        self.fisnar_y_max = None
+        self.fisnar_z_max = None
 
         # extruder - output correlations
         self.num_extruders = None
@@ -29,29 +29,33 @@ class FisnarCSVWriter(MeshWriter):
         self.extruder_3_output = None
         self.extruder_4_output = None
 
-        # connecting to signal emitted by FisnarCSVParameterExtension object
-        FisnarCSVParameterExtension.FisnarCSVParameterExtension.getInstance().parametersUpdated.connect(self._onUpdatedParameters)
-        FisnarCSVParameterExtension.FisnarCSVParameterExtension.getInstance().outputsUpdated.connect(self._onUpdatedOutputs)
+    def getEnteredParameters(self):
+        # get the user entered parameters in the Extension part of this plugin
 
-    def _onUpdatedParameters(self, fisnar_x_min, fisnar_x_max, fisnar_y_min, fisnar_y_max, fisnar_z_max):
-        # updating attributes
-        self.fisnar_x_min = fisnar_x_min
-        self.fisnar_x_max = fisnar_x_max
-        self.fisnar_y_min = fisnar_y_min
-        self.fisnar_y_max = fisnar_y_max
-        self.fisnar_z_max = fisnar_z_max
-        # Logger.log("i", "***** build area updated in FisnarCSVWriter. New fisnar surface areas: (" + str(self.fisnar_x_min) + ", " + str(self.fisnar_x_max) + "), (" + str(self.fisnar_y_min) + ", " + str(self.fisnar_y_max) + "), (" + str(self.fisnar_z_max) + ")")  # test
+        #  getting extension instance
+        ext = FisnarCSVParameterExtension.FisnarCSVParameterExtension.getInstance()
 
-    def _onUpdatedOutputs(self, num_extruders, extruder_1_output, extruder_2_output, extruder_3_output, extruder_4_output):
-        # updating extruder - output correlations
-        self.num_extruders = num_extruders
-        self.extruder_1_output = extruder_1_output
-        self.extruder_2_output = extruder_2_output
-        self.extruder_3_output = extruder_3_output
-        self.extruder_4_output = extruder_4_output
-        # Logger.log("i", "****** Extruders passed to FisnarCSVWriter. Num extruders: " + str(self.num_extruders) + ". Ext 1: " + str(self.extruder_1_output) + ", Ext 2: " + str(self.extruder_2_output) + ", Ext 3: " + str(self.extruder_3_output) + ", Ext 4: " + str(self.extruder_4_output))  # test
+        # getting fisnar coords
+        self.fisnar_x_min = ext.fisnar_x_min
+        self.fisnar_x_max = ext.fisnar_x_max
+        self.fisnar_y_min = ext.fisnar_y_min
+        self.fisnar_y_max = ext.fisnar_y_max
+        self.fisnar_z_max = ext.fisnar_z_max
+        Logger.log("i", "***** build area updated in FisnarCSVWriter. New fisnar surface areas: (" + str(self.fisnar_x_min) + ", " + str(self.fisnar_x_max) + "), (" + str(self.fisnar_y_min) + ", " + str(self.fisnar_y_max) + "), (" + str(self.fisnar_z_max) + ")")  # test
+
+        # getting extruder info
+        self.num_extruders = ext.num_extruders
+        self.extruder_1_output = ext.extruder_1_output
+        self.extruder_2_output = ext.extruder_2_output
+        self.extruder_3_output = ext.extruder_3_output
+        self.extruder_4_output = ext.extruder_4_output
+        Logger.log("i", "****** Extruders passed to FisnarCSVWriter. Num extruders: " + str(self.num_extruders) + ". Ext 1: " + str(self.extruder_1_output) + ", Ext 2: " + str(self.extruder_2_output) + ", Ext 3: " + str(self.extruder_3_output) + ", Ext 4: " + str(self.extruder_4_output))  # test
+
 
     def write(self, stream, nodes, mode=MeshWriter.OutputMode.TextMode):
+        # getting updated extension parameters
+        self.getEnteredParameters()
+
         # making sure the mode is text output
         if mode != MeshWriter.OutputMode.TextMode:
             Logger.log("e", "FisnarCSVWriter does not support non-text mode")
@@ -80,6 +84,7 @@ class FisnarCSVWriter(MeshWriter):
             self.setInformation(catalog.i18nc("@warning:status", "Gcode must be prepared before exporting Fisnar CSV"))
             return False  # error
 
+
     def getFisnarCommands(self, gcode_str):
         # either returns a 2d list of fisnar commands or False if an error was caught
         # this is the function where error checking goes down
@@ -95,6 +100,7 @@ class FisnarCSVWriter(MeshWriter):
                     return False
 
         return convert(gcode_str, [self.extruder_1_output, self.extruder_2_output, self.extruder_3_output, self.extruder_4_output], self.fisnar_z_max)
+
 
     def fisnarCommandsToCSVString(self, fisnar_commands):
         # turn a 2d list of fisnar commands into a csv string
