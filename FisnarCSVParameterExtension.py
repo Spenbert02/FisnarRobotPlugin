@@ -2,10 +2,10 @@ import copy
 import numpy
 import os.path
 import sys
-
 from typing import Optional, Union, List
 
 from cura.BuildVolume import BuildVolume
+from cura.CuraApplication import CuraApplication
 
 from PyQt5.QtCore import QObject, QUrl, pyqtSlot, pyqtProperty
 from PyQt5.QtQml import QQmlComponent, QQmlContext
@@ -16,6 +16,17 @@ from UM.Logger import Logger
 from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
+
+
+# importing pyautogui
+import importlib
+plugin_folder_path = os.path.dirname(__file__)
+pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
+spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
+pyautogui_module = importlib.util.module_from_spec(spec)
+sys.modules["pyautogui"] = pyautogui_module
+spec.loader.exec_module(pyautogui_module)
+import pyautogui
 
 
 class FisnarCSVParameterExtension(QObject, Extension):
@@ -36,6 +47,10 @@ class FisnarCSVParameterExtension(QObject, Extension):
             # Logger.log("i", "****** FisnarCSVParameterExtension instantiated for the first time")  # test
             FisnarCSVParameterExtension._instance = self
 
+        # signal to update disallowed areas whenever build plate activity is changed
+        # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
+        CuraApplication.getInstance().activityChanged.connect(self.resetDisallowedAreas)
+
         # print area parameters
         self.fisnar_x_min = 0.0
         self.fisnar_x_max = 200.0
@@ -50,15 +65,22 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_3_output = None
         self.extruder_4_output = None
 
+        # most recent fisnar 2D list
+        self.most_recent_fisnar_commands = None
 
         # setting up menus
         self.setMenuName("Fisnar Parameter Entry")
         self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
         self.addMenuItem("Correlate Outputs with Extruders", self.showOutputEntryWindow)
+        self.addMenuItem("Start Auto-Upload Process", self.showAutoUploadWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.parameter_entry_window = None
         self.output_entry_window = None
+        self.auto_upload_window = None
+
+        # auto upload dialog text
+        self.auto_upload_dialog_text = "groovy groovy"
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter)
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
@@ -176,6 +198,20 @@ class FisnarCSVParameterExtension(QObject, Extension):
         setattr(self, attribute, int(output_val))
         # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
 
+    @pyqtProperty(str)
+    def getAutoUploadDialogText(self):
+        return self.auto_upload_dialog_text
+
+    @pyqtSlot()
+    def startAutoUpload(self):
+        # Logger.log("i", "auto upload process started")  # test
+        pass
+
+    @pyqtSlot()
+    def cancelAutoUpload(self):
+        # Logger.log("i", "auto upload process cancelled")  # test
+        pass
+
     def showParameterEntryWindow(self):
         if not self.parameter_entry_window:  # ensure a window isn't already created
             self.parameter_entry_window = self._createDialogue("parameter_entry.qml")
@@ -187,9 +223,15 @@ class FisnarCSVParameterExtension(QObject, Extension):
             self.output_entry_window = self._createDialogue("output_entry.qml")
         self.output_entry_window.show()
 
+    def showAutoUploadWindow(self):
+        # Logger.log("i", "auto upload window called")  # test
+        if not self.auto_upload_window:
+            self.auto_upload_window = self._createDialogue("autoupload.qml")
+        self.auto_upload_window.show()
+
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
-        qml_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath(self.getPluginId()), "qml\\" + qml_file_name)
+        qml_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath(self.getPluginId()), "resources", "qml", qml_file_name)
         component = Application.getInstance().createQmlComponent(qml_file_path, {"main": self})
         return component
 

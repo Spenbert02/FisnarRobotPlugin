@@ -140,7 +140,7 @@ def invertCoords(commands, z_dim):
             commands[i][3] = z_dim - commands[i][3]
 
 
-def convert(gcode_commands, extruder_outputs, z_max):
+def convert(gcode_commands, extruder_outputs, print_surface):
     # convert gcode to fisnar command 2d list. Assumes the extruder outputs given are valid.
     # returns False if conversion goes awry. It shouldn't tho.
     # currently (3/31), error checking will not be thoroughly implemented, as this should all
@@ -157,7 +157,10 @@ def convert(gcode_commands, extruder_outputs, z_max):
     # Logger.log("i", "relevant_commands: " + ret_string)
 
     # default fisnar initial commands
-    fisnar_commands = [["Line Speed", 30], ["Z Clearance", 3, 1]]
+    fisnar_commands = [["Line Speed", 30],
+                       ["Z Clearance", 3, 1],
+                       ["Dummy Point", print_surface[0], print_surface[2], print_surface[4]]
+                       ]
 
     # finding first extruder used in gcode
     curr_extruder = 0
@@ -195,7 +198,7 @@ def convert(gcode_commands, extruder_outputs, z_max):
     fisnar_commands.append(["End Program"])
 
     # inverting and shifting coordinate system from gcode to fisnar
-    invertCoords(fisnar_commands, z_max)
+    invertCoords(fisnar_commands, print_surface[4])
 
     # removing redundant output commands
     optimizeFisnarOutputCommands(fisnar_commands)
