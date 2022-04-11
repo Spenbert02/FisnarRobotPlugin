@@ -17,23 +17,35 @@ from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
+from .autoupload import chunkCommands
 
-# importing pyautogui
-import importlib
-plugin_folder_path = os.path.dirname(__file__)
-pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
-spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
-pyautogui_module = importlib.util.module_from_spec(spec)
-sys.modules["pyautogui"] = pyautogui_module
-spec.loader.exec_module(pyautogui_module)
-import pyautogui
+
+# # importing pyautogui (actually, I dont think this is needed here.)
+# import importlib
+# plugin_folder_path = os.path.dirname(__file__)
+# pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
+# spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
+# pyautogui_module = importlib.util.module_from_spec(spec)
+# sys.modules["pyautogui"] = pyautogui_module
+# spec.loader.exec_module(pyautogui_module)
+# import pyautogui
+
+# importing pyperclip
+pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
+spec_2 = importlib.util.spec_from_file_location("pyperclip", pyperclip_path)
+pyperclip_module = importlib.util.module_from_spec(spec_2)
+sys.modules["pyperclip"] = pyperclip_module
+spec_2.loader.exec_module(pyperclip_module)
+import pyperclip
 
 
 class FisnarCSVParameterExtension(QObject, Extension):
 
+
     # for factory methods. This will be set to the instance of this class once initialized.
     # this class is only instantiated once, when Cura first opens.
     _instance = None
+
 
     def __init__(self, parent=None):
         # calling necessary super methods.
@@ -65,9 +77,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_3_output = None
         self.extruder_4_output = None
 
-        # most recent fisnar 2D list
-        self.most_recent_fisnar_commands = None
-
         # setting up menus
         self.setMenuName("Fisnar Parameter Entry")
         self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
@@ -78,16 +87,26 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.parameter_entry_window = None
         self.output_entry_window = None
         self.auto_upload_window = None
+        self.next_chunk_window = None  # this one isn't a menu item
 
         # auto upload dialog text
-        self.auto_upload_dialog_text = "groovy groovy"
+        self.auto_upload_dialog_text = "When the autoupload process starts, it will take control of the mouse and keyboard. At any time, you can press escape to terminate the process. Once terminated, you cannot resume progress. Press Ok to start the auto upload process, or Cancel to go back."
 
-        # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter)
+        # auto upload stuff. Ideally, this stuff would be contained in a separate file.
+        # I'm just not sure how to do that while showing windows and whatnot
+        self.most_recent_fisnar_commands = None
+        self.most_recent_fisnar_command_chunks = None
+        self.current_fisnar_command_chunk = None
+
+        # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
+        # ya pretty sure this is totally irrelevant but I'm gonna leave it
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
+
 
     @classmethod
     def getInstance(cls):
         return cls._instance
+
 
     def resetDisallowedAreas(self):
         # turning fisnar coords to gcode coords (fisnar coords are inverted in each direction)
@@ -141,29 +160,36 @@ class FisnarCSVParameterExtension(QObject, Extension):
                 # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
                 # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
 
+
     def logMessage(self):
         # logging message when one of the windows is opened
         Logger.log("i", "Fisnar parameter or output entry window opened")
+
 
     @pyqtProperty(str)
     def getXMin(self):
         return str(self.fisnar_x_min)
 
+
     @pyqtProperty(str)
     def getXMax(self):
         return str(self.fisnar_x_max)
+
 
     @pyqtProperty(str)
     def getYMin(self):
         return str(self.fisnar_y_min)
 
+
     @pyqtProperty(str)
     def getYMax(self):
         return str(self.fisnar_y_max)
 
+
     @pyqtProperty(str)
     def getZMax(self):
         return str(self.fisnar_z_max)
+
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
@@ -171,51 +197,86 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
+
     @pyqtProperty(int)
     def getNumExtruders(self):
         self.num_extruders = len(Application.getInstance().getExtrudersModel()._active_machine_extruders)
         # Logger.log("i", "***** number of extruders: " + str(self.num_extruders))  # test
         return self.num_extruders
 
+
     @pyqtProperty(str)
     def getExtruder1Output(self):
         return str(self.extruder_1_output)
+
 
     @pyqtProperty(str)
     def getExtruder2Output(self):
         return str(self.extruder_2_output)
 
+
     @pyqtProperty(str)
     def getExtruder3Output(self):
         return str(self.extruder_3_output)
 
+
     @pyqtProperty(str)
     def getExtruder4Output(self):
         return str(self.extruder_4_output)
+
 
     @pyqtSlot(str, str)
     def setExtruderOutput(self, attribute, output_val):
         setattr(self, attribute, int(output_val))
         # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
 
+
     @pyqtProperty(str)
     def getAutoUploadDialogText(self):
         return self.auto_upload_dialog_text
 
+
     @pyqtSlot()
     def startAutoUpload(self):
-        # Logger.log("i", "auto upload process started")  # test
-        pass
+
+        if self.most_recent_fisnar_commands is None:
+            Logger.log("e", "Fisnar CSV must be saved before the auto upload process can begin")
+            return
+        else:
+            Logger.log("i", "auto upload process started")
+
+        self.most_recent_fisnar_command_chunks = chunkCommands(self.most_recent_fisnar_commands, 4000)  # chunking commands for uploading
+        self.current_fisnar_command_chunk = 0
+
+        # LEFT OFF HERE - I'm not sure this is the best way to go about things.
+        # for the first iteration of stuff, I might do it this way, but the point
+        # of the terminate auto upload feature is to stop the process when it goes
+        # haywire - so you really need to be able to use the computer to do that.
+        # Ideally, a terminate button would be replaced by a keyboard emergency
+        # stop. For now, the button will be alright
+
 
     @pyqtSlot()
     def cancelAutoUpload(self):
+        # this is done before anything auto upload related is started,
+        # so this doesn't really need to exist. But it's here, just in case it might have a use in the future.
         # Logger.log("i", "auto upload process cancelled")  # test
         pass
+
+
+    def terminateAutoUpload(self):
+        pass
+
+
+    def nextAutoUpload(self):
+        pass
+
 
     def showParameterEntryWindow(self):
         if not self.parameter_entry_window:  # ensure a window isn't already created
             self.parameter_entry_window = self._createDialogue("parameter_entry.qml")
         self.parameter_entry_window.show()
+
 
     def showOutputEntryWindow(self):
         # Logger.log("i", "***** Output Entry Window Called")  # test
@@ -223,17 +284,35 @@ class FisnarCSVParameterExtension(QObject, Extension):
             self.output_entry_window = self._createDialogue("output_entry.qml")
         self.output_entry_window.show()
 
+
     def showAutoUploadWindow(self):
         # Logger.log("i", "auto upload window called")  # test
         if not self.auto_upload_window:
             self.auto_upload_window = self._createDialogue("autoupload.qml")
         self.auto_upload_window.show()
 
+
+    def showNextChunkWindow(self):
+        Logger.log("i", "next chunk window called")  # TEST
+        if not self. next_chunk_window:
+            self.next_chunk_window = self._createDialogue("next_chunk.qml")
+        self.next_chunk_window.show()
+
+
+    def terminateUploadProcess(self):
+        pass
+
+
+    def uploadNextChunk(self):
+        pass
+
+
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
         qml_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath(self.getPluginId()), "resources", "qml", qml_file_name)
         component = Application.getInstance().createQmlComponent(qml_file_path, {"main": self})
         return component
+
 
     class handledPolygon(Polygon):
         # class that extends Polygon object so a polygon can be checked if it has been set in this extension or by something else

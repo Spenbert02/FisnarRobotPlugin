@@ -1,5 +1,6 @@
 from .FisnarCSVParameterExtension import FisnarCSVParameterExtension
 from .convert import convert, getExtrudersInGcode
+from .autoupload import fisnarCommandsToCSVString
 
 from UM.Mesh.MeshWriter import MeshWriter
 from UM.Application import Application
@@ -56,6 +57,8 @@ class FisnarCSVWriter(MeshWriter):
         # getting updated extension parameters
         self.getEnteredParameters()
 
+        # TODO: figure out a way to get the filename of the saved file, and add it as a parameter in the extension plugin
+
         # making sure the mode is text output
         if mode != MeshWriter.OutputMode.TextMode:
             Logger.log("e", "FisnarCSVWriter does not support non-text mode")
@@ -77,7 +80,7 @@ class FisnarCSVWriter(MeshWriter):
             if fisnar_commands is False:  # error was caught in conversion (information will already be set.)
                 return False  # error
 
-            csv_string = self.fisnarCommandsToCSVString(fisnar_commands)
+            csv_string = fisnarCommandsToCSVString(fisnar_commands)
             stream.write(csv_string)  # writing to file
             FisnarCSVParameterExtension.getInstance().most_recent_fisnar_commands = fisnar_commands  # updating in extension class
 
@@ -103,18 +106,3 @@ class FisnarCSVWriter(MeshWriter):
 
         return convert(gcode_str, [self.extruder_1_output, self.extruder_2_output, self.extruder_3_output, self.extruder_4_output],
                        [self.fisnar_x_min, self.fisnar_x_max, self.fisnar_y_min, self.fisnar_y_max, self.fisnar_z_max])
-
-
-    def fisnarCommandsToCSVString(self, fisnar_commands):
-        # turn a 2d list of fisnar commands into a csv string
-
-        ret_string = ""
-        for i in range(len(fisnar_commands)):
-            for j in range(len(fisnar_commands[i])):
-                ret_string += str(fisnar_commands[i][j])
-                if j == len(fisnar_commands[i]) - 1:
-                    ret_string += "\n"
-                else:
-                    ret_string += ","
-
-        return ret_string
