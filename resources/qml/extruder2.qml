@@ -20,7 +20,7 @@ Grid {
     id: extruder2Output  // probably for reference within python?
     text: main.getExtruder2Output  // probably for reference somewhere, idk where
 
-    width: 200
+    width: 100
 
     validator: IntValidator {  // ensures entry is in the right format, idk exactly how this works
       bottom: 1

@@ -3,8 +3,13 @@ from zipfile import ZipFile
 import os
 
 if __name__ == "__main__":
-    content_folder_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\FisnarCSVWriter"
-    zip_file_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\zipping_station\\FisnarCSVWriter.zip"
+    # spencer laptop paths
+    # content_folder_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\FisnarCSVWriter"
+    # zip_file_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\zipping_station\\FisnarCSVWriter.zip"
+
+    # lab computer paths
+    content_folder_path = "C:\\Users\\Lab\\github\\FisnarCSVWriter"
+    zip_file_path = "C:\\Users\\Lab\\github\\packaging_station\\FisnarCSVWriter.zip"
 
     with ZipFile(zip_file_path, "w") as zip_obj:
         for top_folder, sub_folders, files in os.walk(content_folder_path):

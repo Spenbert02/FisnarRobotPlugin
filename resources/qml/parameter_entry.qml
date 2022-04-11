@@ -8,9 +8,9 @@ UM.Dialog //Creates a modal window that pops up above the interface.
     id: base
 
     width: 250 * screenScaleFactor
-    height: 155 * screenScaleFactor
+    height: 175 * screenScaleFactor
     minimumWidth: 250 * screenScaleFactor
-    minimumHeight: 155 * screenScaleFactor
+    minimumHeight: 175 * screenScaleFactor
 
     Label //Creates a bit of text.
     {
@@ -47,7 +47,7 @@ UM.Dialog //Creates a modal window that pops up above the interface.
         id: xMinTextField  // probably for reference within python?
         text: main.getXMin  // probably for reference somewhere, idk where
 
-        width: 200
+        width: 100
 
         validator: DoubleValidator {  // ensures entry is in the right format, idk exactly how this works
           decimals: 4
@@ -73,7 +73,7 @@ UM.Dialog //Creates a modal window that pops up above the interface.
         id: xMaxTextField  // probably for reference within python?
         text: main.getXMax  // probably for reference somewhere, idk where
 
-        width: 200
+        width: 100
 
         validator: DoubleValidator {  // ensures entry is in the right format, idk exactly how this works
           decimals: 4
@@ -99,7 +99,7 @@ UM.Dialog //Creates a modal window that pops up above the interface.
         id: yMinTextField  // probably for reference within python?
         text: main.getYMin  // probably for reference somewhere, idk where
 
-        width: 200
+        width: 100
 
         validator: DoubleValidator {  // ensures entry is in the right format, idk exactly how this works
           decimals: 4
@@ -126,7 +126,7 @@ UM.Dialog //Creates a modal window that pops up above the interface.
         id: yMaxTextField  // probably for reference within python?
         text: main.getYMax  // probably for reference somewhere, idk where
 
-        width: 200
+        width: 100
 
         validator: DoubleValidator {  // ensures entry is in the right format, idk exactly how this works
           decimals: 4
@@ -153,7 +153,7 @@ UM.Dialog //Creates a modal window that pops up above the interface.
         id: zMaxTextField  // probably for reference within python?
         text: main.getZMax  // probably for reference somewhere, idk where
 
-        width: 200
+        width: 100
 
         validator: DoubleValidator {  // ensures entry is in the right format, idk exactly how this works
           decimals: 4
