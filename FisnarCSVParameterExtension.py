@@ -17,7 +17,7 @@ from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
-from .autoupload import chunkCommands
+from .AutoUploader import AutoUploader
 
 
 # # importing pyautogui (actually, I dont think this is needed here.)
@@ -87,16 +87,12 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.parameter_entry_window = None
         self.output_entry_window = None
         self.auto_upload_window = None
-        self.next_chunk_window = None  # this one isn't a menu item
 
         # auto upload dialog text
         self.auto_upload_dialog_text = "When the autoupload process starts, it will take control of the mouse and keyboard. At any time, you can press escape to terminate the process. Once terminated, you cannot resume progress. Press Ok to start the auto upload process, or Cancel to go back."
 
-        # auto upload stuff. Ideally, this stuff would be contained in a separate file.
-        # I'm just not sure how to do that while showing windows and whatnot
+        # for passing to auto uploader object
         self.most_recent_fisnar_commands = None
-        self.most_recent_fisnar_command_chunks = None
-        self.current_fisnar_command_chunk = None
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -233,6 +229,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtProperty(str)
     def getAutoUploadDialogText(self):
+        # this is called by qml
         return self.auto_upload_dialog_text
 
 
@@ -245,15 +242,9 @@ class FisnarCSVParameterExtension(QObject, Extension):
         else:
             Logger.log("i", "auto upload process started")
 
-        self.most_recent_fisnar_command_chunks = chunkCommands(self.most_recent_fisnar_commands, 4000)  # chunking commands for uploading
-        self.current_fisnar_command_chunk = 0
-
-        # LEFT OFF HERE - I'm not sure this is the best way to go about things.
-        # for the first iteration of stuff, I might do it this way, but the point
-        # of the terminate auto upload feature is to stop the process when it goes
-        # haywire - so you really need to be able to use the computer to do that.
-        # Ideally, a terminate button would be replaced by a keyboard emergency
-        # stop. For now, the button will be alright
+        auto_uploader = AutoUploader()
+        auto_uploader.setCommands(self.most_recent_fisnar_commands)
+        auto_uploader.
 
 
     @pyqtSlot()
@@ -264,22 +255,15 @@ class FisnarCSVParameterExtension(QObject, Extension):
         pass
 
 
-    def terminateAutoUpload(self):
-        pass
-
-
-    def nextAutoUpload(self):
-        pass
-
-
     def showParameterEntryWindow(self):
+        # Logger.log("i", "parameter entry window called")  # test
         if not self.parameter_entry_window:  # ensure a window isn't already created
             self.parameter_entry_window = self._createDialogue("parameter_entry.qml")
         self.parameter_entry_window.show()
 
 
     def showOutputEntryWindow(self):
-        # Logger.log("i", "***** Output Entry Window Called")  # test
+        # Logger.log("i", "Output Entry Window Called")  # test
         if not self.output_entry_window:
             self.output_entry_window = self._createDialogue("output_entry.qml")
         self.output_entry_window.show()
@@ -290,21 +274,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
         if not self.auto_upload_window:
             self.auto_upload_window = self._createDialogue("autoupload.qml")
         self.auto_upload_window.show()
-
-
-    def showNextChunkWindow(self):
-        Logger.log("i", "next chunk window called")  # TEST
-        if not self. next_chunk_window:
-            self.next_chunk_window = self._createDialogue("next_chunk.qml")
-        self.next_chunk_window.show()
-
-
-    def terminateUploadProcess(self):
-        pass
-
-
-    def uploadNextChunk(self):
-        pass
 
 
     def _createDialogue(self, qml_file_name):

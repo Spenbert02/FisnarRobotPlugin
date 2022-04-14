@@ -1,0 +1,79 @@
+Relevant links:
+- reliable system post: https://community.ultimaker.com/topic/26046-writing-a-custom-cura-package/
+  - https://contribute.ultimaker.com/
+- Uranium GitHub: https://github.com/Ultimaker/Uranium
+- Cura Plugin Portal: https://contribute.ultimaker.com/app/developer/plugins
+- sample plugin examples: https://github.com/Ultimaker/Cura/wiki/Plugin-Directory
+- Cura scene explanation: https://github.com/Ultimaker/Cura/blob/master/docs/scene/scene.md
+
+
+Relevant data info:
+- mime type: text/csv
+
+
+General Conversion Process:
+- the process can be streamlined more easily, because the slicer settings
+are accessible during conversion (I think)
+  - important settings to grab:
+    - idk, figure it out*
+
+Auto Upload Process:
+1) click on smart robot edit (open smart robot edit)
+2) paste current chunk to software
+3) click upload
+4) Wait for user to press a button that indicates the printer is done with
+the current round
+5) if done, show message that is done
+6) if not done, repeat with next chunk
+
+User Process
+1) slice file
+2) ensure print area dimensions are correct
+3) use setting tab to set min x and y coords, max z coord, and extruder outputs
+4) save as fisnar CSV
+5) use a separate app to automatically upload
+
+Conversion Side
+1) grab gcode, home coords, and extruder outputs*  *make a setting in the extruder settings to assign an output to an extruder (must be either 1, 2, 3, 4)
+  - offsets will already be applied to gcode
+  - print already fits in area*  *need the extruders to be able to move outside of build area - look into plugin settings
+  - correlate extruders to outputs
+
+
+Plan: (3/19)
+1) write basic csv saver plugin
+  - for all values that will be grabbed from the other extensions, just make placeholder values that don't effect the output that can be setup later
+2) write extension plugin
+  - plugin to get all necessary user input
+  - will add a menu element to the settings tab
+  - will change the allowable print region (backend stuff)
+  - will add an output setting to each extruder
+
+
+General Conversion Process (3/3/2022):
+0) pre-notes/assumptions:
+  - the print already fits in the area (handled by disallowed areas in build volume and z-height change)
+  - the extruders do not move to illegal areas (handled by the extruders in the slicer directly)
+  - gcode flavor is Marlin
+  - gcode's different extruder movements are already offset
+  - Tx comes before extruder changes (i think this is an automatic thing)
+  - gcode positional commands are in absolute coordinates
+1) error checking (maybe have a separate function for each error check)
+  1.1) ensure that the extruders in the file have corresponding outputs.
+  1.2) ensure that the units of the gcode are mm and mm/s. If not, convert them.
+2) run conversion algorithm (w/o existing error checks)
+  2.1) generate fisnar commands using existing algorithm
+  2.2) invert coordinates for fisnar commands
+  note: the conversion doesn't need to know the home coordinates. The print is necessarily in the print area (as long as the user has entered the coords)
+3) convert gcode to csv format/write to csv ('stream' in the code i think)
+
+
+task board
+- set up auto upload on lab computer
+- Automatically convert after slicing (idk how, but make it happen)
+
+in lab
+- finish auto upload
+- take pictures for presentation
+
+For pres screenshot:

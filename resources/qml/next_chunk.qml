@@ -14,19 +14,19 @@ UM.Dialog
 
   Label
   {
-    text: "something something something"
+    text: main.getChunkWindowMessage
     wrapMode: Label.WordWrap
     width: Math.floor(parent.width * .9)
     anchors.horizontalCenter: autoUploadDialog.horizontalCenter
   }
 
-  // onRejected: {
-  //   main.cancelAutoUpload();
-  // }
-  //
-  // onAccepted: {
-  //   main.startAutoUpload();
-  // }
+  onRejected: {
+    main.terminateProcess();
+  }
+
+  onAccepted: {
+    main.nextChunk();
+  }
 
   rightButtons: [
     Button {
