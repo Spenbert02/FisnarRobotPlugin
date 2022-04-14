@@ -14,23 +14,23 @@ UM.Dialog
 
   Label
   {
-    text: main.getChunkWindowMessage
+    text: "something"
     wrapMode: Label.WordWrap
     width: Math.floor(parent.width * .9)
-    anchors.horizontalCenter: autoUploadDialog.horizontalCenter
+    anchors.horizontalCenter: nextChunkDialog.horizontalCenter
   }
 
   onRejected: {
-    main.terminateProcess();
+    manager.rejected();
   }
 
   onAccepted: {
-    main.nextChunk();
+    manager.accepted();
   }
 
   rightButtons: [
     Button {
-      text: "Terminate Process"
+      text: "Reject"
       onClicked:
       {
         nextChunkDialog.reject()
@@ -38,7 +38,7 @@ UM.Dialog
       }
     },
     Button {
-      text: "Upload Next"
+      text: "Accept"
       onClicked: {
         nextChunkDialog.accept()
         nextChunkDialog.hide()

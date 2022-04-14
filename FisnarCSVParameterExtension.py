@@ -19,16 +19,9 @@ from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
 from .AutoUploader import AutoUploader
 
-
-# # importing pyautogui (actually, I dont think this is needed here.)
-# import importlib
-# plugin_folder_path = os.path.dirname(__file__)
-# pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
-# spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
-# pyautogui_module = importlib.util.module_from_spec(spec)
-# sys.modules["pyautogui"] = pyautogui_module
-# spec.loader.exec_module(pyautogui_module)
-# import pyautogui
+# needed for all 'manual' imports
+import importlib
+plugin_folder_path = os.path.dirname(__file__)
 
 # importing pyperclip
 pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
@@ -82,6 +75,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
         self.addMenuItem("Correlate Outputs with Extruders", self.showOutputEntryWindow)
         self.addMenuItem("Start Auto-Upload Process", self.showAutoUploadWindow)
+        self.addMenuItem("Test", self.test)
 
         # 'lazy loading' windows, so can be called later.
         self.parameter_entry_window = None
@@ -97,6 +91,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
+
+
+    def test(self):
+        auto_uploader = AutoUploader()
+        auto_uploader.test()
 
 
     @classmethod
@@ -235,16 +234,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtSlot()
     def startAutoUpload(self):
-
-        if self.most_recent_fisnar_commands is None:
-            Logger.log("e", "Fisnar CSV must be saved before the auto upload process can begin")
-            return
-        else:
-            Logger.log("i", "auto upload process started")
-
-        auto_uploader = AutoUploader()
-        auto_uploader.setCommands(self.most_recent_fisnar_commands)
-        auto_uploader.
+        pass
 
 
     @pyqtSlot()
@@ -252,7 +242,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # this is done before anything auto upload related is started,
         # so this doesn't really need to exist. But it's here, just in case it might have a use in the future.
         # Logger.log("i", "auto upload process cancelled")  # test
-        pass
+
+        Logger.log("i", "cancelAutoUpload() called (autoupload.qml canceled)")  # TEST
 
 
     def showParameterEntryWindow(self):

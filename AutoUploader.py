@@ -1,11 +1,13 @@
 # functions dealing with the autoupload process for the smart robot edit software.
 
+import copy
 import importlib
 import os.path
 import sys
+import time
 
-from PyQt5.QtCore import QObject, Qurl, pyqtSlot, pyqtProperty
-
+from PyQt5.QtCore import QObject, QUrl, pyqtSlot, pyqtProperty, pyqtSignal
+from threading import Event, Thread
 from UM.Application import Application
 from UM.Logger import Logger
 
@@ -20,13 +22,12 @@ spec.loader.exec_module(pyautogui_module)
 import pyautogui
 
 # # importing keyboard (i dont think i need to use this library at all)
-# keyboard_path = os.path.join(plugin_folder_path, "keyboard", "keyboard", "__init__.py")
-# spec_2 = importlib.util.spec_from_file_location("keyboard", keyboard_path)
-# keyboard_module = importlib.util.module_from_spec(spec_2)
-# sys.modules["keyboard"] = keyboard_module
-# spec_2.loader.exec_module(keyboard_module)
-# import keyboard
-
+keyboard_path = os.path.join(plugin_folder_path, "keyboard", "keyboard", "__init__.py")
+spec_2 = importlib.util.spec_from_file_location("keyboard", keyboard_path)
+keyboard_module = importlib.util.module_from_spec(spec_2)
+sys.modules["keyboard"] = keyboard_module
+spec_2.loader.exec_module(keyboard_module)
+import keyboard
 
 
 class AutoUploader(QObject):
@@ -35,98 +36,39 @@ class AutoUploader(QObject):
     # process. This also doubles as a QObject to handle all the necessary
     # windows and whatnot
 
+
     def __init__(self, parent=None):
-        super().__init__(self, parent)
-
-        # member variables that need to be set before the auto upload process
-        self.fisnar_commands = None
-        self.chunked_commands = None
-        self.curr_chunk_index = None
-
-        # dialog window
-        self.next_chunk_window = None
-        self.chunk_window_message = "Yadda Yadda Yadda"
+        QObject.__init__(self, parent)
+        self.test_window = None
 
 
-    def setCommands(fisnar_commands):
-        # set the commands to be uploaded during the auto upload process
-        self.fisnar_commands = fisnar_commands
-
-
-    def startAutoUpload(self):
-        # this is to be called externally, to begin the auto uploading process.
-        # will return False if commands haven't been set yet
-
-        if self.fisnar_commands is None:  # making sure commands exist
-            return False
-
-        # initializing stuff
-        self.chunked_commands = AutoUploader.chunkCommands(self.fisnar_commands, 4000)
-        self.curr_chunk_index = 0
-
-
-    def _upload(self, copy_str):
-        # called when a chunk needs to be uploaded to the fisnar. The copy str
-        # can be directly copied to the clipboard and pasted into the fisnar
-        # software
-
-        # TO-DO:
-        # basic process is to copy the string to the clipboard, click on the
-        # smart robot icon, maximize the smart robot window (if necessary), copy
-        # the string into the software, and upload to the fisnar
-
-        pass
+    def test(self):
+        Logger.log("d", "***** test called")  # debug
+        self.createWindow()
 
 
     @pyqtSlot()
-    def terminateProcess(self):
-        # called when the 'terminate process' button is clicked
-
-        # TO-DO: show a message that the process has been terminated, then
-        # reset the internal state
-
-        self._resetInternalState()
+    def accepted(self):
+        Logger.log("d", "****** accept called")  # debug
 
 
     @pyqtSlot()
-    def nextChunk(self):
-        # called when the 'next segment' button is pressed (or whatever I end up calling the button)
-
-        if self.curr_chunk_index >= len(self.chunked_commands):  # done uploading
-            # show a dialog saying the upload process is done
-            self._resetInternalState()
-            return
-
-        # uploading current chunk to fisnar
-        copy_str = AutoUploader.fisnarCommandsToCSVString(self.chunked_commands[self.curr_chunk_index])
-        self._upload(copy_str)
-
-        self._showNextChunkWindow()
+    def rejected(self):
+        Logger.log("d", "***** reject called")  # debug
 
 
-    @pyqtProperty(str)
-    def getChunkWindowMessage(self):
-        return self.chunk_window_message
-
-
-    def _showNextChunkWindow(self):
-        # Logger.log("i", "'show next chunk' window called")  # test
-        if not self.next_chunk_window:  # if is None
-            self.next_chunk_window = self._createDialogue("next_chunk.qml")
-        self.next_chunk_window.show()
+    def createWindow(self):
+        Logger.log("d", "***** createWindow called")  # debug
+        if not self.test_window:
+            self.test_window = self._createDialogue("next_chunk.qml")
+        self.test_window.show()
 
 
     def _createDialogue(self, qml_file_name):
-        # this is the exact same function that is used in FisnarCSVParameterExtension
-        # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
-        qml_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath(self.getPluginId()), "resources", "qml", qml_file_name)
-        component = Application.getInstance().createQmlComponent(qml_file_path, {"main": self})
+        Logger.log("d", "***** _createDialogue called")  # debug
+        qml_file_path = os.path.join(os.path.dirname(__file__), "resources", "qml", qml_file_name)
+        component = Application.getInstance().createQmlComponent(qml_file_path, {"manager": self})
         return component
-
-
-    def _resetInternalState(self):
-        # resetting internal variables so that the upload process can be done again
-        self.curr_chunk_index = None
 
 
     @staticmethod

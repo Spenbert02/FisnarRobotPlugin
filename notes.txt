@@ -69,6 +69,7 @@ General Conversion Process (3/3/2022):
 
 
 task board
+- ERROR: error checking for output entry isn't working
 - set up auto upload on lab computer
 - Automatically convert after slicing (idk how, but make it happen)
 

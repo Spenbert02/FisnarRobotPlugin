@@ -1,6 +1,6 @@
 from .FisnarCSVParameterExtension import FisnarCSVParameterExtension
 from .convert import convert, getExtrudersInGcode
-from .AutoUploader import AutoUploader.fisnarCommandsToCSVString
+from .AutoUploader import AutoUploader
 
 from UM.Mesh.MeshWriter import MeshWriter
 from UM.Application import Application
