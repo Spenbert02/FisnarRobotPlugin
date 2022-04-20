@@ -85,3 +85,7 @@ in lab
 - take pictures for presentation
 
 For pres screenshot:
+
+
+Serial port byte information:
+- general format: leftover capture data contains information about the commands.
