@@ -2,6 +2,7 @@ import copy
 import numpy
 import os.path
 import sys
+import time
 from typing import Optional, Union, List
 
 from cura.BuildVolume import BuildVolume
@@ -75,15 +76,16 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
         self.addMenuItem("Correlate Outputs with Extruders", self.showOutputEntryWindow)
         self.addMenuItem("Start Auto-Upload Process", self.showAutoUploadWindow)
-        self.addMenuItem("Test", self.test)
 
         # 'lazy loading' windows, so can be called later.
         self.parameter_entry_window = None
         self.output_entry_window = None
         self.auto_upload_window = None
+        self.auto_upload_error_window = None
 
         # auto upload dialog text
-        self.auto_upload_dialog_text = "When the autoupload process starts, it will take control of the mouse and keyboard. At any time, you can press escape to terminate the process. Once terminated, you cannot resume progress. Press Ok to start the auto upload process, or Cancel to go back."
+        self.auto_upload_dialog_text = "When the autoupload process starts, it will take control of the mouse and keyboard. To terminate the automated cursor paths, move the cursor quickly into any corner of the screen. This will give you back control. Once terminated, you must restart the auto upload process. Press 'Ok' to start the auto upload process, or 'Cancel' to go back."
+        self.auto_uploader = AutoUploader()
 
         # for passing to auto uploader object
         self.most_recent_fisnar_commands = None
@@ -91,11 +93,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
-
-
-    def test(self):
-        auto_uploader = AutoUploader()
-        auto_uploader.test()
 
 
     @classmethod
@@ -234,7 +231,18 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtSlot()
     def startAutoUpload(self):
-        pass
+        # start the auto upload process using the AutoUploader
+        if self.most_recent_fisnar_commands is None:
+            self.showAutoUploadError()
+            Logger.log("e", "Fisnar CSV must be saved before auto uploading")
+        else:
+            # this is a way to reload the window everytime - just create a new
+            # object. Kind of hacky, but it works
+            del self.auto_uploader
+            self.auto_uploader = AutoUploader()
+            # set commands here
+            self.auto_uploader.setCommands(self.most_recent_fisnar_commands)
+            self.auto_uploader.startAutoUpload()
 
 
     @pyqtSlot()
@@ -265,6 +273,13 @@ class FisnarCSVParameterExtension(QObject, Extension):
         if not self.auto_upload_window:
             self.auto_upload_window = self._createDialogue("autoupload.qml")
         self.auto_upload_window.show()
+
+
+    def showAutoUploadError(self):
+        # Logger.log("i", "auto upload error window called")  # test
+        if not self.auto_upload_error_window:
+            self.auto_upload_error_window = self._createDialogue("auto_upload_error_msg.qml")
+        self.auto_upload_error_window.show()
 
 
     def _createDialogue(self, qml_file_name):

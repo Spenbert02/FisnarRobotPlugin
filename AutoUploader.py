@@ -2,7 +2,7 @@
 
 import copy
 import importlib
-import os.path
+import os
 import sys
 import time
 
@@ -21,7 +21,7 @@ sys.modules["pyautogui"] = pyautogui_module
 spec.loader.exec_module(pyautogui_module)
 import pyautogui
 
-# # importing keyboard (i dont think i need to use this library at all)
+# importing keyboard (i dont think i need to use this library at all)
 keyboard_path = os.path.join(plugin_folder_path, "keyboard", "keyboard", "__init__.py")
 spec_2 = importlib.util.spec_from_file_location("keyboard", keyboard_path)
 keyboard_module = importlib.util.module_from_spec(spec_2)
@@ -38,34 +38,134 @@ class AutoUploader(QObject):
 
 
     def __init__(self, parent=None):
+        # initializing
         QObject.__init__(self, parent)
-        self.test_window = None
+
+        # member variable to store qml component object
+        self.auto_upload_window = None
+
+        # AutoUploader 'per print' information - shouldn't change unless slicer output is different
+        self.commands = None
+        self.chunked_commands = None
+
+        # AutoUploader 'per upload' information - changes throughout the upload and must be reset before each upload
+        self.curr_chunk_index = None
 
 
-    def test(self):
-        Logger.log("d", "***** test called")  # debug
-        self.createWindow()
+    def setCommands(self, commands):
+        # set the commands for the auto upload process. Neeeds to be done before
+        # starting auto upload process
+        self.commands = commands
+        self.chunked_commands = AutoUploader.chunkCommands(commands, 4000)
+
+
+    def startAutoUpload(self):
+        # start the auto upload process
+        Logger.log("d", "startAutoUpload() called")
+        self.curr_chunk_index = 0
+        self.rightButtonPressed()
+        self.showAutoUploadDialog()
+
+
+    def uploadCurrChunk(self):
+        # upload the current chunk to the printer (pyautogui control)
+
+        icon_coords = self.findFisnarIcon()
+        if icon_coords is None:
+            return  # TODO - show error window here
+
+        # logging
+        Logger.log("d", "chunk index " + str(self.curr_chunk_index) + " uploaded")
+
+
+    def findFisnarIcon(self):
+        # try to get the coordinates of the fisnar icon on the screen.
+        # if it exists, will return the screen coords as a tuple.
+        # otherwise, will return None
+
+        # fisnar_icon_directory = os.path.join(os.dirname(__file__), "resources", "images", "functional_devices_lab_pc", "smart_robot", "smart_robot_icons")
+        fisnar_icon_directory = os.path.join(os.path.dirname(__file__), "resources", "images", "spenbert_pc", "mail_icon")
+
+        acceptable_filetypes = [".png", ".jpg", ".jpeg"]
+
+        icons = []  # icons of acceptable file type
+        for file in os.listdir(fisnar_icon_directory):
+            # Logger.log("d", file)  # test
+            if os.path.splitext(file)[-1] in acceptable_filetypes:  # right file type
+                icons.append(os.path.join(fisnar_icon_directory, file))
+
+        for icon in icons:
+            curr_loc_box = pyautogui.locateOnScreen(icon, confidence=0.9)  # arbitrary confidence, figure out a decent value
+            if curr_loc_box is not None:
+                Logger.log("d", "found " + str(icon))  # test
+
+        return True  # TEMP
 
 
     @pyqtSlot()
-    def accepted(self):
-        Logger.log("d", "****** accept called")  # debug
+    def rightButtonPressed(self):
+        # called when the right button of the auto upload window is pressed.
+        # this button could be to exit or it could be to upload the next segment,
+        # depending on the state of the auto upload
+        if self.curr_chunk_index >= len(self.chunked_commands):  # done uploading
+            Logger.log("d", "right button pressed, exiting auto upload window")
+            self.auto_upload_window.hide()
+            self.resetUploadState()
+        else:  # more to upload
+            self.uploadCurrChunk()
+            self.curr_chunk_index += 1
 
 
     @pyqtSlot()
-    def rejected(self):
-        Logger.log("d", "***** reject called")  # debug
+    def terminate(self):
+        # called when the terminate button is pressed in the auto upload window
+        Logger.log("d", "auto-upload process has been terminated")
+        self.resetUploadState()
 
 
-    def createWindow(self):
-        Logger.log("d", "***** createWindow called")  # debug
-        if not self.test_window:
-            self.test_window = self._createDialogue("next_chunk.qml")
-        self.test_window.show()
+    def resetUploadState(self):
+        # resetting 'per upload' attributes
+        self.curr_chunk_index = None
+
+
+    @pyqtProperty(str)
+    def getCurrentMessage(self):
+        # get the proper auto upload message, determined by the current auto
+        # upload process state (namely, how many chunks have been uploaded compared to how many there are)
+        Logger.log("d", "getCurrentMessage() called: curr_chunk_index: " + str(self.curr_chunk_index))
+        if self.curr_chunk_index is None:  # shouldn't have been called
+            return "*** Developer Error - self.curr_chunk_index hasn't been initialized"
+        elif self.curr_chunk_index >= len(self.chunked_commands):  # done uploading
+            return "The last segment (" + str(self.curr_chunk_index) + "/" + str(len(self.chunked_commands)) + ") has been uploaded. Press 'Exit' at any time to leave the auto-upload interface."
+        else:
+            return "Segment " + str(self.curr_chunk_index) + "/" + str(len(self.chunked_commands)) + " has been uploaded. When it is done printing, press 'Next Segment' to upload the next segment."
+
+
+    @pyqtProperty(str)
+    def getRightButtonText(self):
+        # get the proper right button text for the current state of the auto upload
+        # process.
+        Logger.log("d", "getRightButtonText() called: curr_chunk_index: " + str(self.curr_chunk_index))
+        if self.curr_chunk_index is None:  # shouldn't have been called
+            return "* DevErr *"
+        elif self.curr_chunk_index >= len(self.chunked_commands):  # last segment is currently printing
+            return "Exit"
+        else:
+            return "Next Segment"
+
+
+    def showAutoUploadDialog(self):
+        # show the auto upload window
+        if not self.auto_upload_window:  # if component hasn't already been created
+            self.auto_upload_window = self._createDialogue("next_chunk.qml")
+        self.auto_upload_window.show()
 
 
     def _createDialogue(self, qml_file_name):
-        Logger.log("d", "***** _createDialogue called")  # debug
+        # create a qml component from a given qml file name. This function
+        # is taken pretty much verbatim from the _createDialogue function
+        # in the FisnarCSVParameterExtension class
+        Logger.log("d", "_createDialogue called, next_chunk.qml component created")  # debug
         qml_file_path = os.path.join(os.path.dirname(__file__), "resources", "qml", qml_file_name)
         component = Application.getInstance().createQmlComponent(qml_file_path, {"manager": self})
         return component
@@ -74,7 +174,6 @@ class AutoUploader(QObject):
     @staticmethod
     def fisnarCommandsToCSVString(fisnar_commands):
         # turn a 2d list of fisnar commands into a csv string
-
         ret_string = ""
         for i in range(len(fisnar_commands)):
             for j in range(len(fisnar_commands[i])):

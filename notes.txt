@@ -5,7 +5,13 @@ Relevant links:
 - Cura Plugin Portal: https://contribute.ultimaker.com/app/developer/plugins
 - sample plugin examples: https://github.com/Ultimaker/Cura/wiki/Plugin-Directory
 - Cura scene explanation: https://github.com/Ultimaker/Cura/blob/master/docs/scene/scene.md
+- rs232 communication tracker: https://rs-232-data-logger.soft112.com/
 
+rs232 ideas:
+- process:
+  1) ensure commands sent are less than 500,000
+    - if they are, use the auto upload protocol
+  2) otherwise, upload via rs232
 
 Relevant data info:
 - mime type: text/csv
@@ -69,9 +75,10 @@ General Conversion Process (3/3/2022):
 
 
 task board
-- ERROR: error checking for output entry isn't working
-- set up auto upload on lab computer
 - Automatically convert after slicing (idk how, but make it happen)
+- clean up conversion/file saving Process
+    - right now, if an error happens a csv file is still saved. This should be avoided by somehow
+      throwing an error before slicing happens.
 
 in lab
 - finish auto upload

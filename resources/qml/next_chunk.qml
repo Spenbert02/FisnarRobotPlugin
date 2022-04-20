@@ -14,23 +14,20 @@ UM.Dialog
 
   Label
   {
-    text: "something"
+    id: informativeText
+    text: manager.getCurrentMessage
     wrapMode: Label.WordWrap
     width: Math.floor(parent.width * .9)
     anchors.horizontalCenter: nextChunkDialog.horizontalCenter
   }
 
   onRejected: {
-    manager.rejected();
-  }
-
-  onAccepted: {
-    manager.accepted();
+    manager.terminate();
   }
 
   rightButtons: [
     Button {
-      text: "Reject"
+      text: "Terminate"
       onClicked:
       {
         nextChunkDialog.reject()
@@ -38,10 +35,12 @@ UM.Dialog
       }
     },
     Button {
-      text: "Accept"
+      id: nextSegmentButton
+      text: manager.getRightButtonText
       onClicked: {
-        nextChunkDialog.accept()
-        nextChunkDialog.hide()
+        manager.rightButtonPressed()
+        nextSegmentButton.text = manager.getRightButtonText
+        informativeText.text = manager.getCurrentMessage
       }
     }
   ]
