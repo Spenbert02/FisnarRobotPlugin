@@ -35,12 +35,11 @@ from serial import Serial
 from serial.serialutil import SerialException
 
 
-# tinkering around
-try:
-    port = Serial("COM7", timeout=0)
-except SerialException:
-    port = None
-
-if port is not None:
-    print(port.is_open)
-    
+# # tinkering around
+# try:
+#     port = Serial("COM7", timeout=0)
+# except SerialException:
+#     port = None
+#
+# if port is not None:
+#     print(port.is_open)
