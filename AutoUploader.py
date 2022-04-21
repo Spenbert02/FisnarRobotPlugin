@@ -29,6 +29,14 @@ sys.modules["keyboard"] = keyboard_module
 spec_2.loader.exec_module(keyboard_module)
 import keyboard
 
+# importing pyperclip
+pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
+spec_3 = importlib.util.spec_from_file_location("pyperclip")
+pyperclip_module = importlib.uti.spec_from_file_location("pyperclip", pyperclip_path)
+sys.modules["pyperclip"] = pyperclip_module
+spec_3.loader.exec_module(pyperclip_module)
+import pyperclip
+
 
 class AutoUploader(QObject):
     # class for running the auto upload process. Once instantiated,
@@ -69,10 +77,22 @@ class AutoUploader(QObject):
 
     def uploadCurrChunk(self):
         # upload the current chunk to the printer (pyautogui control)
+        # right now, coordinates are hard-coded. Eventually, will use pyautogui's
+        # locate functionality to find icons, but I'm having trouble importing
+        # required dependencies.
 
-        icon_coords = self.findFisnarIcon()
-        if icon_coords is None:
-            return  # TODO - show error window here
+        # press fisnar icon
+        pyautogui.move(608, 1062, .25)
+        pyautogui.click()
+
+        # making new spreadsheet
+        pyautogui.move(19, 67, .25)
+        pyautogui.click()
+
+        # copying commands to clipboard
+        copy_str = AutoUploader.fisnarCommandsToCSVString(self.chunked_commands[self.curr_chunk_index])
+
+        # LEFT OFF HERE
 
         # logging
         Logger.log("d", "chunk index " + str(self.curr_chunk_index) + " uploaded")

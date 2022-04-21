@@ -34,6 +34,8 @@ interface: None  (NoneType)
 from serial import Serial
 from serial.serialutil import SerialException
 
+import os
+os.startfile("C:\\Program Files (x86)\\SmartRotbotEdit\\Smart Robot Edit.exe")
 
 # # tinkering around
 # try:

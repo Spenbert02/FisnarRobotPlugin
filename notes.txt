@@ -89,3 +89,22 @@ For pres screenshot:
 
 Serial port byte information:
 - general format: leftover capture data contains information about the commands.
+
+
+
+
+- Errors:
+Traceback (most recent call last):
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\FisnarCSVParameterExtension.py", line 245, in startAutoUpload
+    self.auto_uploader.startAutoUpload()
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\AutoUploader.py", line 66, in startAutoUpload
+    self.rightButtonPressed()
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\AutoUploader.py", line 115, in rightButtonPressed
+    self.uploadCurrChunk()
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\AutoUploader.py", line 73, in uploadCurrChunk
+    icon_coords = self.findFisnarIcon()
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\AutoUploader.py", line 98, in findFisnarIcon
+    curr_loc_box = pyautogui.locateOnScreen(icon, confidence=0.9)  # arbitrary confidence, figure out a decent value
+  File "C:\Users\Lab\AppData\Roaming\cura\4.13\plugins\FisnarCSVWriter\FisnarCSVWriter\pyautogui\pyautogui\__init__.py", line 231, in _couldNotImportPyScreeze
+    raise PyAutoGUIException(
+pyautogui.PyAutoGUIException: PyAutoGUI was unable to import pyscreeze. (This is likely because you're running a version of Python that Pillow (which pyscreeze depends on) doesn't support currently.) Please install this module to enable the function you tried to call.
