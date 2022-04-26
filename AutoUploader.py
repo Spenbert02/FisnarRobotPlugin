@@ -31,8 +31,8 @@ import keyboard
 
 # importing pyperclip
 pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
-spec_3 = importlib.util.spec_from_file_location("pyperclip")
-pyperclip_module = importlib.uti.spec_from_file_location("pyperclip", pyperclip_path)
+spec_3 = importlib.util.spec_from_file_location("pyperclip", pyperclip_path)
+pyperclip_module = importlib.util.module_from_spec(spec_3)
 sys.modules["pyperclip"] = pyperclip_module
 spec_3.loader.exec_module(pyperclip_module)
 import pyperclip
@@ -81,18 +81,31 @@ class AutoUploader(QObject):
         # locate functionality to find icons, but I'm having trouble importing
         # required dependencies.
 
-        # press fisnar icon
-        pyautogui.move(608, 1062, .25)
+        # below are the actual commands for the fisnar printer.
+        # # press fisnar icon
+        # pyautogui.move(608, 1062, .25)
+        # pyautogui.click()
+        #
+        # # making new spreadsheet
+        # pyautogui.move(19, 67, .25)
+        # pyautogui.click()
+
+        pyautogui.moveTo(2470, 2097, .25)
         pyautogui.click()
 
-        # making new spreadsheet
-        pyautogui.move(19, 67, .25)
+        time.sleep(1)
+
+        pyautogui.moveTo(2700, 1800, .25)
         pyautogui.click()
 
         # copying commands to clipboard
-        copy_str = AutoUploader.fisnarCommandsToCSVString(self.chunked_commands[self.curr_chunk_index])
+        copy_str = AutoUploader.getCopyString(self.chunked_commands[self.curr_chunk_index])
+        pyperclip.copy(copy_str)
 
-        # LEFT OFF HERE
+        pyautogui.moveTo(317, 655)
+        pyautogui.click()
+
+        pyautogui.hotkey('ctrl', 'v')
 
         # logging
         Logger.log("d", "chunk index " + str(self.curr_chunk_index) + " uploaded")
@@ -189,6 +202,23 @@ class AutoUploader(QObject):
         qml_file_path = os.path.join(os.path.dirname(__file__), "resources", "qml", qml_file_name)
         component = Application.getInstance().createQmlComponent(qml_file_path, {"manager": self})
         return component
+
+
+    @staticmethod
+    def getCopyString(fisnar_commands):
+        # given a 2d array of fisnar commands, return a string that can be
+        # copied into a spreadsheet based user interface
+
+        ret_str = []
+        for command in fisnar_commands:
+            for j in range(len(command) - 1):
+                ret_str.append(str(command[j]))
+                ret_str.append(chr(9))  # tab
+            ret_str.append(str(command[-1]))
+            ret_str.append(chr(13))  # carriage return
+            ret_str.append(chr(10))  # newline
+
+        return "".join(ret_str)
 
 
     @staticmethod
