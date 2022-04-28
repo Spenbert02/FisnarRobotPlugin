@@ -76,9 +76,6 @@ General Conversion Process (3/3/2022):
 
 task board
 - Automatically convert after slicing (idk how, but make it happen)
-- clean up conversion/file saving Process
-    - right now, if an error happens a csv file is still saved. This should be avoided by somehow
-      throwing an error before slicing happens.
 
 in lab
 - finish auto upload

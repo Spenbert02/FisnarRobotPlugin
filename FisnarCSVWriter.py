@@ -100,8 +100,11 @@ class FisnarCSVWriter(MeshWriter):
         for i in range(len(extruders)):  # validating extruders
             # Logger.log("i", "" + str(getattr(self, "extruder_" + str(i + 1) + "_output")))  # test
             if extruders[i]:  # T'i' appears in gcode, need to have ouput for the 'i + 1'th extruder
-                if getattr(self, "extruder_" + str(i + 1) + "_output") is None:
+                extruder_attr = getattr(self, "extruder_" + str(i + 1) + "_output")
+                Logger.log("d", type(extruder_attr))
+                if extruder_attr is None:
                     self.setInformation(catalog.i18nc("@error:not supported", "Output for extruder " + str(i + 1) + " must be entered."))
+                    Logger.log("e", "***** Output for extruder " + str(i + 1) + " must be entered")
                     return False
 
         return convert(gcode_str, [self.extruder_1_output, self.extruder_2_output, self.extruder_3_output, self.extruder_4_output],

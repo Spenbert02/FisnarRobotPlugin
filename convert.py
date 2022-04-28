@@ -38,6 +38,11 @@ def getExtrudersInGcode(gcode_str):
         if command.get_command()[0] == "T":
             ret_extruders[int(command.get_command()[1])] = True
 
+    # if no toolhead commands are given, there must only be one extruder
+    if ret_extruders == [False, False, False, False]:
+        Logger.log("i", "Only one extruder is being used")
+        ret_extruders[0] = True
+
     return ret_extruders  # extruder 1 is T0, extruder 2 is T1, etc etc so the max T is one less than the number of extruders
 
 
@@ -157,9 +162,9 @@ def convert(gcode_commands, extruder_outputs, print_surface):
     # Logger.log("i", "relevant_commands: " + ret_string)
 
     # default fisnar initial commands
-    fisnar_commands = [["Line Speed", 30],
+    fisnar_commands = [["Line Speed", 20],
                        ["Z Clearance", 3, 1],
-                       ["Dummy Point", print_surface[0], print_surface[2], print_surface[4]]
+                       ["SET ME AFTER CONVERTING COORD SYSTEM"]
                        ]
 
     # finding first extruder used in gcode
@@ -197,8 +202,9 @@ def convert(gcode_commands, extruder_outputs, print_surface):
         fisnar_commands.append(["Output", i + 1, 0])
     fisnar_commands.append(["End Program"])
 
-    # inverting and shifting coordinate system from gcode to fisnar
+    # inverting and shifting coordinate system from gcode to fisnar, then puttin home travel commadn
     invertCoords(fisnar_commands, print_surface[4])
+    fisnar_commands[2] = ["Dummy Point", print_surface[0], print_surface[2], print_surface[4]]
 
     # removing redundant output commands
     optimizeFisnarOutputCommands(fisnar_commands)
