@@ -70,3 +70,36 @@ parameter is the speed to set, in mm/sec.
 
 Note: the units for the Fisnar Line Speed command (mm/sec) are different
 than the units for the gcode F parameter (mm/min)
+
+## Conversion algorithm
+The basic algorithm used to convert gcode commands to fisnar commands is
+illustrated by the equivalency below.
+
+![](doc_pics/conversion_table.png)
+
+After every command has been converted like this, the redundant Output commands
+in the resulting Fisnar command sequence can be removed. An example of a complete
+conversion process is shown below.
+
+![](doc_pics/example_conversion.png)
+
+In addition to this simple equivalent command conversion, other parameters in
+the gcode must be tracked and updated in the Fisnar output - for example, any
+'F' parameters in gcode will result in a 'Line Speed' command in the Fisnar
+output, and a 'T<t>' command will result in a change in the first Output parameter
+(this is equivalent to an extruder change).
+
+Note: the output of the slicer software __must__ include gcode offsets in its
+output. The conversion process is not aware of any extruder offsets, so it just
+converts the gcode coordinates under the assumption that the extruder offsets
+have already been applied
+
+## Difference in coordinate systems
+It should also be noted that the coordinate system used in Cura is inverted
+with respect to the coordinate system used by the Fisnar. This is pretty
+easy to account for, but can lead to some complications when determining the
+direction of extruder offsets and entering them into Cura. In the image below,
+the Cura coordinate system is shown in blue, green, and red, and the Fisnar
+coordinate system is shown in orange.
+
+![](doc_pics/coordinate_systems.png)
