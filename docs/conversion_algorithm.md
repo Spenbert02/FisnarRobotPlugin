@@ -41,6 +41,6 @@ as opposed to a text-file format. There are really only 3 important commands:
 
 ### Dummy Point
 
-![](doc_pics/dummy_point_example)
+![](doc_pics/dummy_point_example.png)
 
 yadda
