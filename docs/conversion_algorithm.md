@@ -86,7 +86,7 @@ conversion process is shown below.
 In addition to this simple equivalent command conversion, other parameters in
 the gcode must be tracked and updated in the Fisnar output - for example, any
 'F' parameters in gcode will result in a 'Line Speed' command in the Fisnar
-output, and a 'T<t>' command will result in a change in the first Output parameter
+output, and a 'T' command will result in a change in the first Output parameter
 (this is equivalent to an extruder change).
 
 Note: the output of the slicer software __must__ include gcode offsets in its
