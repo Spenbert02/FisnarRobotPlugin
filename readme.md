@@ -13,7 +13,7 @@ solves this issue.
 
 ## Downloading
 The easiest way to download the plugin will be to download it from Ultimaker's
-(plugin marketplace)[https://marketplace.ultimaker.com/app/cura/plugins]. This
+[plugin marketplace](https://marketplace.ultimaker.com/app/cura/plugins). This
 plugin isn't published there yet, but once it is it can be found by searching
 'FisnarCSVWriter' on the plugin marketplace page.
 
