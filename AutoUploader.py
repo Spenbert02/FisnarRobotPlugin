@@ -166,10 +166,6 @@ class AutoUploader(QObject):
         time.sleep(2)  # giving time to paste
         pyautogui.moveTo(AutoUploader.UPLOAD_BOX_COORDS[0], AutoUploader.UPLOAD_BOX_COORDS[1], .25)
         pyautogui.click()
-        time.sleep(20)  # allow it time to upload. If windows are changed while it's uploading, it stops uploading
-
-        # activating cura again
-        self.activateApp(AutoUploader.CURA_LOOKUP_NAME, True)
 
         # logging
         Logger.log("d", "chunk index " + str(self.curr_chunk_index) + " uploaded")
