@@ -34,9 +34,6 @@ but if e > 0, then dispensing should occur)
 
 F<f> ⟶ set the travel speed of the printhead to 'f' mm/min
 
-### Sample gcode
-![](doc_pics/gcode_excerpt.png)
-
 ## Fisnar command system
 The Fisnar command system, when using multiple extruders, is relatively
 straight forward. The Fisnar command system exists in a spreadsheet format
@@ -44,6 +41,32 @@ as opposed to a text-file format. There are really only 3 important commands:
 
 ### Dummy Point
 
-![yadda1](doc_pics/dummy_point_example.png)
+![](doc_pics/dummy_point_example.png)
 
-yadda2
+The 'Dummy Point' command is followed by three parameters - the x, y, and z coordinates
+(in that order) of the position to travel to. The printer will then travel from whatever
+position it is currently at to the given coordinates in this command.
+
+### Output
+
+![](doc_pics/output_example.png)
+
+The 'Output' command is followed by two parameters: the output port, and then either
+a 0 (off) or 1 (on). In this case, the command is telling the printer to turn
+output 4 off.
+
+Note: when the output is set to 1 (on), the pressure in the nozzle is set to
+whatever the preset value on the dispenser is. When it is set to 0 (off), the pressure
+in the nozzle is set to 0. This is purely an on/off process, and in using the
+Smart Robot Edit software there is no way to set the nozzle to a pressure in
+between the preset value and zero.
+
+### Line Speed
+
+![](doc_pics/line_speed_example.png)
+
+The 'Line Speed' command sets the movement speed of the gantry system. The single
+parameter is the speed to set, in mm/sec.
+
+Note: the units for the Fisnar Line Speed command (mm/sec) are different
+than the units for the gcode F parameter (mm/min)
