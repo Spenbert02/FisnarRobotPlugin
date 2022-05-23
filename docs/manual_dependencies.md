@@ -12,32 +12,32 @@ this plugin, starting with the main file which is
 
 ## Dependency tree of python files and manually imported libraries
 __init__.py  
-|
+|  
 ├─── FisnarCSVWriter.py  
-|    ├─── AutoUploader.py  
-|    |    ├─── pyautogui  
-|    |    ├─── keyboard  
-|    |    ├─── pyperclip  
-|    |    └─── PyGetWindow  
-|    |         └─── PyRect  
-|    ├─── convert.py  
-|    |    └─── gcodeBuddy  
-|    └─── FisnarCSVParameterExtension.py  
-|         ├─── pyperclip  
-|         └─── AutoUploader.py  
-|              ├─── pyautogui  
-|              ├─── keyboard  
-|              ├─── pyperclip  
-|              └─── PyGetWindow  
-|                   └─── PyRect  
+|    ├─── AutoUploader.py  
+|    |    ├─── pyautogui  
+|    |    ├─── keyboard  
+|    |    ├─── pyperclip  
+|    |    └─── PyGetWindow  
+|    |         └─── PyRect  
+|    ├─── convert.py  
+|    |    └─── gcodeBuddy  
+|    └─── FisnarCSVParameterExtension.py  
+|         ├─── pyperclip  
+|         └─── AutoUploader.py  
+|              ├─── pyautogui  
+|              ├─── keyboard  
+|              ├─── pyperclip  
+|              └─── PyGetWindow  
+|                   └─── PyRect  
 └─── FisnarCSVParameterExtension.py  
-     ├─── pyperclip  
-     └─── AutoUploader.py  
-          ├─── pyautogui  
-          ├─── keyboard  
-          ├─── pyperclip  
-          └─── PyGetWindow  
-               └─── PyRect  
+     ├─── pyperclip  
+     └─── AutoUploader.py  
+          ├─── pyautogui  
+          ├─── keyboard  
+          ├─── pyperclip  
+          └─── PyGetWindow  
+               └─── PyRect  
 
 ## Importing manually included libraries
 The technique for importing the manually included libraries is shown near the
