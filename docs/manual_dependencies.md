@@ -4,7 +4,7 @@ putting the library source code in the plugin's main directory. From here, pytho
 files can import the libraries. This document describes the libraries that are
 manually included in the plugin's main directory, and shows a dependency tree
 for the dependencies of the python files and manually imported libraries in
-this plugin, starting with the main file which is
+this plugin, starting with the plugin's \_\_init\_\_.py file.
 
 ## List of manually included libraries
 [gcodeBuddy](https://github.com/Spenbert02/gcodeBuddy), [keyboard](https://github.com/boppreh/keyboard), [pyautogui](https://github.com/asweigart/pyautogui),
