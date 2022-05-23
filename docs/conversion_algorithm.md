@@ -17,7 +17,7 @@ G1 ⟶ linear travel, conventionally with extrusion
 
 G28 ⟶ travel to the home position
 
-T<i> ⟶ change the active extruder to extruder 'i' (ie. T0 changes the active
+T<t> ⟶ change the active extruder to extruder 't' (ie. T0 changes the active
 extruder to extruder 0)
 
 ### Parameters
