@@ -45,3 +45,8 @@ and readme.md provides the main documentation at the home page of this repositor
 The actual source code of this project lies in the following files (plus the QML
 folder described above): \_\_init\_\_.py, plugin.json, AutoUploader.py, convert.py,
 FisnarCSVParameterExtension.py, FisnarCSVWriter.py
+
+\_\_init\_\_.py, plugin.json, FisnarCSVWriter.py, and FisnarCSVParameterExtension.py
+are described in the [flow of control](flow_of_control.md) documentation, AutoUploader.py
+is described in the [functional_classes](functional_classes.md) documentation, and convert.py
+is described in the [conversion algorithm](conversion_algorithm.md) documentation.
