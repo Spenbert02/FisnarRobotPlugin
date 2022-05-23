@@ -24,24 +24,24 @@ other static method takes a list of Fisnar commands and segments them into 'chun
 of 4000 or less commands. It then returns the segments in a list, that can be
 sequentially uploaded during the auto upload process.
 
-## handledPolygon
-The handledPolygon class is a simple child class of Uranium's Polygon class.
+## HandledPolygon
+The HandledPolygon class is a simple child class of Uranium's Polygon class.
 This class doesn't do anything crazy, and exists only for identification purposes.
 When the 'Set print area' menu item is clicked and specific printable coordinates
-are entered, the FisnarCSVParameterExtension instantiation calls a method on the
+are entered, the FisnarCSVParameterExtension object calls a method on the
 main CuraApplication instance (which is also a 'singleton', as described above) that sets
 the disallowed areas on the build plate. This method takes a Polygon object,
 which is pretty much just a set of x and y coordinates describing a shape on the
 build plate. Internally, the CuraApplication instance stores these Polygon objects
 and uses the areas they define to 'grey out' certain areas on the build plate.
 The problem arises when trying to change the user-set printable area. If coordinates
-have already been entered, a Polygon object will exist in the CuraApplication
+have already been entered, a Polygon object will exist in the CuraApplication object
 that defines the user-set greyed-out areas. However, there is no way to know
 which of these Polygon objects was created because of the plugin. Therefore,
 there is no way to know which Polygon object needs to be deleted before implementing
 the new one. This class solves the issue - instead of passing a Polygon object
-to the CuraApplication instance, it passes a handledPolygon object instead (which
+to the CuraApplication instance, it passes a HandledPolygon object instead (which
 works because of polymorphism). Then, if the user enters different coordinates,
-the plugin will know which disallowed area to delete - any handledPolygon objects
+the plugin will know which disallowed area to delete - any HandledPolygon objects
 could only have been set by the plugin, so they need to be cleared before
 setting new ones.
