@@ -2,7 +2,7 @@
 This document describes the conversion algorithm that is used to convert gcode
 commands into Fisnar commands.
 
-## gcode
+## Gcode
 There are only a few gcode commands that are relevant to Fisnar printers. The
 Fisnar is a direct ink writing printer, so it extrudes gel-like material through
 a pressurized nozzle. Cura, however, is intended for FDM printers, so the gcode
@@ -34,6 +34,9 @@ but if e > 0, then dispensing should occur)
 
 F<f> ⟶ set the travel speed of the printhead to 'f' mm/min
 
+### Sample gcode
+![](doc_pics/gcode_excerpt.png)
+
 ## Fisnar command system
 The Fisnar command system, when using multiple extruders, is relatively
 straight forward. The Fisnar command system exists in a spreadsheet format
@@ -41,6 +44,6 @@ as opposed to a text-file format. There are really only 3 important commands:
 
 ### Dummy Point
 
-![](doc_pics/dummy_point_example.png)
+![yadda1](doc_pics/dummy_point_example.png)
 
-yadda
+yadda2
