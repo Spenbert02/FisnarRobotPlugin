@@ -11,25 +11,25 @@ this plugin, starting with the main file which is
 [PyGetWindow](https://github.com/asweigart/PyGetWindow), [pyperclip](https://github.com/asweigart/pyperclip), [PyRect](https://github.com/asweigart/PyRect)
 
 ## Dependency tree of python files and manually imported libraries
-__init__.py  
-|  
+\_\_init\_\_.py  
+│  
 ├─── FisnarCSVWriter.py  
-|    ├─── AutoUploader.py  
-|    |    ├─── pyautogui  
-|    |    ├─── keyboard  
-|    |    ├─── pyperclip  
-|    |    └─── PyGetWindow  
-|    |         └─── PyRect  
-|    ├─── convert.py  
-|    |    └─── gcodeBuddy  
-|    └─── FisnarCSVParameterExtension.py  
-|         ├─── pyperclip  
-|         └─── AutoUploader.py  
-|              ├─── pyautogui  
-|              ├─── keyboard  
-|              ├─── pyperclip  
-|              └─── PyGetWindow  
-|                   └─── PyRect  
+│    ├─── AutoUploader.py  
+│    │    ├─── pyautogui  
+│    │    ├─── keyboard  
+│    │    ├─── pyperclip  
+│    │    └─── PyGetWindow  
+│    │         └─── PyRect  
+│    ├─── convert.py  
+│    │    └─── gcodeBuddy  
+│    └─── FisnarCSVParameterExtension.py  
+│         ├─── pyperclip  
+│         └─── AutoUploader.py  
+│              ├─── pyautogui  
+│              ├─── keyboard  
+│              ├─── pyperclip  
+│              └─── PyGetWindow  
+│                   └─── PyRect  
 └─── FisnarCSVParameterExtension.py  
      ├─── pyperclip  
      └─── AutoUploader.py  
