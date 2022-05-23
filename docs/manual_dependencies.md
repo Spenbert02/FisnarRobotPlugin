@@ -8,7 +8,27 @@ included with Cura, so their source code does not need to be manually included
 in this plugin.
 
 ## List of manually included libraries
-todo
+[gcodeBuddy](https://github.com/Spenbert02/gcodeBuddy), [keyboard](https://github.com/boppreh/keyboard), [pyautogui](https://github.com/asweigart/pyautogui),
+[PyGetWindow](https://github.com/asweigart/PyGetWindow), [pyperclip](https://github.com/asweigart/pyperclip), [PyRect](https://github.com/asweigart/PyRect)
+
+## Dependencies of manually included libraries on other manually included libraries
+gcodeBuddy  
+|---> None  
+
+keyboard  
+|---> None  
+
+pyautogui  
+|---> None  
+
+PyGetWindow  
+|---> PyRect  
+
+pyperclip  
+|---> None  
+
+PyRect  
+|---> None  
 
 ## Dependencies of each python file
 AutoUploader.py  
