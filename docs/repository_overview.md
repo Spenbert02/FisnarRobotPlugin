@@ -1,6 +1,6 @@
 # Repository overview
 This document describes the overall structure of this repository, as well as
-what folders/files doin terms of the plugin's functioning.
+what is contained in different folders/files.
 
 ## Documentation
 In the 'docs' folder resides this and all other documentation files. These
