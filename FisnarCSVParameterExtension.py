@@ -125,15 +125,15 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
                 # establishing new dissalowed areas (list of Polygon objects)
                 new_disallowed_areas = []
-                new_disallowed_areas.append(self.handledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
-                new_disallowed_areas.append(self.handledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
-                new_disallowed_areas.append(self.handledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
-                new_disallowed_areas.append(self.handledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
+                new_disallowed_areas.append(self.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
+                new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
+                new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
+                new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
 
                 # getting rid of old polygons in old list
                 iter = 0
                 while iter < len(orig_disallowed_areas):
-                    if isinstance(orig_disallowed_areas[iter], self.handledPolygon):
+                    if isinstance(orig_disallowed_areas[iter], self.HandledPolygon):
                         orig_disallowed_areas.pop(iter)
                     else:
                         iter += 1
@@ -289,8 +289,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
         return component
 
 
-    class handledPolygon(Polygon):
+    class HandledPolygon(Polygon):
         # class that extends Polygon object so a polygon can be checked if it has been set in this extension or by something else
-        # to see if a 'Polygon' object is handledPolygon, just check it's instance
+        # to see if a 'Polygon' object is HandledPolygon, just check it's instance
         def __init__(self, points: Optional[Union[numpy.ndarray, List]] = None):
             super().__init__(points)

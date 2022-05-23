@@ -9,7 +9,7 @@ help with different tasks within the plugin. These are described below.
 ## AutoUploader
 The AutoUploader class handles execution of the auto upload process. The
 FisnarCSVParameterExtension object creates an instance of an AutoUploader
-when instantiated. When the 'Start auto upload process' menu item is clicked,
+when Cura boots up. When the 'Start auto upload process' menu item is clicked,
 an AutoUploader method is called that starts the auto upload process. The
 AutoUploader object then begins an internal process where the auto upload
 procedure is executed.

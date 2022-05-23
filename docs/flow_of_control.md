@@ -23,7 +23,7 @@ and register(). The getMetaData() function returns information about the plugin
 that is dependent upon what type it is. Actually, it returns information about
 all plugin classes - I haven't mentioned it yet, but this plugin actually uses
 two plugin classes: FisnarCSVWriter (which extends the MeshWriter class) and
-FisnarCSVParameterExtension (which extensions the Extension class). The former
+FisnarCSVParameterExtension (which extends the Extension class). The former
 deals with saving the slicer output in the form of a CSV of Fisnar commands, and
 the latter deals with setting up the menus and windows for the user to interact
 with.
