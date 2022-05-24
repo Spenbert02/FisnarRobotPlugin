@@ -35,7 +35,7 @@ card is shown below.
 ![](doc_pics/io_card.png)
 
 - The Fisnar in use must be able to accept commands of the format described
-[here](docs/conversion_algorithm##Fisnar command system)
+[here](docs/conversion_algorithm.md##Fisnar command system)
 
 ## Downloading
 The easiest way to download the plugin will be to download it from Ultimaker's
