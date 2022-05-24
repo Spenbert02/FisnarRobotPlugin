@@ -32,7 +32,7 @@ extruder prints. In the future, work may be done to add support for setups
 that do not use the Fisnar i/o card. For reference, an image of a Fisnar i/o
 card is shown below.
 
-![](doc_pics/io_card.png)
+![](docs/doc_pics/io_card.png)
 
 - The Fisnar in use must be able to accept commands of the format described
 [here](docs/conversion_algorithm.md#fisnar-command-system)
