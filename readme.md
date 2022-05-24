@@ -35,7 +35,7 @@ card is shown below.
 ![](docs/doc_pics/io_card.png)
 
 - The Fisnar in use must be able to accept commands of the format described
-[here](docs/conversion_algorithm.md#fisnar-command-system). This is tangential
+[here](docs/conversion_algorithm.md#fisnar-command-system). This is related
 to the above requirement, because this command system assumes the i/o card is
 being used.
 
