@@ -45,11 +45,15 @@ The easiest way to download the plugin will be to download it from Ultimaker's
 plugin isn't published there yet, but once it is it can be found by searching
 'FisnarCSVWriter' on the plugin marketplace page.
 
-To download the version specifically for the Fisnar in the 3D Printing
-Functional Materials and Devices Lab, see the 'McAlpine_lab_packaged_plugin'
+In the meantime, the file found in the 'packaged_plugins/universal_packaged_plugins'
+directory can be drag and dropped into Cura. This will begin installation in Cura.
+
+To download the version specifically designed for the Fisnar in the 3D Printing
+Functional Materials and Devices Lab, see the 'packaged_plugins/McAlpine_lab_packaged_plugin'
 directory. In there is a file that can be drag and dropped into Cura
 for installation. This version of the plugin includes the 'auto-upload'
-functionality.
+functionality, which has code that will only work on the computer connected
+to the Fisnar.
 
 ## Bugs/Fixes
 Email spenbert02@gmail.com with any bugs found in this plugin, or use one
