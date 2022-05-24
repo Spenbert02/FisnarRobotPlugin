@@ -32,7 +32,9 @@ Anyway, the getMetaData() function returns information about both of these. The
 register function is what actually 'creates' the plugin inside of Cura. When Cura
 boots up, it will go through the list of plugins that have been installed (the
 plugin registry) and instantiate a 'singleton' object for the plugin classes
-associated with each. In the case of this plugin, when Cura calls the register()
+associated with each (a singleton object is an object of a certain class
+that is designed to be the only instance of that class that is constructed
+throughout the duration of the program). In the case of this plugin, when Cura calls the register()
 function, an object of type FisnarCSVWriter and an object of type FisnarCSVParameterExtension
 will be returned. Cura then holds on to these and does what it needs to with
 them (usually, the classes will have certain methods that cura knows to look
