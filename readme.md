@@ -35,7 +35,9 @@ card is shown below.
 ![](docs/doc_pics/io_card.png)
 
 - The Fisnar in use must be able to accept commands of the format described
-[here](docs/conversion_algorithm.md#fisnar-command-system)
+[here](docs/conversion_algorithm.md#fisnar-command-system). This is tangential
+to the above requirement, because this command system assumes the i/o card is
+being used.
 
 ## Downloading
 The easiest way to download the plugin will be to download it from Ultimaker's
@@ -48,3 +50,7 @@ Functional Materials and Devices Lab, see the 'McAlpine_lab_packaged_plugin'
 directory. In there is a file that can be drag and dropped into Cura
 for installation. This version of the plugin includes the 'auto-upload'
 functionality.
+
+## Bugs/Fixes
+Email spenbert02@gmail.com with any bugs found in this plugin, or use one
+of the GitHub communication features.
