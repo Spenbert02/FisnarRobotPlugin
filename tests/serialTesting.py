@@ -30,18 +30,45 @@ product: None  (NoneType)
 interface: None  (NoneType)
 """
 
-# import serial.tools.list_ports  # for getting ports information
-from serial import Serial
-from serial.serialutil import SerialException
 
-import os
-os.startfile("C:\\Program Files (x86)\\SmartRotbotEdit\\Smart Robot Edit.exe")
+# # 5/24 tests (trying to interface with Nordson pressure controller from Python)
+import serial
 
-# # tinkering around
-# try:
-#     port = Serial("COM7", timeout=0)
-# except SerialException:
-#     port = None
-#
-# if port is not None:
-#     print(port.is_open)
+pressureController = serial.Serial("COM7", timeout=10)  # 10 indicates a read timeout of 10 seconds
+
+str_to_write = f"{chr(5)}{chr(2)}03DI F0{chr(3)}{chr(4)}"  # ascii characters: ENQ, STX, ETX, EOT
+bytes_to_write = bytes(str_to_write, "ascii")
+
+write_ret_val = pressureController.write(bytes_to_write)
+print(write_ret_val)
+print(pressureController.in_waiting)
+confirm_line = pressureController.readline()
+
+print(confirm_line)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# space saver
