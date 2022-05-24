@@ -14,9 +14,9 @@ saved as a CSV file of Fisnar commands, that can be uploaded to a Fisnar
 printer for fabrication.
 
 ## Caveats
-This plugin was built for use with a Fisnar model F5200N, so the output
+This plugin was built for use with a Fisnar model F5200N, so the plugin-generated
 Fisnar commands will be in a format that assumes the following about the
-Fisnar printer setup they will be used for:
+Fisnar printer they will be uploaded to:
 - The build area is 200 x 200 [mm] in the x/y directions. This is critical,
 because Cura's build plate coordinate system and the Fisnar coordinate system
 are inverted. During the conversion process, all slicer output commands (gcode commands)
