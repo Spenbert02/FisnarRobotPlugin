@@ -7,6 +7,10 @@ Relevant links:
 - Cura scene explanation: https://github.com/Ultimaker/Cura/blob/master/docs/scene/scene.md
 - rs232 communication tracker: https://rs-232-data-logger.soft112.com/
 
+IEE 754 stuff:
+- https://www.geeksforgeeks.org/ieee-standard-754-floating-point-numbers/
+- https://www.geeksforgeeks.org/python-program-to-represent-floating-number-as-hexadecimal-by-ieee-754-standard/
+
 rs232 ideas:
 - process:
   1) ensure commands sent are less than 500,000
