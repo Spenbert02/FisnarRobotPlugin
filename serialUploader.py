@@ -7,8 +7,6 @@ class SerialUploader:
     # with the Smart Robot Edit software, it uploads the commands directly
     # over the RS 232 port.
 
-    #TEST
-
 
     COM_PORT = "COM7"  # COM port to write commands to
 
@@ -31,44 +29,38 @@ class SerialUploader:
 
 
     @staticmethod
-    def getCommandBytes(fisnar_commands):
+    def getCommandBytes(command, command_num):
         # given a list of fisnar commands, get a list of sequential commands
         # as a list of byte arrays
 
-        ret_byte_arrays  = []
+        ret_bytes = bytes.fromhex("aa")  # current bytes to be generated
 
-        for i in range(len(fisnar_commands)):
-            command = fisnar_commands[i]  # current fisnar command
-            curr_bytes = bytes.fromhex("aa")  # current bytes to be generated
+        # accounting for command number
+        if command_num <= 65535:
+            ret_bytes += command_num.to_bytes(2, byteorder="little")
+        else:  # this is an error - undoable with the current command understanding
+            pass
 
-            # accounting for command number
-            command_num = i + 1
-            if command_num <= 65535:
-                curr_bytes += command_num.to_bytes(2, byteorder="little")
-            else:  # this is an error - undoable with the current command understanding
-                pass
+        # forking decision-making by fisnar command here until checksum
+        if command[0] == "Dummy Point":
+            for i in range(1, 4):  # appending parameters 1, 2, and 3
+                ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
 
-            # forking decision-making by fisnar command here until checksum
-            if command[0] == "Dummy Point":
-                for j in range(1, 4):  # appending parameters 1, 2, and 3
-                    curr_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[j]))))
+            ret_bytes += bytes.fromhex("00 00 00 1f")
 
-                curr_bytes += bytes.fromhex("00 00 00 1f")
+        elif command[0] == "Line Speed":
+            pass
+        elif command[0] == "Output":
+            pass
+        else:  # error, not one of the above acceptable commands
+            pass
 
-            elif command[0] == "Line Speed":
-                pass
-            elif command[0] == "Output":
-                pass
-            else:  # error, not one of the above acceptable commands
-                pass
+        # adding checksum and final x00 byte
+        ret_bytes += SerialUploader.getCheckSum(ret_bytes[1:])
+        ret_bytes += bytes.fromhex("00")
 
-            # adding checksum and final x00 byte
-            curr_bytes += SerialUploader.getCheckSum(curr_bytes[1:])
-            curr_bytes += bytes.fromhex("00")
+        return ret_bytes
 
-            ret_byte_arrays.append(curr_bytes)
-
-        return ret_byte_arrays
 
 
     @staticmethod
@@ -122,6 +114,10 @@ class SerialUploader:
 
             return ret_str
 
+        # special case checking (because the below code gets messed up if there's no ones in the returned binary string)
+        if abs(number) < 0.00001:  # number is basically zero, for the purposes of this plugin.
+            return "00000000000000000000000000000000"  # kind of hacky but it works
+
         # getting sign of number
         sign_bit = 0
         if number < 0:
@@ -155,7 +151,6 @@ class SerialUploader:
 
         # putting it all together
         ret_bits = sign_bit + exp_bits + mantissa_bits
-        print(ret_bits)  # test
         return(ret_bits)
 
 
@@ -174,14 +169,48 @@ class SerialUploader:
 if __name__ == "__main__":
     sample_commands = [
     ["Dummy Point", 0, 0, 0],
-    ["Dummy Point", 1, 1, 1],
-    ["Output", 1, 0],
-    ["Line Speed", 12.34]
+    ["Dummy Point", 10, 10, 1],
+    ["Dummy Point", 10, 100, 1],
+    ["Dummy Point", 0, 0, 10],
+    ["Dummy Point", 0, 0, 0]
     ]
 
-    byte_commands = SerialUploader.getCommandBytes(sample_commands)
 
-    for command in byte_commands:
-        print(command)
+    fisnar = serial.Serial("COM7", 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+
+    fisnar.write(bytes.fromhex("f0 f0"))
+    confirm1 = fisnar.read_until("f0")  # confirmation return
+    if confirm1 == bytes.fromhex("f0"):
+        print("f0 recieved.")
+
+        for i in range(5):
+            fisnar.write(bytes.fromhex("e8"))
+            fisnar.write(SerialUploader.getCommandBytes(sample_commands[i], i + 1))
+
+        fisnar.write(bytes.fromhex("e8"))
+        fisnar.write(bytes.fromhex("aa 06 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13 19 00"))  # empty
+        fisnar.read_until(bytes.fromhex("19"))
+        print("19")
+
+        fisnar.write(bytes.fromhex("e8"))
+        fisnar.write(bytes.fromhex("aa 07 00 00 00 00 00 00 00 00 00 00 00 00 00 98 0f 00 64 ae 00"))  #copy commands
+        print("ae")
+
+        fisnar.write(bytes.fromhex("e8"))
+        fisnar.write(bytes.fromhex("aa a0 0f 00 00 00 00 00 00 00 00 00 00 00 00 a0 0f 00 13 17 00"))
+        print("17")
+
+        fisnar.write(bytes.fromhex("f1 f1"))
+        confirm = fisnar.read_until(bytes.fromhex("f1"))
+        if confirm == bytes.fromhex("f1"):
+            print("f1 recieved.")
+        else:
+            print("something not working (f1).")
+    else:
+        print("something not working (f0).")
+
+
+
+
 
     # byte_array = SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(123.123))
