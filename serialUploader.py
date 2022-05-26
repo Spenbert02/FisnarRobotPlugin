@@ -7,6 +7,8 @@ class SerialUploader:
     # with the Smart Robot Edit software, it uploads the commands directly
     # over the RS 232 port.
 
+    #TEST
+
 
     COM_PORT = "COM7"  # COM port to write commands to
 
