@@ -17,6 +17,8 @@ rs232 ideas:
     - if they are, use the auto upload protocol
   2) otherwise, upload via rs232
 
+test
+
 Relevant data info:
 - mime type: text/csv
 
