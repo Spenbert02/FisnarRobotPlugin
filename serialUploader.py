@@ -10,9 +10,9 @@ class SerialUploader:
 
 
     COM_PORT = "COM7"  # COM port to write commands to
-    START_COMMANDS = 0  # symbol for starting commands
-    END_COMMANDS = 1  # symbol for ending commands
-    LAST_COMMAND = 2  # symbol for last command to send - the empty command with '4000' as a parameter
+    START_COMMANDS = 2  # symbol for starting commands
+    END_COMMANDS = 3  # symbol for ending commands
+    LAST_COMMAND = 4  # symbol for last command to send - the empty command with '4000' as a parameter
 
 
     def __init__(self):
@@ -32,7 +32,13 @@ class SerialUploader:
 
 
     def uploadCommands(self):
-        pass
+        # upload the set commands to the fisnar
+
+        if self.fisnar_commands is None:
+            return False  # signalling an error, could do something more robust probably
+
+        for i in range(len(self.fisnar_commands)):
+            pass  # TODO
 
 
     def sendCommand(self, command, command_num):
@@ -78,8 +84,7 @@ class SerialUploader:
             else:
                 return False
         else:  # actual command to send
-            pass
-            # command_bytes = SerialUploader.getCommandBytes()
+            pass  # TODO
 
 
     @staticmethod
@@ -108,7 +113,15 @@ class SerialUploader:
             ret_bytes += bytes.fromhex("00 00 00 01")  # command bytes
 
         elif command[0] == "Output":
-            pass
+            for i in range(1, 3):
+                ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
+            ret_bytes += bytes.fromhex("00 00 00 00")  # param 3
+            ret_bytes += bytes.fromhex("d7 a3 42 42")  # command bytes
+
+        elif command[0] == "End Program":
+            ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")  # all param bytes are x00
+            ret_bytes += bytes.fromhex("00 00 00 0b")  # command byte
+
         else:  # error, not one of the above acceptable commands
             pass
 
