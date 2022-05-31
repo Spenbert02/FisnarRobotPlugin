@@ -9,23 +9,76 @@ class SerialUploader:
 
 
     COM_PORT = "COM7"  # COM port to write commands to
+    START_COMMANDS = 0  # symbol for starting commands
+    END_COMMANDS = 1  # symbol for ending commands
+    LAST_COMMAND = 2  # symbol for last command to send - the empty command with '4000' as a parameter
 
 
     def __init__(self):
         self.fisnar_commands = None
         self.command_byte_arrays = None  # this doesn't really need to be a member variable, but can't hurt to have
 
+        # code for comment only
+        # self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
 
-    def setCommands(fisnar_commands):
+
+    def setCommands(self, fisnar_commands):
         pass
 
 
-    def clearFisnarStoredCommands():
+    def clearFisnarStoredCommands(self):
         pass
 
 
-    def uploadCommands():
+    def uploadCommands(self):
         pass
+
+
+    def sendCommand(self, command, command_num):
+        # write a given command to the fisnar through the serial port - returning
+        # false if an error occurs and returning true if no error occurs. 'command'
+        # parameter can be either a fisnar command of type 'Dummy Point', 'Line Speed',
+        # or 'Output', or it can be None to signal an empty command, or it can
+        # be START_COMMANDS to send f0 starting sequence, or it can be END_COMMANDS
+        # to send f1 ending sequence
+
+        # uncomment this code on the lab computer
+        # if self.serial_port is None:  # ensuring the port exists
+        #     return False
+
+        if command is SerialUploader.START_COMMANDS:  # send starting command
+            self.serial_port.write(bytes.fromhex("f0 f0"))
+            confirmation = self.serial_port.read_until(bytes.fromhex("f0"))
+            if confirmation == bytes.fromhex("f0"):  # f0 confirmation recieved
+                return True
+            else:  # timeout, f0 confirmation not recieved
+                return False
+        elif command is SerialUploader.END_COMMANDS:  # send ending commands
+            self.serial_port.write(bytes.fromhex("f1 f1"))
+            confirmation = self.serial_port.read_until(bytes.fromhex("f1"))
+            if confirmation == bytes.fromhex("f1"):  # f1 confirmation recieved
+                return True
+            else:  # no confirmation recieved
+                return False
+        elif command is None:  # send empty command
+            # getting command number in byte form. command number must be under 65536
+            command_num = command_num % 65536  # just in case. should probably throw an error here. this works for now
+            command_num_bytes = command_num.to_bytes(2, byteorder="little")
+
+            # getting checksum byte for empty command (dependent only on command number, all other bytes are constant)
+            checksum_byte = SerialUploader.getCheckSum(command_num_bytes + bytes.fromhex("13"))
+
+            # putting together into single byte array
+            command_bytes = bytes.fromhex("aa") + command_num_bytes + bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13") + checksum_byte + bytes.fromhex("00")
+
+            self.serial_port.write(command_bytes)
+            confirmation = self.serial_port.read_until(checksum_byte)
+            if confirmation == checksum_byte:
+                return True
+            else:
+                return False
+        else:  # actual command to send
+            command_bytes = SerialUploader.getCommandBytes()
 
 
     @staticmethod
@@ -176,41 +229,8 @@ if __name__ == "__main__":
     ]
 
 
-    fisnar = serial.Serial("COM7", 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
-
-    fisnar.write(bytes.fromhex("f0 f0"))
-    confirm1 = fisnar.read_until("f0")  # confirmation return
-    if confirm1 == bytes.fromhex("f0"):
-        print("f0 recieved.")
-
-        for i in range(5):
-            fisnar.write(bytes.fromhex("e8"))
-            fisnar.write(SerialUploader.getCommandBytes(sample_commands[i], i + 1))
-
-        fisnar.write(bytes.fromhex("e8"))
-        fisnar.write(bytes.fromhex("aa 06 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13 19 00"))  # empty
-        fisnar.read_until(bytes.fromhex("19"))
-        print("19")
-
-        fisnar.write(bytes.fromhex("e8"))
-        fisnar.write(bytes.fromhex("aa 07 00 00 00 00 00 00 00 00 00 00 00 00 00 98 0f 00 64 ae 00"))  #copy commands
-        print("ae")
-
-        fisnar.write(bytes.fromhex("e8"))
-        fisnar.write(bytes.fromhex("aa a0 0f 00 00 00 00 00 00 00 00 00 00 00 00 a0 0f 00 13 17 00"))
-        print("17")
-
-        fisnar.write(bytes.fromhex("f1 f1"))
-        confirm = fisnar.read_until(bytes.fromhex("f1"))
-        if confirm == bytes.fromhex("f1"):
-            print("f1 recieved.")
-        else:
-            print("something not working (f1).")
-    else:
-        print("something not working (f0).")
-
-
-
+    su = SerialUploader()
+    su.sendCommand(None, 1)
 
 
     # byte_array = SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(123.123))
