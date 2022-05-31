@@ -1,4 +1,5 @@
 import serial
+import time
 
 
 class SerialUploader:
@@ -18,8 +19,8 @@ class SerialUploader:
         self.fisnar_commands = None
         self.command_byte_arrays = None  # this doesn't really need to be a member variable, but can't hurt to have
 
-        # code for comment only
-        # self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+        # creating serial port object
+        self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
 
 
     def setCommands(self, fisnar_commands):
@@ -42,9 +43,8 @@ class SerialUploader:
         # be START_COMMANDS to send f0 starting sequence, or it can be END_COMMANDS
         # to send f1 ending sequence
 
-        # uncomment this code on the lab computer
-        # if self.serial_port is None:  # ensuring the port exists
-        #     return False
+        if self.serial_port is None:  # ensuring the port exists
+            return False
 
         if command is SerialUploader.START_COMMANDS:  # send starting command
             self.serial_port.write(bytes.fromhex("f0 f0"))
@@ -78,7 +78,8 @@ class SerialUploader:
             else:
                 return False
         else:  # actual command to send
-            command_bytes = SerialUploader.getCommandBytes()
+            pass
+            # command_bytes = SerialUploader.getCommandBytes()
 
 
     @staticmethod
@@ -102,7 +103,10 @@ class SerialUploader:
             ret_bytes += bytes.fromhex("00 00 00 1f")
 
         elif command[0] == "Line Speed":
-            pass
+            ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[1]))))
+            ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00")  # params 2 and 3
+            ret_bytes += bytes.fromhex("00 00 00 01")  # command bytes
+
         elif command[0] == "Output":
             pass
         else:  # error, not one of the above acceptable commands
@@ -221,16 +225,79 @@ class SerialUploader:
 # testing station
 if __name__ == "__main__":
     sample_commands = [
-    ["Dummy Point", 0, 0, 0],
-    ["Dummy Point", 10, 10, 1],
-    ["Dummy Point", 10, 100, 1],
-    ["Dummy Point", 0, 0, 10],
-    ["Dummy Point", 0, 0, 0]
+    ["Dummy Point", 10, 10, 1]
     ]
 
 
-    su = SerialUploader()
-    su.sendCommand(None, 1)
+    # testing for how to end commands (writing 4000 empty commands first)
+    port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+
+    port.write(bytes.fromhex("f0 f0"))
+    confirm = port.read_until(bytes.fromhex("f0"))
+    print(confirm)
+
+    port.write(bytes.fromhex("e8"))
+    port.write(SerialUploader.getCommandBytes(["Dummy Point", 10, 10, 10], 1))
+    confirm = port.read_until(bytes.fromhex("43"))
+    print(confirm)
+
+    for i in range(2, 4001):
+        command_num = i + 1
+        curr_bytes = bytes.fromhex("aa")
+        curr_bytes += command_num.to_bytes(2, byteorder="little")
+        curr_bytes += bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")
+        curr_bytes += bytes.fromhex("00 00 00 13")
+        checksum_byte = SerialUploader.getCheckSum(curr_bytes[1:])
+        curr_bytes += checksum_byte
+        curr_bytes += bytes.fromhex("00")
+
+        port.write(bytes.fromhex("e8"))
+        port.write(curr_bytes)
+        confirm = port.read_until(checksum_byte)
+        print(confirm)
+
+    port.write(bytes.fromhex("e8"))
+    port.write(SerialUploader.getCommandBytes(["Dummy Point", 20, 20, 0], 4001))
+    confirm = port.read_until(bytes.fromhex("91"))
+    print(confirm)
+
+
+    # # test for how to end commands
+    # line_speed_bytes_1 = SerialUploader.getCommandBytes(["Line Speed", 20.1], 1)
+    # dummy_point_bytes = SerialUploader.getCommandBytes(["Dummy Point", 10, 10, 10], 2)  # checksum is x44
+    # last_command = bytes.fromhex("aa 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13 16 00")
+    # line_speed_bytes_2 = SerialUploader.getCommandBytes(["Line Speed", 20.1], 4)
+    #
+    #
+    # port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+    #
+    # port.write(bytes.fromhex("f0 f0"))
+    # confirm = port.read_until(bytes.fromhex("f0"))
+    # print(confirm)
+    #
+    # port.write(bytes.fromhex("e8"))
+    # port.write(line_speed_bytes_1)
+    # confirm = port.read_until(bytes.fromhex("7b"))
+    # print(confirm)
+    #
+    # port.write(bytes.fromhex("e8"))
+    # port.write(dummy_point_bytes)
+    # confirm = port.read_until(bytes.fromhex("44"))
+    # print(confirm)
+    #
+    # port.write(bytes.fromhex("e8"))
+    # port.write(last_command)
+    # confirm = port.read_until(bytes.fromhex("16"))
+    # print(confirm)
+    #
+    # # port.write(bytes.fromhex("e8"))
+    # # port.write(line_speed_bytes_2)
+    # # confirm = port.read_until(bytes.fromhex("7f"))
+    # # print(confirm)
+    #
+    # port.write(bytes.fromhex("f1 f1"))
+    # confirm = port.read_until(bytes.fromhex("f1"))
+    # print(confirm)
 
 
     # byte_array = SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(123.123))
