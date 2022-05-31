@@ -30,4 +30,9 @@ of commands are uploaded over the RS232 port.
 The general structure consists of the initialization, many commands,
 and the finalization. To let the Fisnar know commands are about to be sent, the host computer sends two 0xF0 bytes over. If the Fisnar is able to receive commands, it will return with a single 0xF0 byte.
 
-After initialization, up to 65,535 commands can be sent over in the 'command bytes' format shown in the figure. First, the host computer sends an 0xe8 byte to prepare the Fisnar for the immediately incoming command. Then, the actual command bytes are uploaded in the format described in the next section. Part of this command format is a checksum - a form of error checking. When the Fisnar receives a command, it will calculate the 
+After initialization, up to 65,535 commands can be sent over in the 'command bytes' format shown in the figure. First, the host computer sends an 0xe8 byte to prepare the Fisnar for the immediately incoming command. Then, the actual command bytes are uploaded in the format described in the next section. Part of this command format is a checksum - a form of error checking. When the Fisnar receives a command, it will calculate the necessary checksum for itself, and send it back to the computer. This makes
+it easy to confirm that the proper and intended command was sent. This command byte communication sequence can be repeated up to 65,534 more times.
+
+After all commands have been sent over, the finalization sequence can be complete. The finalization sequence is very similar to the initialization sequence, except in that 0xF1 bytes are sent instead of 0xF0 bytes. The finalization communication lets the Fisnar know that no more commands will be sent over, and also serves as a final check to verify that the Fisnar is still sending/receiving commands properly.
+
+## Command bytes format
