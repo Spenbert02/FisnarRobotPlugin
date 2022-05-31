@@ -69,7 +69,7 @@ class SerialUploader:
             self.setInformation("serial port not initialized")
             return False
 
-        if command is SerialUploader.START_COMMANDS:  # send starting command
+        if command is SerialUploader.START_COMMANDS:  # send initialization command
             self.serial_port.write(bytes.fromhex("f0 f0"))
             confirmation = self.serial_port.read_until(bytes.fromhex("f0"))
             if confirmation == bytes.fromhex("f0"):  # f0 confirmation recieved
@@ -77,7 +77,7 @@ class SerialUploader:
             else:  # timeout, f0 confirmation not recieved
                 self.setInformation("unsuccessful command upload initialization")
                 return False
-        elif command is SerialUploader.END_COMMANDS:  # send ending commands
+        elif command is SerialUploader.END_COMMANDS:  # send finalization commands
             self.serial_port.write(bytes.fromhex("f1 f1"))
             confirmation = self.serial_port.read_until(bytes.fromhex("f1"))
             if confirmation == bytes.fromhex("f1"):  # f1 confirmation recieved
