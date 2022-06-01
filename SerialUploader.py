@@ -1,4 +1,5 @@
 import serial
+from UM.Logger import Logger
 
 
 class SerialUploader:
@@ -21,8 +22,32 @@ class SerialUploader:
         self.fisnar_commands = None  # fisnar commands that can be externally set
         self.information = None  # error information that can be retrieved externally
 
-        # creating serial port object
-        self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+        # creating serial port object - should be UNCOMMENTED for actual use
+        # self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+
+
+    def writeBytes(self, byte_array):
+        # send a byte array through a COM port. This is a separate function to make
+        # debugging easier - during debugging, this function can just print bytes.
+        # during deployment, this should actually upload to the COM port, obviously.
+
+        # self.serial_port.write(byte_array)  # actually upload
+
+        # # this is for debugging: only use this for really short test command
+        # # lists
+        # Logger.log("d", "sent bytes: " + str(byte_array))
+
+        pass
+
+
+    def readUntil(self, byte):
+        # read from the serial port until a certain byte is found. As the above
+        # function, this just exists because it makes debugging easier. All this
+        # does is call the Serial objects read_until() function.
+
+        # return(self.serial_port.read_until(byte))  # actually read
+
+        return(byte)  # for debugging
 
 
     def getInformation(self):
@@ -48,7 +73,7 @@ class SerialUploader:
         self.fisnar_commands = fisnar_commands
 
 
-    def uploadCommands(self):
+    def uploadCommands(self):  # STILL NEEDS TO BE TESTED
         # upload the previously set commands to the fisnar. the last command that
         # is given here should always be an 'end program' command. Eventually,
         # this function should be able to handle uploading fisnar command lists
@@ -70,9 +95,9 @@ class SerialUploader:
             return False
 
         # sending actual commands
-        for i in range(len(fisnar_commands)):
+        for i in range(len(self.fisnar_commands)):
             command_num = i + 1
-            curr_comm_confirm = self.sendCommand(fisnar_commands[i], command_num)
+            curr_comm_confirm = self.sendCommand(self.fisnar_commands[i], command_num)
             if not curr_comm_confirm:
                 return False
 
@@ -93,21 +118,22 @@ class SerialUploader:
         # be START_COMMANDS to send f0 starting sequence, or it can be END_COMMANDS
         # to send f1 ending sequence
 
-        if self.serial_port is None:  # ensuring the port exists
-            self.setInformation("serial port not initialized")
-            return False
+        # #  UNCOMMENT this for deployment
+        # if self.serial_port is None:  # ensuring the port exists
+        #     self.setInformation("serial port not initialized")
+        #     return False
 
         if command is SerialUploader.START_COMMANDS:  # send initialization command
-            self.serial_port.write(bytes.fromhex("f0 f0"))
-            confirmation = self.serial_port.read_until(bytes.fromhex("f0"))
+            self.writeBytes(bytes.fromhex("f0 f0"))
+            confirmation = self.readUntil(bytes.fromhex("f0"))
             if confirmation == bytes.fromhex("f0"):  # f0 confirmation recieved
                 return True
             else:  # timeout, f0 confirmation not recieved
                 self.setInformation("unsuccessful command upload initialization")
                 return False
         elif command is SerialUploader.END_COMMANDS:  # send finalization commands
-            self.serial_port.write(bytes.fromhex("f1 f1"))
-            confirmation = self.serial_port.read_until(bytes.fromhex("f1"))
+            self.writeBytes(bytes.fromhex("f1 f1"))
+            confirmation = self.readUntil(bytes.fromhex("f1"))
             if confirmation == bytes.fromhex("f1"):  # f1 confirmation recieved
                 return True
             else:  # no confirmation recieved
@@ -124,8 +150,8 @@ class SerialUploader:
             # putting together into single byte array
             command_bytes = bytes.fromhex("aa") + command_num_bytes + bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13") + checksum_byte + bytes.fromhex("00")
 
-            self.serial_port.write(command_bytes)
-            confirmation = self.serial_port.read_until(checksum_byte)
+            self.writeBytes(command_bytes)
+            confirmation = self.readUntil(checksum_byte)
             if confirmation == checksum_byte:
                 return True
             else:
@@ -137,9 +163,9 @@ class SerialUploader:
             checksum_byte = command_bytes[-2].to_bytes(1, byteorder="big")
 
             # sending command bytes over and getting checksum confirmation
-            self.serial_port.write(bytes.fromhex("e8"))
-            self.serial_port.write(command_bytes)
-            confirmation = self.serial_port.read_until(checksum_byte)
+            self.writeBytes(bytes.fromhex("e8"))
+            self.writeBytes(command_bytes)
+            confirmation = self.readUntil(checksum_byte)
             if confirmation == checksum_byte:
                 return True
             else:
@@ -296,6 +322,8 @@ class SerialUploader:
 
 # testing station
 if __name__ == "__main__":
+
+    # testing out sending commands
     sample_commands = [
     ["Dummy Point", 10, 10, 1]
     ]
