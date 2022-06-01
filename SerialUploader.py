@@ -7,11 +7,14 @@ class SerialUploader:
     # with the Smart Robot Edit software, it uploads the commands directly
     # over the RS 232 port.
 
+    # enumeration representing starting (0xf0) and ending (0xf1) commands
+    START_COMMANDS = 2  # starting command
+    END_COMMANDS = 3  # ending command
 
+    # constants - properties of the fisnar's (potentially changeable) settings
+    # and the physical setup of the system (namely port #'s)
     COM_PORT = "COM7"  # COM port to write commands to
-    START_COMMANDS = 2  # symbol for starting commands
-    END_COMMANDS = 3  # symbol for ending commands
-    LAST_COMMAND = 4  # symbol for last command to send - the empty command with '4000' as a parameter
+    MAX_COMMANDS = 32767  # max n
 
 
     def __init__(self):
@@ -47,14 +50,39 @@ class SerialUploader:
 
     def uploadCommands(self):
         # upload the previously set commands to the fisnar. the last command that
-        # is given here should always be an 'end program' command.
+        # is given here should always be an 'end program' command. Eventually,
+        # this function should be able to handle uploading fisnar command lists
+        # with more than the max # (ie, it should be able to recursively segment
+        # and upload commands). Also, all error reporting occurs in sendCommand(),
+        # and all command checking should occur before sending commands here.
+        # Essentially, this function serves as a portal to dump a list of commands
+        # commands into the fisnar, and getting a return value indicating whether
+        # or not it was successful.
 
+        # the only error checking that happens here - commands need to exist to upload
         if self.fisnar_commands is None:
             self.setInformation("slicer output must be saved as CSV file before uploading")
-            return
+            return False
 
-        for i in range(len(self.fisnar_commands)):
-            pass  # tODO
+        # sending initialization command
+        init_confirm = self.sendCommand(SerialUploader.START_COMMANDS, None)
+        if not init_confirm:
+            return False
+
+        # sending actual commands
+        for i in range(len(fisnar_commands)):
+            command_num = i + 1
+            curr_comm_confirm = self.sendCommand(fisnar_commands[i], command_num)
+            if not curr_comm_confirm:
+                return False
+
+        # sending finalization command
+        final_confirm = self.sendCommand(SerialUploader.END_COMMANDS, None)
+        if not final_confirm:
+            return False
+
+        # if the function hasn't returned by this line of code, everything went ok
+        return True
 
 
     def sendCommand(self, command, command_num):
@@ -103,8 +131,20 @@ class SerialUploader:
             else:
                 self.setInformation("'Empty' command failed to send.")
                 return False
-        else:  # actual command to send
-            pass  # TODO
+        else:  # actual Fisnar command to send
+            # getting command bytes from getCommandBytes function
+            command_bytes = SerialUploader.getCommandBytes(command, command_num)
+            checksum_byte = command_bytes[-2].to_bytes(1, byteorder="big")
+
+            # sending command bytes over and getting checksum confirmation
+            self.serial_port.write(bytes.fromhex("e8"))
+            self.serial_port.write(command_bytes)
+            confirmation = self.serial_port.read_until(checksum_byte)
+            if confirmation == checksum_byte:
+                return True
+            else:
+                self.setInformation("Unable to write ''" + command[0] + "' command at index " + str(command_num))
+                return False
 
 
     @staticmethod
@@ -150,7 +190,6 @@ class SerialUploader:
         ret_bytes += bytes.fromhex("00")
 
         return ret_bytes
-
 
 
     @staticmethod
@@ -261,76 +300,23 @@ if __name__ == "__main__":
     ["Dummy Point", 10, 10, 1]
     ]
 
+    test_uploader = SerialUploader()
 
-    # testing for how to end commands (writing 4000 empty commands first)
-    port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+    init_confirm = test_uploader.sendCommand(SerialUploader.START_COMMANDS, None)
+    print("f0 successfully sent: ", init_confirm)
 
-    port.write(bytes.fromhex("f0 f0"))
-    confirm = port.read_until(bytes.fromhex("f0"))
-    print(confirm)
-
-    port.write(bytes.fromhex("e8"))
-    port.write(SerialUploader.getCommandBytes(["Dummy Point", 10, 10, 10], 1))
-    confirm = port.read_until(bytes.fromhex("43"))
-    print(confirm)
-
-    for i in range(2, 4001):
-        command_num = i + 1
-        curr_bytes = bytes.fromhex("aa")
-        curr_bytes += command_num.to_bytes(2, byteorder="little")
-        curr_bytes += bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")
-        curr_bytes += bytes.fromhex("00 00 00 13")
-        checksum_byte = SerialUploader.getCheckSum(curr_bytes[1:])
-        curr_bytes += checksum_byte
-        curr_bytes += bytes.fromhex("00")
-
-        port.write(bytes.fromhex("e8"))
-        port.write(curr_bytes)
-        confirm = port.read_until(checksum_byte)
-        print(confirm)
-
-    port.write(bytes.fromhex("e8"))
-    port.write(SerialUploader.getCommandBytes(["Dummy Point", 20, 20, 0], 4001))
-    confirm = port.read_until(bytes.fromhex("91"))
-    print(confirm)
+    for i in range(32000, 32768):
+        if i == 1:
+            curr_confirm = test_uploader.sendCommand(["Dummy Point", 0, 0, 0], i)
+        elif i == 32767:
+            curr_confirm = test_uploader.sendCommand(["End Program"], i)
+        elif i == 32766:
+            curr_confirm = test_uploader.sendCommand(["Dummy Point", 30, 30, 30], i)
+        else:
+            curr_confirm = test_uploader.sendCommand(["Line Speed", i % 10], i)
 
 
-    # # test for how to end commands
-    # line_speed_bytes_1 = SerialUploader.getCommandBytes(["Line Speed", 20.1], 1)
-    # dummy_point_bytes = SerialUploader.getCommandBytes(["Dummy Point", 10, 10, 10], 2)  # checksum is x44
-    # last_command = bytes.fromhex("aa 03 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13 16 00")
-    # line_speed_bytes_2 = SerialUploader.getCommandBytes(["Line Speed", 20.1], 4)
-    #
-    #
-    # port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
-    #
-    # port.write(bytes.fromhex("f0 f0"))
-    # confirm = port.read_until(bytes.fromhex("f0"))
-    # print(confirm)
-    #
-    # port.write(bytes.fromhex("e8"))
-    # port.write(line_speed_bytes_1)
-    # confirm = port.read_until(bytes.fromhex("7b"))
-    # print(confirm)
-    #
-    # port.write(bytes.fromhex("e8"))
-    # port.write(dummy_point_bytes)
-    # confirm = port.read_until(bytes.fromhex("44"))
-    # print(confirm)
-    #
-    # port.write(bytes.fromhex("e8"))
-    # port.write(last_command)
-    # confirm = port.read_until(bytes.fromhex("16"))
-    # print(confirm)
-    #
-    # # port.write(bytes.fromhex("e8"))
-    # # port.write(line_speed_bytes_2)
-    # # confirm = port.read_until(bytes.fromhex("7f"))
-    # # print(confirm)
-    #
-    # port.write(bytes.fromhex("f1 f1"))
-    # confirm = port.read_until(bytes.fromhex("f1"))
-    # print(confirm)
+        print("commmand", i, ":", curr_confirm)
 
-
-    # byte_array = SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(123.123))
+    final_confirm = test_uploader.sendCommand(SerialUploader.END_COMMANDS, None)
+    print("f1 successfully sent: ", final_confirm)
