@@ -18,7 +18,7 @@ from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
-from .serialUploader import SerialUploader
+from .SerialUploader import SerialUploader
 
 # needed for all 'manual' imports
 import importlib
@@ -81,6 +81,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.parameter_entry_window = None
         self.output_entry_window = None
         self.serial_upload_window = None
+        self.serial_upload_error_window = None
+        self.serial_upload_success_window = None
 
         self.most_recent_fisnar_commands = None  # for passing to serial uploader object
         self.serial_uploader = SerialUploader()
@@ -231,11 +233,40 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
 
 
+    @pyqtProperty(str)
+    def getSerialUploadWindowText(self):
+        # gateway for qml to get the text to show for the initial serial upload dialog
+        return "The most recent Fisnar CSV file you saved will be uploaded to the Fisnar. Press OK to continue, or Cancel to cancel."
+
+
+    @pyqtProperty(str)
+    def getSerialErrorMsg(self):
+        # gateway for qml to get the error message from the SerialUploader object
+        return "Error occured while uploading: " + str(self.serial_uploader.getInformation())
+
+
     @pyqtSlot()
     def startSerialUpload(self):
-        # called by qml to start the serial uploading process
+        # called by qml to start the serial uploading process, starts the upload
+        # process using the SerialUploader member object
+        Logger.log("i", "serial upload process started")
 
-        pass  # TODO
+        self.serial_uploader.setCommands(self.most_recent_fisnar_commands)  # setting commands
+        successful_conversion = self.serial_uploader.uploadCommands()  # uploading
+
+        if not successful_conversion:
+            self.showFailedSerialUploadWindow()
+        else:
+            self.showSuccessfulSerialUploadWindow()
+
+        self.serial_uploader.setInformation(None)  # clearing error info in case there is another upload
+
+
+    @pyqtSlot()
+    def cancelSerialUpload(self):
+        # called by qml if the user presses the cancel button on the main
+        # serial upload screen. Doesn't do anything besides logging
+        Logger.log("i", "serial upload process cancelled")
 
 
     def showParameterEntryWindow(self):
@@ -262,14 +293,18 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def showFailedSerialUploadWindow(self):
         # pop up to show if the serial upload fails, with information about the
         # error given by the SerialUploader object
-
-        pass  # TODO
+        # Logger.log("i", "failed serial upload window called")  # test
+        if not self.serial_upload_error_window:
+            self.serial_upload_error_window = self._createDialogue("serial_upload_error.qml")
+        self.serial_upload_error_window.show()
 
 
     def showSuccessfulSerialUploadWindow(self):
         # pop up to show if the serial upload is successful
-
-        pass  # TODO
+        # Logger.log("i", "successful serial upload window called")  # test
+        if not self.serial_upload_success_window:
+            self.serial_upload_success_window = self._createDialogue("serial_upload_success.qml")
+        self.serial_upload_success_window.show()
 
 
     def _createDialogue(self, qml_file_name):
