@@ -72,9 +72,9 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_4_output = None
 
         # setting up menus
-        self.setMenuName("Fisnar Parameter Entry")
-        self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
-        self.addMenuItem("Correlate Outputs with Extruders", self.showOutputEntryWindow)
+        self.setMenuName("Fisnar Actions")
+        self.addMenuItem("Print Surface Definition", self.showParameterEntryWindow)
+        self.addMenuItem("Output Setup", self.showOutputEntryWindow)
         self.addMenuItem("Upload Commands to Fisnar", self.showSerialUploadWindow)
 
         # 'lazy loading' windows, so can be called later.
