@@ -1,4 +1,6 @@
-# functions dealing with the autoupload process for the smart robot edit software.
+# THIS CODE IS DEPRECATED. it isn't accessible from anywhere in the plugin.
+# I'm just keeping it for reference for the SerialUploader class, which is
+# similar in architecture to the AutoUploader class
 
 import copy
 import importlib
@@ -11,40 +13,40 @@ from threading import Event, Thread
 from UM.Application import Application
 from UM.Logger import Logger
 
-
-# importing pyautogui
-plugin_folder_path = os.path.dirname(__file__)
-pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
-spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
-pyautogui_module = importlib.util.module_from_spec(spec)
-sys.modules["pyautogui"] = pyautogui_module
-spec.loader.exec_module(pyautogui_module)
-import pyautogui
-
-# importing keyboard (i dont think i need to use this library at all)
-keyboard_path = os.path.join(plugin_folder_path, "keyboard", "keyboard", "__init__.py")
-spec_2 = importlib.util.spec_from_file_location("keyboard", keyboard_path)
-keyboard_module = importlib.util.module_from_spec(spec_2)
-sys.modules["keyboard"] = keyboard_module
-spec_2.loader.exec_module(keyboard_module)
-import keyboard
-
-# importing pyperclip
-pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
-spec_3 = importlib.util.spec_from_file_location("pyperclip", pyperclip_path)
-pyperclip_module = importlib.util.module_from_spec(spec_3)
-sys.modules["pyperclip"] = pyperclip_module
-spec_3.loader.exec_module(pyperclip_module)
-import pyperclip
-
-
-# importing pywindow
-pygetwindow_path = os.path.join(plugin_folder_path, "PyGetWindow", "src", "pygetwindow", "__init__.py")
-spec_4 = importlib.util.spec_from_file_location("pygetwindow", pygetwindow_path)
-pygetwindow_module = importlib.util.module_from_spec(spec_4)
-sys.modules["pygetwindow"] = pygetwindow_module
-spec_4.loader.exec_module(pygetwindow_module)
-import pygetwindow
+# commented out so that these libraries don't need to be included in the plugin
+# # importing pyautogui
+# plugin_folder_path = os.path.dirname(__file__)
+# pyautogui_path = os.path.join(plugin_folder_path, "pyautogui", "pyautogui", "__init__.py")
+# spec = importlib.util.spec_from_file_location("pyautogui", pyautogui_path)
+# pyautogui_module = importlib.util.module_from_spec(spec)
+# sys.modules["pyautogui"] = pyautogui_module
+# spec.loader.exec_module(pyautogui_module)
+# import pyautogui
+#
+# # importing keyboard (i dont think i need to use this library at all)
+# keyboard_path = os.path.join(plugin_folder_path, "keyboard", "keyboard", "__init__.py")
+# spec_2 = importlib.util.spec_from_file_location("keyboard", keyboard_path)
+# keyboard_module = importlib.util.module_from_spec(spec_2)
+# sys.modules["keyboard"] = keyboard_module
+# spec_2.loader.exec_module(keyboard_module)
+# import keyboard
+#
+# # importing pyperclip
+# pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
+# spec_3 = importlib.util.spec_from_file_location("pyperclip", pyperclip_path)
+# pyperclip_module = importlib.util.module_from_spec(spec_3)
+# sys.modules["pyperclip"] = pyperclip_module
+# spec_3.loader.exec_module(pyperclip_module)
+# import pyperclip
+#
+#
+# # importing pywindow
+# pygetwindow_path = os.path.join(plugin_folder_path, "PyGetWindow", "src", "pygetwindow", "__init__.py")
+# spec_4 = importlib.util.spec_from_file_location("pygetwindow", pygetwindow_path)
+# pygetwindow_module = importlib.util.module_from_spec(spec_4)
+# sys.modules["pygetwindow"] = pygetwindow_module
+# spec_4.loader.exec_module(pygetwindow_module)
+# import pygetwindow
 
 
 

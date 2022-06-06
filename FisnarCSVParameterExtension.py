@@ -18,7 +18,8 @@ from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
-from .AutoUploader import AutoUploader
+from .SerialUploader import SerialUploader
+from .Converter import Converter
 
 # needed for all 'manual' imports
 import importlib
@@ -72,23 +73,21 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_4_output = None
 
         # setting up menus
-        self.setMenuName("Fisnar Parameter Entry")
-        self.addMenuItem("Define Print Surface", self.showParameterEntryWindow)
-        self.addMenuItem("Correlate Outputs with Extruders", self.showOutputEntryWindow)
-        self.addMenuItem("Start Auto-Upload Process", self.showAutoUploadWindow)
+        self.setMenuName("Fisnar Actions")
+        self.addMenuItem("Print Surface Definition", self.showParameterEntryWindow)
+        self.addMenuItem("Output Setup", self.showOutputEntryWindow)
+        self.addMenuItem("Upload Commands to Fisnar", self.showSerialUploadWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.parameter_entry_window = None
         self.output_entry_window = None
-        self.auto_upload_window = None
-        self.auto_upload_error_window = None
+        self.serial_upload_window = None
+        self.serial_upload_error_window = None
+        self.serial_upload_success_window = None
 
-        # auto upload dialog text
-        self.auto_upload_dialog_text = "When the autoupload process starts, it will take control of the mouse and keyboard. To terminate the automated cursor paths, move the cursor quickly into any corner of the screen. This will give you back control. Once terminated, you must restart the auto upload process. Press 'Ok' to start the auto upload process, or 'Cancel' to go back."
-        self.auto_uploader = AutoUploader()
-
-        # for passing to auto uploader object
-        self.most_recent_fisnar_commands = None
+        self.most_recent_fisnar_commands = None  # for passing to serial uploader object
+        self.serial_uploader = SerialUploader()
+        self.conversion_mode = Converter.IO_CARD  # for FisnarCSVWriter to grab to convert
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -97,6 +96,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @classmethod
     def getInstance(cls):
+        # factory method
         return cls._instance
 
 
@@ -158,33 +158,50 @@ class FisnarCSVParameterExtension(QObject, Extension):
         Logger.log("i", "Fisnar parameter or output entry window opened")
 
 
+    @pyqtSlot(bool)
+    def setOutputMode(self, uses_io_card):
+        # called by qml when checkbox status changes to change the conversion mode
+        # which whill eventually be grabbed by FisnarCSVWriter for conversion
+        Logger.log("i", str(uses_io_card) + ", " + str(type(uses_io_card)))
+        if uses_io_card:
+            self.conversion_mode = Converter.IO_CARD
+        else:
+            self.conversion_mode = Converter.NO_IO_CARD
+
+
     @pyqtProperty(str)
     def getXMin(self):
+        # called by qml to get the min x coord
         return str(self.fisnar_x_min)
 
 
     @pyqtProperty(str)
     def getXMax(self):
+        # called by qml to get the max x coord
         return str(self.fisnar_x_max)
 
 
     @pyqtProperty(str)
     def getYMin(self):
+        # called by qml to get the min y coord
         return str(self.fisnar_y_min)
 
 
     @pyqtProperty(str)
     def getYMax(self):
+        # called by qml to get the max y coord
         return str(self.fisnar_y_max)
 
 
     @pyqtProperty(str)
     def getZMax(self):
+        # called by qml to get the max z coord
         return str(self.fisnar_z_max)
 
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
+        # slot for qml to set the value of one of the home coordinates
         setattr(self, attribute, float(coord_val))  # validation occurs in the qml file
         # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
@@ -192,6 +209,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtProperty(int)
     def getNumExtruders(self):
+        # called by qml to get the number of active extruders in Cura
         self.num_extruders = len(Application.getInstance().getExtrudersModel()._active_machine_extruders)
         # Logger.log("i", "***** number of extruders: " + str(self.num_extruders))  # test
         return self.num_extruders
@@ -199,59 +217,72 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtProperty(str)
     def getExtruder1Output(self):
+        # called by qml to get the output number associated with extruder 1
         return str(self.extruder_1_output)
 
 
     @pyqtProperty(str)
     def getExtruder2Output(self):
+        # called by qml to get the output number associated with extruder 2
         return str(self.extruder_2_output)
 
 
     @pyqtProperty(str)
     def getExtruder3Output(self):
+        # called by qml to get the output number associated with extruder 3
         return str(self.extruder_3_output)
 
 
     @pyqtProperty(str)
     def getExtruder4Output(self):
+        # called by qml to get the output number associated with extruder 4
         return str(self.extruder_4_output)
 
 
     @pyqtSlot(str, str)
     def setExtruderOutput(self, attribute, output_val):
-        setattr(self, attribute, int(output_val))
-        # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
+        # slot for qml to set the output associated with one of the extruders
+        if str(output_val) == "None":  # None value set
+            setattr(self, attribute, None)
+        else:  # actual output value
+            setattr(self, attribute, int(output_val))
+        Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(getattr(self, attribute)) + "(" + str(type(getattr(self, attribute))) + ")")  # test
 
 
     @pyqtProperty(str)
-    def getAutoUploadDialogText(self):
-        # this is called by qml
-        return self.auto_upload_dialog_text
+    def getSerialUploadWindowText(self):
+        # gateway for qml to get the text to show for the initial serial upload dialog
+        return "The most recent Fisnar CSV file you saved will be uploaded to the Fisnar. Press OK to continue, or Cancel to cancel."
+
+
+    @pyqtProperty(str)
+    def getSerialErrorMsg(self):
+        # gateway for qml to get the error message from the SerialUploader object
+        return "Error occured while uploading: " + str(self.serial_uploader.getInformation())
 
 
     @pyqtSlot()
-    def startAutoUpload(self):
-        # start the auto upload process using the AutoUploader
-        if self.most_recent_fisnar_commands is None:
-            self.showAutoUploadError()
-            Logger.log("e", "Fisnar CSV must be saved before auto uploading")
+    def startSerialUpload(self):
+        # called by qml to start the serial uploading process, starts the upload
+        # process using the SerialUploader member object
+        Logger.log("i", "serial upload process started")
+
+        self.serial_uploader.setCommands(self.most_recent_fisnar_commands)  # setting commands
+        successful_conversion = self.serial_uploader.uploadCommands()  # uploading
+
+        if not successful_conversion:
+            self.showFailedSerialUploadWindow()
         else:
-            # this is a way to reload the window everytime - just create a new
-            # object. Kind of hacky, but it works
-            del self.auto_uploader
-            self.auto_uploader = AutoUploader()
-            # set commands here
-            self.auto_uploader.setCommands(self.most_recent_fisnar_commands)
-            self.auto_uploader.startAutoUpload()
+            self.showSuccessfulSerialUploadWindow()
+
+        self.serial_uploader.setInformation(None)  # clearing error info in case there is another upload
 
 
     @pyqtSlot()
-    def cancelAutoUpload(self):
-        # this is done before anything auto upload related is started,
-        # so this doesn't really need to exist. But it's here, just in case it might have a use in the future.
-        # Logger.log("i", "auto upload process cancelled")  # test
-
-        Logger.log("i", "cancelAutoUpload() called (autoupload.qml canceled)")  # TEST
+    def cancelSerialUpload(self):
+        # called by qml if the user presses the cancel button on the main
+        # serial upload screen. Doesn't do anything besides logging
+        Logger.log("i", "serial upload process cancelled")
 
 
     def showParameterEntryWindow(self):
@@ -268,18 +299,28 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.output_entry_window.show()
 
 
-    def showAutoUploadWindow(self):
-        # Logger.log("i", "auto upload window called")  # test
-        if not self.auto_upload_window:
-            self.auto_upload_window = self._createDialogue("autoupload.qml")
-        self.auto_upload_window.show()
+    def showSerialUploadWindow(self):
+        Logger.log("i", "serial upload window called")  # test
+        if not self.serial_upload_window:
+            self.serial_upload_window = self._createDialogue("serial_upload_window.qml")
+        self.serial_upload_window.show()
 
 
-    def showAutoUploadError(self):
-        # Logger.log("i", "auto upload error window called")  # test
-        if not self.auto_upload_error_window:
-            self.auto_upload_error_window = self._createDialogue("auto_upload_error_msg.qml")
-        self.auto_upload_error_window.show()
+    def showFailedSerialUploadWindow(self):
+        # pop up to show if the serial upload fails, with information about the
+        # error given by the SerialUploader object
+        # Logger.log("i", "failed serial upload window called")  # test
+        if not self.serial_upload_error_window:
+            self.serial_upload_error_window = self._createDialogue("serial_upload_error.qml")
+        self.serial_upload_error_window.show()
+
+
+    def showSuccessfulSerialUploadWindow(self):
+        # pop up to show if the serial upload is successful
+        # Logger.log("i", "successful serial upload window called")  # test
+        if not self.serial_upload_success_window:
+            self.serial_upload_success_window = self._createDialogue("serial_upload_success.qml")
+        self.serial_upload_success_window.show()
 
 
     def _createDialogue(self, qml_file_name):
@@ -291,6 +332,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     class HandledPolygon(Polygon):
         # class that extends Polygon object so a polygon can be checked if it has been set in this extension or by something else
-        # to see if a 'Polygon' object is HandledPolygon, just check it's instance
+        # to see if a 'Polygon' object is HandledPolygon, just check the instance's type
         def __init__(self, points: Optional[Union[numpy.ndarray, List]] = None):
             super().__init__(points)

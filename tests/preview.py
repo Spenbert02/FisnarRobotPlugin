@@ -30,6 +30,9 @@ def readFisnarCommandsFromFile(file_abspath):
             commands[i][1] = int(commands[i][1])
         elif commands[i][0] == "End Program":
             pass
+        elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
+            for j in range(1, 4):
+                commands[i][j] = float(commands[i][j])
         else:
             commands.pop(i)
             i -= 1
@@ -43,7 +46,7 @@ def readFisnarCommandsFromFile(file_abspath):
     return copy.deepcopy(commands)
 
 
-def getFisnarSegmentedExtrusionCoords(fisnar_command_list):
+def getFisnarSegmentedExtrusionCoords(fisnar_command_list, io_card):
     """
     get a segmented version of the commands, with each sub-list containing a series of coordinates which involve
     extrusion, as well as the output number. Connecting the coordinates gives the material path. The returned list
@@ -62,32 +65,45 @@ def getFisnarSegmentedExtrusionCoords(fisnar_command_list):
     ret_segments = []
     fisnar_commands_copy = copy.deepcopy(fisnar_command_list)
 
-    i = 0  # iterator
-    while i < len(fisnar_commands_copy):
-        if fisnar_commands_copy[i][0] == "Output" and fisnar_commands_copy[i][2] == 1:  # until 'output on' found
-            sub_segment = [fisnar_commands_copy[i][1], []]
+    if io_card:  # uses dummy points and outputs
+        i = 0  # iterator
+        while i < len(fisnar_commands_copy):
+            if fisnar_commands_copy[i][0] == "Output" and fisnar_commands_copy[i][2] == 1:  # until 'output on' found
+                sub_segment = [fisnar_commands_copy[i][1], []]
 
-            # finding the most recent travel coords and appending
-            prev_coords_ind = i - 1
-            while fisnar_commands_copy[prev_coords_ind][0] != "Dummy Point":
-                prev_coords_ind -= 1
-            sub_segment[1].append([fisnar_commands_copy[prev_coords_ind][1],
-                                   fisnar_commands_copy[prev_coords_ind][2],
-                                   fisnar_commands_copy[prev_coords_ind][3]])
+                # finding the most recent travel coords and appending
+                prev_coords_ind = i - 1
+                while fisnar_commands_copy[prev_coords_ind][0] != "Dummy Point":
+                    prev_coords_ind -= 1
+                sub_segment[1].append([fisnar_commands_copy[prev_coords_ind][1],
+                                       fisnar_commands_copy[prev_coords_ind][2],
+                                       fisnar_commands_copy[prev_coords_ind][3]])
 
-            # appending all movements until output is turned off
-            i += 1
-            while not (fisnar_commands_copy[i][0] == "Output" and fisnar_commands_copy[i][2] == 0):
-                if fisnar_commands_copy[i][0] == "Dummy Point":
-                    sub_segment[1].append([fisnar_commands_copy[i][1],
-                                           fisnar_commands_copy[i][2],
-                                           fisnar_commands_copy[i][3]])
+                # appending all movements until output is turned off
                 i += 1
+                while not (fisnar_commands_copy[i][0] == "Output" and fisnar_commands_copy[i][2] == 0):
+                    if fisnar_commands_copy[i][0] == "Dummy Point":
+                        sub_segment[1].append([fisnar_commands_copy[i][1],
+                                               fisnar_commands_copy[i][2],
+                                               fisnar_commands_copy[i][3]])
+                    i += 1
 
-            # appending segment to return segment list
-            ret_segments.append(sub_segment)
-        else:  # current command isn't output on, so keep searching
-            i += 1
+                # appending segment to return segment list
+                ret_segments.append(sub_segment)
+            else:  # current command isn't output on, so keep searching
+                i += 1
+    else:  # uses line starts, passings, and ends
+        i = 0
+        curr_segment = [1, []]
+        for i in range(len(fisnar_commands_copy)):
+            command = fisnar_commands_copy[i]
+
+            if command[0] in ("Line Start", "Line Passing", "Line End"):  # appending coordinates
+                curr_segment[1].append([command[1], command[2], command[3]])
+
+            if command[0] == "Line End":  # ending segment with line end
+                ret_segments.append(curr_segment)
+                curr_segment = [1, []]
 
     return ret_segments
 
@@ -177,9 +193,9 @@ def plotCoordinates(coord_segments, coord_limits, window_title):
 
 
 if __name__ == "__main__":
-    fisnar_csv_abspath = "C:\gcode2fisnar_tests\cura_plugin_tests\CFFFP_3_18_2022_three_line_test_file.csv"
+    fisnar_csv_abspath = "C:\gcode2fisnar_tests\cura_plugin_tests\CFFFP_3_18_2022_three_line_test_file_2.csv"
     fisnar_commands = readFisnarCommandsFromFile(fisnar_csv_abspath)
-    fisnar_segmented_coords = getFisnarSegmentedExtrusionCoords(fisnar_commands)
+    fisnar_segmented_coords = getFisnarSegmentedExtrusionCoords(fisnar_commands, True)
 
     plot_segments = []
     for i in range(len(fisnar_segmented_coords)):
