@@ -93,7 +93,7 @@ class Converter:
 
 
     def getExtrudersInGcode(self):
-        # get the extruders used in the gcode file in a list of bools [extruder 1, extruder 2, extruder3, extruder 4]
+        # get the extruders used in the gcode file in a list of bools [extruder 1, extruder 2, extruder 3, extruder 4]
 
         ret_extruders = [False, False, False, False]
         for command in self.gcode_commands_lst:
@@ -230,14 +230,16 @@ class Converter:
                 self.setInformation("internal error: no conversion mode set for Converter (Converter.convertCommands)")
                 return False
 
-
-        # turning off all outputs
+        # turning off necessary outputs
         if self.conversion_mode == Converter.IO_CARD:
+            gcode_outputs = Converter.getOutputsInFisnarCommands(fisnar_commands)
+            Logger.log("i", "gcode outputs: " + str(gcode_outputs))
             for i in range(4):
-                fisnar_commands.append(["Output", i + 1, 0])
+                if gcode_outputs[i]:
+                    fisnar_commands.append(["Output", i + 1, 0])
         fisnar_commands.append(["End Program"])
 
-        # inverting and shifting coordinate system from gcode to fisnar, then puttin home travel command
+        # inverting and shifting coordinate system from gcode to fisnar, then putting home travel command
         Converter.invertCoords(fisnar_commands, self.fisnar_z_max)
 
         # this is effectively a homing command
@@ -248,7 +250,6 @@ class Converter:
             Converter.optimizeFisnarOutputCommands(fisnar_commands)
 
         return fisnar_commands
-
 
 
     def boundaryCheck(self, fisnar_commands):
@@ -326,6 +327,18 @@ class Converter:
         ret_commands.append(["Dummy Point", x, y, z])
 
         return ret_commands
+
+
+    @staticmethod
+    def getOutputsInFisnarCommands(commands):
+        # return a list of bools representing the outputs in a given list of
+        # fisnar commands
+
+        outputs = [False, False, False, False]
+        for command in commands:
+            if command[0] == "Output":
+                outputs[int(command[1]) - 1] = True
+        return outputs
 
 
     @staticmethod
