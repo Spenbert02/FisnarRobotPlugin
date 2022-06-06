@@ -18,6 +18,16 @@ class SerialUploader:
     MAX_COMMANDS = 32767  # max number of commands that can be sent
 
 
+    # map correlating commands to their command bytes
+    COMMAND_BYTES = {
+        "Dummy Point" : bytes.fromhex("00 00 00 1f"),
+        "Line Speed" : bytes.fromhex("00 00 00 01"),
+        "End Program" : bytes.fromhex("00 00 00 0b"),
+        "Output" : bytes.fromhex("d7 a3 42 42"),
+        "Empty" : bytes.fromhex("00 00 00 13")
+    }
+
+
     def __init__(self):
         self.fisnar_commands = None  # fisnar commands that can be externally set
         self.information = None  # error information that can be retrieved externally
@@ -131,6 +141,7 @@ class SerialUploader:
             else:  # timeout, f0 confirmation not recieved
                 self.setInformation("unsuccessful command upload initialization")
                 return False
+
         elif command is SerialUploader.END_COMMANDS:  # send finalization commands
             self.writeBytes(bytes.fromhex("f1 f1"))
             confirmation = self.readUntil(bytes.fromhex("f1"))
@@ -139,6 +150,7 @@ class SerialUploader:
             else:  # no confirmation recieved
                 self.setInformation("unsuccessful command upload finalization")
                 return False
+
         elif command is None:  # send empty command
             # getting command number in byte form
             command_num_bytes = command_num.to_bytes(2, byteorder="little")
@@ -156,6 +168,7 @@ class SerialUploader:
             else:
                 self.setInformation("'Empty' command failed to send.")
                 return False
+
         else:  # actual Fisnar command to send
             # getting command bytes from getCommandBytes function and error checking
             command_bytes = SerialUploader.getCommandBytes(command, command_num)
@@ -189,30 +202,29 @@ class SerialUploader:
             self.setInformation("out of range command number (" + str(command_num) + " > " + str(SerialUploader.MAX_COMMANDS) + str(")"))
             return False
 
-        # forking decision-making by fisnar command here until checksum
+        # determining parameter representation based on the command type
         if command[0] == "Dummy Point":
             for i in range(1, 4):  # appending parameters 1, 2, and 3
                 ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
 
-            ret_bytes += bytes.fromhex("00 00 00 1f")
-
         elif command[0] == "Line Speed":
             ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[1]))))
             ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00")  # params 2 and 3
-            ret_bytes += bytes.fromhex("00 00 00 01")  # command bytes
 
         elif command[0] == "Output":
             for i in range(1, 3):
                 ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
-            ret_bytes += bytes.fromhex("00 00 00 00")  # param 3
-            ret_bytes += bytes.fromhex("d7 a3 42 42")  # command bytes
+            ret_bytes += bytes.fromhex("d7 a3 42 42")  # param 3
 
         elif command[0] == "End Program":
             ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")  # all param bytes are x00
-            ret_bytes += bytes.fromhex("00 00 00 0b")  # command byte
 
         else:  # error, not one of the above acceptable commands
-            pass
+            self.setInformation("unrecognized command type passed: " + str(command[0]))
+            return False
+
+        # adding the command bytes
+        ret_bytes += SerialUploader.COMMAND_BYTES[command[0]]
 
         # adding checksum and final x00 byte
         ret_bytes += SerialUploader.getCheckSum(ret_bytes[1:])
