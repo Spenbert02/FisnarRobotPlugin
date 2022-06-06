@@ -1,4 +1,4 @@
-<in progress>
+_in progress_
 
 # Controlling the Fisnar from python via the RS 232 port
 The Fisnar can be controlled from within python via the RS232 port. Fisnar
