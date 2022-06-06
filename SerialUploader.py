@@ -1,5 +1,5 @@
 import serial
-from UM.Logger import Logger
+# from UM.Logger import Logger
 
 
 class SerialUploader:
@@ -23,8 +23,11 @@ class SerialUploader:
         "Dummy Point" : bytes.fromhex("00 00 00 1f"),
         "Line Speed" : bytes.fromhex("00 00 00 01"),
         "End Program" : bytes.fromhex("00 00 00 0b"),
-        "Output" : bytes.fromhex("d7 a3 42 42"),
-        "Empty" : bytes.fromhex("00 00 00 13")
+        "Output" : bytes.fromhex("00 00 00 06"),
+        "Empty" : bytes.fromhex("00 00 00 13"),
+        "Line Start" : bytes.fromhex("00 00 00 04"),
+        "Line Passing" : bytes.fromhex("00 00 00 02"),
+        "Line End" : bytes.fromhex("00 00 00 0c")
     }
 
 
@@ -101,7 +104,7 @@ class SerialUploader:
 
         # ensuring that "End Program" is the last command
         if self.fisnar_commands[-1][0] != "End Program":
-            Logger.log("d", "'End Program' was not the last fisnar command")
+            # Logger.log("d", "'End Program' was not the last fisnar command")
             self.fisnar_commands.append(["End Program"])
 
         # sending initialization command
@@ -112,9 +115,18 @@ class SerialUploader:
         # sending actual commands
         for i in range(len(self.fisnar_commands)):
             command_num = i + 1
+            print(command_num)  # test
             curr_comm_confirm = self.sendCommand(self.fisnar_commands[i], command_num)
             if not curr_comm_confirm:
                 return False  # error information will already be set in sendCommand()
+
+        # sending empties
+        for i in range(len(self.fisnar_commands), SerialUploader.MAX_COMMANDS + 1):
+            command_num = i + 1
+            print(command_num)  # test
+            curr_confirm = self.sendCommand(None, command_num)
+            if not curr_confirm:
+                return False
 
         # sending finalization command
         final_confirm = self.sendCommand(SerialUploader.END_COMMANDS, None)
@@ -208,20 +220,20 @@ class SerialUploader:
             return False
 
         # determining parameter representation based on the command type
-        if command[0] == "Dummy Point":
+        if command[0] in ("Dummy Point", "Line Start", "Line Passing", "Line End"):  # 3 parameter commands
             for i in range(1, 4):  # appending parameters 1, 2, and 3
                 ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
 
-        elif command[0] == "Line Speed":
+        elif command[0] == "Output":  # 2 parameters
+            for i in range(1, 3):
+                ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
+            ret_bytes += bytes.fromhex("00 00 00 00")  # param 3
+
+        elif command[0] == "Line Speed":  # 1 parameter commands
             ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[1]))))
             ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00")  # params 2 and 3
 
-        elif command[0] == "Output":
-            for i in range(1, 3):
-                ret_bytes += SerialUploader.flipByteArray(SerialUploader.getByteArrayFromBitstring(SerialUploader.getSinglePrecisionBits(float(command[i]))))
-            ret_bytes += bytes.fromhex("d7 a3 42 42")  # param 3
-
-        elif command[0] == "End Program":
+        elif command[0] == "End Program":  # 0 parameter commands
             ret_bytes += bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")  # all param bytes are x00
 
         else:  # error, not one of the above acceptable commands
@@ -345,26 +357,12 @@ if __name__ == "__main__":
 
     # testing out sending commands
     sample_commands = [
-    ["Dummy Point", 10, 10, 1]
+    ["Line Start", 10, 10, 10],
+    ["Line Passing", 20, 10, 10],
+    ["Line End", 30, 10, 10]
     ]
 
-    test_uploader = SerialUploader()
-
-    init_confirm = test_uploader.sendCommand(SerialUploader.START_COMMANDS, None)
-    print("f0 successfully sent: ", init_confirm)
-
-    for i in range(32000, 32768):
-        if i == 1:
-            curr_confirm = test_uploader.sendCommand(["Dummy Point", 0, 0, 0], i)
-        elif i == 32767:
-            curr_confirm = test_uploader.sendCommand(["End Program"], i)
-        elif i == 32766:
-            curr_confirm = test_uploader.sendCommand(["Dummy Point", 30, 30, 30], i)
-        else:
-            curr_confirm = test_uploader.sendCommand(["Line Speed", i % 10], i)
-
-
-        print("commmand", i, ":", curr_confirm)
-
-    final_confirm = test_uploader.sendCommand(SerialUploader.END_COMMANDS, None)
-    print("f1 successfully sent: ", final_confirm)
+    su = SerialUploader()
+    su.setCommands(sample_commands)
+    su.uploadCommands()
+    print(su.getInformation())
