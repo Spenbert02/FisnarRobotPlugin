@@ -19,6 +19,7 @@ from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
 from .SerialUploader import SerialUploader
+from .Converter import Converter
 
 # needed for all 'manual' imports
 import importlib
@@ -86,6 +87,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
         self.most_recent_fisnar_commands = None  # for passing to serial uploader object
         self.serial_uploader = SerialUploader()
+        self.conversion_mode = Converter.IO_CARD  # for FisnarCSVWriter to grab to convert
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -154,6 +156,17 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def logMessage(self):
         # logging message when one of the windows is opened
         Logger.log("i", "Fisnar parameter or output entry window opened")
+
+
+    @pyqtSlot(bool)
+    def setOutputMode(self, uses_io_card):
+        # called by qml when checkbox status changes to change the conversion mode
+        # which whill eventually be grabbed by FisnarCSVWriter for conversion
+        Logger.log("i", str(uses_io_card) + ", " + str(type(uses_io_card)))
+        if uses_io_card:
+            self.conversion_mode = Converter.IO_CARD
+        else:
+            self.conversion_mode = Converter.NO_IO_CARD
 
 
     @pyqtProperty(str)
@@ -229,8 +242,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
     @pyqtSlot(str, str)
     def setExtruderOutput(self, attribute, output_val):
         # slot for qml to set the output associated with one of the extruders
-        setattr(self, attribute, int(output_val))
-        # Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(output_val))  # test
+        if str(output_val) == "None":  # None value set
+            setattr(self, attribute, None)
+        else:  # actual output value
+            setattr(self, attribute, int(output_val))
+        Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(getattr(self, attribute)) + "(" + str(type(getattr(self, attribute))) + ")")  # test
 
 
     @pyqtProperty(str)

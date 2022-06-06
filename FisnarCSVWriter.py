@@ -25,6 +25,9 @@ class FisnarCSVWriter(MeshWriter):
         #  getting extension instance
         ext = FisnarCSVParameterExtension.getInstance()
 
+        # updating conversion mode
+        self.converter.conversion_mode = ext.conversion_mode
+
         # updating fisnar coords
         self.converter.setPrintSurface(ext.fisnar_x_min,
                                        ext.fisnar_x_max,
@@ -80,23 +83,3 @@ class FisnarCSVWriter(MeshWriter):
         else:  # gcode list not found, log error
             self.setInformation(catalog.i18nc("@warning:status", "Gcode must be prepared before exporting Fisnar CSV"))
             return False  # error
-
-
-    def getFisnarCommands(self, gcode_str):
-        # either returns a 2d list of fisnar commands or False if an error was caught
-        # this is the function where error checking goes down
-
-        extruders = getExtrudersInGcode(gcode_str)
-        # Logger.log("i", "extruders in gcode: " + str(extruders))  # test
-
-        for i in range(len(extruders)):  # validating extruders
-            # Logger.log("i", "" + str(getattr(self, "extruder_" + str(i + 1) + "_output")))  # test
-            if extruders[i]:  # T'i' appears in gcode, need to have ouput for the 'i + 1'th extruder
-                extruder_attr = getattr(self, "extruder_" + str(i + 1) + "_output")
-                if extruder_attr is None:
-                    self.setInformation(catalog.i18nc("@error:not supported", "Output for extruder " + str(i + 1) + " must be entered."))
-                    Logger.log("e", "***** Output for extruder " + str(i + 1) + " must be entered")
-                    return False
-
-        return convert(gcode_str, [self.extruder_1_output, self.extruder_2_output, self.extruder_3_output, self.extruder_4_output],
-                       [self.fisnar_x_min, self.fisnar_x_max, self.fisnar_y_min, self.fisnar_y_max, self.fisnar_z_max])

@@ -9,41 +9,45 @@ UM.Dialog //Creates a modal window that pops up above the interface.
 
     property int numExtruders: main.getNumExtruders
 
-
     width: 250 * screenScaleFactor
     minimumWidth: 250 * screenScaleFactor
 
     // one extruder
-    height: getHeightFactor() * screenScaleFactor
-    minimumHeight: getHeightFactor() * screenScaleFactor
+    height: 100 + getAdditionalHeightFactor()
+    minimumHeight: 100 + getAdditionalHeightFactor()
 
-    function getHeightFactor() {
-      if (numExtruders == 1) {  // one extruder
-        return 60;
-      } else if (numExtruders == 2) {  // two extruders
-        return 90;
-      } else if (numExtruders == 3) {  // three extruders
-        return 120;
-      } else {  // four or more extruders
-        return 150;
-      }
+    function getAdditionalHeightFactor() {  // function to get additional height factor
+      return numExtruders * 50
     }
 
     onAfterAnimating: {
-      numExtruders = main.getNumExtruders;
+      numExtruders = main.getNumExtruders
     }
 
-    Label //Creates a bit of text.
+    Grid
     {
-        id: introLabel
-        //This aligns the text to the top-left corner of the dialogue window.
-        anchors.top: base.top //Reference the dialogue window by its ID: "base".
-        anchors.topMargin: 10 * screenScaleFactor
-        anchors.left: base.left
-        anchors.leftMargin: 10 * screenScaleFactor
+      id: checkboxTextGrid
+      columns: 2
+      spacing: 5 * screenScaleFactor
+      anchors.top: base.top
+      anchors.topMargin: 10 * screenScaleFactor
+      anchors.left: base.left
+      anchors.leftMargin: 10 * screenScaleFactor
 
-        text: "Extruder-Output Correlation:"
-        font.bold: true
+      CheckBox
+      {
+        id: ioCheckbox
+        text: "Convert for i/o card use"
+        checked: true
+        onClicked: {
+          main.setOutputMode(checked)  // updating status in FisnarCSVParameterExtension
+          // if (checked) {  // updating window height
+          //   base.height = 100 + getAdditionalHeightFactor()
+          // } else {
+          //   base.height = 100
+          // }
+        }
+      }
     }
 
     Grid
@@ -51,10 +55,11 @@ UM.Dialog //Creates a modal window that pops up above the interface.
       id: extruderOutputGrid
       columns: 1
       spacing: 5 * screenScaleFactor
+      enabled: ioCheckbox.checked
 
-      anchors.top: introLabel.bottom
+      anchors.top: checkboxTextGrid.bottom
       anchors.topMargin: 10 * screenScaleFactor
-      anchors.left: base.top
+      anchors.left: base.left
       anchors.leftMargin: 10 * screenScaleFactor
 
       Loader {  // extruder 1
@@ -78,5 +83,4 @@ UM.Dialog //Creates a modal window that pops up above the interface.
       }
 
     }
-
 }

@@ -4,31 +4,29 @@ import QtQuick.Controls 1.1
 import Cura 1.1 as Cura
 
 Grid {
-
+  id: baseGrid
   columns: 2
   spacing: 5 * screenScaleFactor
 
-
   Label
   {
-    text: "Extruder 2 Output:"
+    id: extLabel
+    text: "Extruder 2: Output"
     horizontalAlignment: Text.AlignRight
   }
 
-  TextField
-  {
-    id: extruder2Output  // probably for reference within python?
-    text: main.getExtruder2Output  // probably for reference somewhere, idk where
-
-    width: 100
-
-    validator: IntValidator {  // ensures entry is in the right format, idk exactly how this works
-      bottom: 1
-      top: 4
+  ComboBox {
+    editable: false
+    model: ListModel {
+      id: ext2List
+      ListElement {text: "None"}
+      ListElement {text: "1"}
+      ListElement {text: "2"}
+      ListElement {text: "3"}
+      ListElement {text: "4"}
     }
-
-    onEditingFinished: {  // called when return or enter is pressed or when text entry box loses focus
-      main.setExtruderOutput("extruder_2_output", extruder2Output.text)
+    onCurrentIndexChanged: {
+      main.setExtruderOutput("extruder_2_output", ext2List.get(currentIndex).text)
     }
   }
 }

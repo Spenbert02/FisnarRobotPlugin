@@ -15,7 +15,7 @@ class SerialUploader:
     # constants - properties of the fisnar's (potentially changeable) settings
     # and the physical setup of the system (namely port #'s)
     COM_PORT = "COM7"  # COM port to write commands to
-    MAX_COMMANDS = 32767  # max n
+    MAX_COMMANDS = 32767  # max number of commands that can be sent
 
 
     def __init__(self):
@@ -99,7 +99,7 @@ class SerialUploader:
             command_num = i + 1
             curr_comm_confirm = self.sendCommand(self.fisnar_commands[i], command_num)
             if not curr_comm_confirm:
-                return False
+                return False  # error information will already be set in sendCommand()
 
         # sending finalization command
         final_confirm = self.sendCommand(SerialUploader.END_COMMANDS, None)
@@ -118,7 +118,7 @@ class SerialUploader:
         # be START_COMMANDS to send f0 starting sequence, or it can be END_COMMANDS
         # to send f1 ending sequence
 
-        # #  UNCOMMENT this for deployment
+        # #  UNCOMMENT this for actual use
         # if self.serial_port is None:  # ensuring the port exists
         #     self.setInformation("serial port not initialized")
         #     return False
@@ -140,8 +140,7 @@ class SerialUploader:
                 self.setInformation("unsuccessful command upload finalization")
                 return False
         elif command is None:  # send empty command
-            # getting command number in byte form. command number must be under 65536
-            command_num = command_num % 65536  # just in case. should probably throw an error here. this works for now
+            # getting command number in byte form
             command_num_bytes = command_num.to_bytes(2, byteorder="little")
 
             # getting checksum byte for empty command (dependent only on command number, all other bytes are constant)
@@ -158,8 +157,11 @@ class SerialUploader:
                 self.setInformation("'Empty' command failed to send.")
                 return False
         else:  # actual Fisnar command to send
-            # getting command bytes from getCommandBytes function
+            # getting command bytes from getCommandBytes function and error checking
             command_bytes = SerialUploader.getCommandBytes(command, command_num)
+            if command_bytes is False:
+                return False  # error information will already be set in getCommandBytes()
+
             checksum_byte = command_bytes[-2].to_bytes(1, byteorder="big")
 
             # sending command bytes over and getting checksum confirmation
@@ -180,11 +182,12 @@ class SerialUploader:
 
         ret_bytes = bytes.fromhex("aa")  # current bytes to be generated
 
-        # accounting for command number
-        if command_num <= 65535:
+        # accounting for command number, this is the only time this function will throw an error
+        if command_num <= SerialUploader.MAX_COMMANDS:
             ret_bytes += command_num.to_bytes(2, byteorder="little")
         else:  # this is an error - undoable with the current command understanding
-            pass
+            self.setInformation("out of range command number (" + str(command_num) + " > " + str(SerialUploader.MAX_COMMANDS) + str(")"))
+            return False
 
         # forking decision-making by fisnar command here until checksum
         if command[0] == "Dummy Point":
