@@ -33,7 +33,7 @@ class SerialUploader:
         self.information = None  # error information that can be retrieved externally
 
         # creating serial port object - should be UNCOMMENTED for actual use
-        # self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
+        self.serial_port = serial.Serial(SerialUploader.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=10)
 
 
     def writeBytes(self, byte_array):
@@ -41,12 +41,13 @@ class SerialUploader:
         # debugging easier - during debugging, this function can just print bytes.
         # during deployment, this should actually upload to the COM port, obviously.
 
-        # self.serial_port.write(byte_array)  # actually upload
+        self.serial_port.write(byte_array)  # actually upload
 
         # # this is for debugging: only use this for really short test command sequences
         # Logger.log("d", "sent bytes: " + str(byte_array))
 
-        pass
+        # # this is for debugging to not log any commands
+        # pass
 
 
     def readUntil(self, byte):
@@ -54,9 +55,9 @@ class SerialUploader:
         # function, this just exists because it makes debugging easier. All this
         # does is call the Serial objects read_until() function.
 
-        # return(self.serial_port.read_until(byte))  # actually read
+        return(self.serial_port.read_until(byte))  # actually read
 
-        return(byte)  # for debugging
+        # return(byte)  # for debugging
 
 
     def getInformation(self):
@@ -133,9 +134,9 @@ class SerialUploader:
         # to send f1 ending sequence
 
         # #  UNCOMMENT this for actual use
-        # if self.serial_port is None:  # ensuring the port exists
-        #     self.setInformation("serial port not initialized")
-        #     return False
+        if self.serial_port is None:  # ensuring the port exists
+            self.setInformation("serial port not initialized")
+            return False
 
         if command is SerialUploader.START_COMMANDS:  # send initialization command
             self.writeBytes(bytes.fromhex("f0 f0"))

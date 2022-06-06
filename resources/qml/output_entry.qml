@@ -13,11 +13,11 @@ UM.Dialog //Creates a modal window that pops up above the interface.
     minimumWidth: 250 * screenScaleFactor
 
     // one extruder
-    height: 100 + getAdditionalHeightFactor()
-    minimumHeight: 100 + getAdditionalHeightFactor()
+    height: (40 + getAdditionalHeightFactor()) * screenScaleFactor
+    minimumHeight: (40 + getAdditionalHeightFactor()) * screenScaleFactor
 
     function getAdditionalHeightFactor() {  // function to get additional height factor
-      return numExtruders * 50
+      return (numExtruders * 30 * screenScaleFactor)
     }
 
     onAfterAnimating: {
