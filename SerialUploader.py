@@ -43,8 +43,7 @@ class SerialUploader:
 
         # self.serial_port.write(byte_array)  # actually upload
 
-        # # this is for debugging: only use this for really short test command
-        # # lists
+        # # this is for debugging: only use this for really short test command sequences
         # Logger.log("d", "sent bytes: " + str(byte_array))
 
         pass
@@ -98,6 +97,11 @@ class SerialUploader:
         if self.fisnar_commands is None:
             self.setInformation("slicer output must be saved as CSV file before uploading")
             return False
+
+        # ensuring that "End Program" is the last command
+        if self.fisnar_commands[-1][0] != "End Program":
+            Logger.log("d", "'End Program' was not the last fisnar command")
+            self.fisnar_commands.append(["End Program"])
 
         # sending initialization command
         init_confirm = self.sendCommand(SerialUploader.START_COMMANDS, None)
