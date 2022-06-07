@@ -1,5 +1,6 @@
 import serial
-# from UM.Logger import Logger
+import time
+from UM.Logger import Logger
 
 
 class SerialUploader:
@@ -11,6 +12,7 @@ class SerialUploader:
     # enumeration representing starting (0xf0) and ending (0xf1) commands
     START_COMMANDS = 2  # starting command
     END_COMMANDS = 3  # ending command
+    COPY_COMMAND = 4
 
     # constants - properties of the fisnar's (potentially changeable) settings
     # and the physical setup of the system (namely port #'s)
@@ -58,9 +60,15 @@ class SerialUploader:
         # function, this just exists because it makes debugging easier. All this
         # does is call the Serial objects read_until() function.
 
-        return(self.serial_port.read_until(byte))  # actually read
+        return self.serial_port.read_until(byte)  # actually read
 
         # return(byte)  # for debugging
+
+
+    def readLine(self):
+        # read line from the serial port
+
+        return self.serial_port.readline()
 
 
     def getInformation(self):
@@ -115,18 +123,14 @@ class SerialUploader:
         # sending actual commands
         for i in range(len(self.fisnar_commands)):
             command_num = i + 1
-            print(command_num)  # test
             curr_comm_confirm = self.sendCommand(self.fisnar_commands[i], command_num)
             if not curr_comm_confirm:
                 return False  # error information will already be set in sendCommand()
 
         # sending empties
-        for i in range(len(self.fisnar_commands), SerialUploader.MAX_COMMANDS + 1):
-            command_num = i + 1
-            print(command_num)  # test
-            curr_confirm = self.sendCommand(None, command_num)
-            if not curr_confirm:
-                return False
+        self.sendCommand(None, len(self.fisnar_commands) + 1)
+        self.sendCommand(SerialUploader.COPY_COMMAND, len(self.fisnar_commands) + 2)
+        self.sendCommand(None, SerialUploader.MAX_COMMANDS)
 
         # sending finalization command
         final_confirm = self.sendCommand(SerialUploader.END_COMMANDS, None)
@@ -168,6 +172,24 @@ class SerialUploader:
                 self.setInformation("unsuccessful command upload finalization")
                 return False
 
+        elif command is SerialUploader.COPY_COMMAND:
+            # putting together byte array
+            command_bytes = bytes.fromhex("aa") + command_num.to_bytes(2, byteorder="little") + bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00")
+            command_bytes += (SerialUploader.MAX_COMMANDS - command_num).to_bytes(2, byteorder="little") + bytes.fromhex("00 64")
+            checksum_byte = SerialUploader.getCheckSum(command_bytes[1:])
+            command_bytes += checksum_byte + bytes.fromhex("00")
+
+            # writing to port
+            self.writeBytes(bytes.fromhex("e8"))
+            self.writeBytes(command_bytes)
+            confirmation = self.readUntil(checksum_byte)
+            if confirmation == checksum_byte:
+                return True
+            else:
+                self.setInformation("'Copy' command failed to send")
+                return False
+
+
         elif command is None:  # send empty command
             # getting command number in byte form
             command_num_bytes = command_num.to_bytes(2, byteorder="little")
@@ -178,6 +200,8 @@ class SerialUploader:
             # putting together into single byte array
             command_bytes = bytes.fromhex("aa") + command_num_bytes + bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 13") + checksum_byte + bytes.fromhex("00")
 
+            # writing to port
+            self.writeBytes(bytes.fromhex("e8"))
             self.writeBytes(command_bytes)
             confirmation = self.readUntil(checksum_byte)
             if confirmation == checksum_byte:
@@ -354,15 +378,25 @@ class SerialUploader:
 
 # testing station
 if __name__ == "__main__":
-
     # testing out sending commands
-    sample_commands = [
-    ["Line Start", 10, 10, 10],
-    ["Line Passing", 20, 10, 10],
-    ["Line End", 30, 10, 10]
-    ]
-
     su = SerialUploader()
-    su.setCommands(sample_commands)
-    su.uploadCommands()
-    print(su.getInformation())
+    sample_int = 5
+
+    # initialization
+    su.writeBytes(bytes.fromhex("f0 f0 f2"))
+    print(su.readLine())
+
+    time_1 = time.time()
+    time.sleep(2)  # test
+
+    # writing home command
+    su.writeBytes(bytes("HM\r", "ascii"))
+    print(su.readLine())
+
+    # waiting for 'ok!'
+    print(su.readUntil(bytes("ok!", "ascii")))
+
+    time_2 = time.time()
+    print(time_2 - time_1)
+
+    su.writeBytes(bytes.fromhex("df 00"))
