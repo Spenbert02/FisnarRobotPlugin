@@ -25,14 +25,6 @@ from .Converter import Converter
 import importlib
 plugin_folder_path = os.path.dirname(__file__)
 
-# importing pyperclip
-pyperclip_path = os.path.join(plugin_folder_path, "pyperclip", "src", "pyperclip", "__init__.py")
-spec_2 = importlib.util.spec_from_file_location("pyperclip", pyperclip_path)
-pyperclip_module = importlib.util.module_from_spec(spec_2)
-sys.modules["pyperclip"] = pyperclip_module
-spec_2.loader.exec_module(pyperclip_module)
-import pyperclip
-
 
 class FisnarCSVParameterExtension(QObject, Extension):
 
