@@ -21,10 +21,6 @@ from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 from .SerialUploader import SerialUploader
 from .Converter import Converter
 
-# needed for all 'manual' imports
-import importlib
-plugin_folder_path = os.path.dirname(__file__)
-
 
 class FisnarCSVParameterExtension(QObject, Extension):
 
