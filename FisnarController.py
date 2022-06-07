@@ -1,5 +1,7 @@
 import serial
-from .SerialUploader import SerialUploader
+
+from UM.Logger import Logger
+
 
 class FisnarController:
     # class to handle controlling the fisnar via the RS-232 port. Once an
@@ -34,9 +36,50 @@ class FisnarController:
             return str(self.information)
 
 
-    def setCommands(self, command_lst):
+    def writeBytes(self, byte_array):
+        # function to write bytes over the serial port. Exists as a separate
+        # function for debugging purposes
+
+        # actual use
+        self.serial_port.write(byte_array)
+
+        # # debugging small number of commands
+        # Logger.log("d", str(byte_array))
+
+        # # debugging, if too many commands to write
+        # pass
+
+
+    def readUntil(self, last_byte):
+        # function to read from the serial port until a certain byte is found
+
+        # actual use
+        return self.serial_port.readuntil(last_byte)
+
+        # # debugging
+        # return last_byte
+
+
+    def readLine(self):
+        # read line from the input buffer
+        return self.serial_port.readline()
+
+
+    def setCommands(self, command_list):
         # set the fisnar commands to be uploaded
-        self.fisnar_commands = command_lst
+        self.fisnar_commands = command_list
+
+
+    def runCommands(self):
+        # run the previously uploaded fisnar commands to the fisnar
+
+        # making sure fisnar commands exist
+        if self.fisnar_commands is None:
+            self.setInformation("slicer output must be saved as CSV before uploading to fisnar")
+            return False
+
+        for command in self.fisnar_commands:
+            pass
 
 
 if __name__ == "__main__":
