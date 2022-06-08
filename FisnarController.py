@@ -1,6 +1,6 @@
 import serial
-
-# from UM.Logger import Logger
+import time
+from UM.Logger import Logger
 
 
 class FisnarController:
@@ -21,14 +21,30 @@ class FisnarController:
         # error message
         self.information = None
 
-        # serial port object
-        self.serial_port = serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
+        # # serial port object - uncomment this for actual use
+        # self.serial_port = serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
 
         # fisnar commands
         self.fisnar_commands = None
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
+
+        # test for stuff
+        self.test_val = 0.0
+
+
+    def getCurrentProgress(self):
+        # test for progress update stuff
+        Logger.log("i", "current progress returned: " + str(self.test_val))
+        return self.test_val
+
+
+    def test(self):
+        # test for progress update stuff
+        for i in range(10000):
+            Logger.log("i", "looping: " + str(i))
+            self.test_val = i / 10000.0
 
 
     def setInformation(self, info):
@@ -45,6 +61,7 @@ class FisnarController:
 
 
     def getCurrentPosition(self):
+        # get the current position of the fisnar as it is running
         return self.current_position
 
 
@@ -52,40 +69,44 @@ class FisnarController:
         # function to write bytes over the serial port. Exists as a separate
         # function for debugging purposes
 
-        # actual use
-        self.serial_port.write(byte_array)
+        # # actual use
+        # self.serial_port.write(byte_array)
 
         # # debugging small number of commands
         # Logger.log("d", str(byte_array))
 
-        # # debugging, if too many commands to write
-        # pass
+        # debugging, if too many commands to write
+        pass
 
 
     def readUntil(self, last_byte):
         # function to read from the serial port until a certain byte is found
 
-        # actual use
-        result = self.serial_port.read_until(last_byte)
-        # print(result)  # debug
-        return result
+        # # actual use
+        # return self.serial_port.read_until(last_byte)
 
-        # # debugging
-        # return last_byte
+        # debugging
+        return last_byte
 
 
     def readLine(self):
         # read line from the input buffer
-        result = self.serial_port.readline()
-        # print(result)  # debug
-        return result
+
+        # # actual use
+        # return self.serial_port.readline()
+
+        # debug
+        pass
 
 
     def read(self, num_bytes):
         # read a given number of bytes from the input buffer
-        result = self.serial_port.read(num_bytes)
-        # print(result)  # debug
-        return result
+
+        # # actual use
+        # return self.serial_port.read(num_bytes)
+
+        # debug
+        pass
 
 
     def setCommands(self, command_list):

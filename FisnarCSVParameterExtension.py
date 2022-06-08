@@ -8,7 +8,7 @@ from typing import Optional, Union, List
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
 
-from PyQt5.QtCore import QObject, QUrl, pyqtSlot, pyqtProperty
+from PyQt5.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
 from PyQt5.QtQml import QQmlComponent, QQmlContext
 
 from UM.Application import Application
@@ -18,7 +18,7 @@ from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
-from .SerialUploader import SerialUploader
+from .FisnarController import FisnarController
 from .Converter import Converter
 
 
@@ -64,18 +64,23 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Print Surface Definition", self.showParameterEntryWindow)
         self.addMenuItem("Output Setup", self.showOutputEntryWindow)
-        self.addMenuItem("Upload Commands to Fisnar", self.showSerialUploadWindow)
+        self.addMenuItem("Upload Commands to Fisnar", self.showFisnarControlWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.parameter_entry_window = None
         self.output_entry_window = None
-        self.serial_upload_window = None
-        self.serial_upload_error_window = None
-        self.serial_upload_success_window = None
+        self.fisnar_control_window = None
+        self.fisnar_error_window = None
+        self.fisnar_progress_window = None
 
         self.most_recent_fisnar_commands = None  # for passing to serial uploader object
-        self.serial_uploader = SerialUploader()
+        self.fisnar_controller = FisnarController()
         self.conversion_mode = Converter.IO_CARD  # for FisnarCSVWriter to grab to convert
+
+        # timer stuff for fisnar uploading
+        self.upload_timer = QTimer()
+        self.upload_timer.setInterval(100)
+        self.progress = None
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -238,39 +243,31 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getSerialUploadWindowText(self):
-        # gateway for qml to get the text to show for the initial serial upload dialog
-        return "The most recent Fisnar CSV file you saved will be uploaded to the Fisnar. Press OK to continue, or Cancel to cancel."
+    def getFisnarControlText(self):
+        return "The most recently saved Fisnar CSV will be uploaded to the Fisnar. To go back, press 'Cancel'. To begin the uploading process, press 'Begin'. Once the process begins, a 'terminate' button will appear that can be used to kill the process."
 
 
     @pyqtProperty(str)
-    def getSerialErrorMsg(self):
-        # gateway for qml to get the error message from the SerialUploader object
-        return "Error occured while uploading: " + str(self.serial_uploader.getInformation())
+    def getFisnarControlProgressStr(self):
+        progress = self.fisnar_controller.getCurrentProgress()
+        return str(round(float(progress), 2)) + "%"
 
 
     @pyqtSlot()
-    def startSerialUpload(self):
-        # called by qml to start the serial uploading process, starts the upload
-        # process using the SerialUploader member object
-        Logger.log("i", "serial upload process started")
-
-        self.serial_uploader.setCommands(self.most_recent_fisnar_commands)  # setting commands
-        successful_conversion = self.serial_uploader.uploadCommands()  # uploading
-
-        if not successful_conversion:
-            self.showFailedSerialUploadWindow()
-        else:
-            self.showSuccessfulSerialUploadWindow()
-
-        self.serial_uploader.setInformation(None)  # clearing error info in case there is another upload
+    def cancelFisnarControl(self):
+        # called when the user presses cancel on the fisnar control initial window
+        Logger.log("i", "Fisnar control cancelled")
 
 
     @pyqtSlot()
-    def cancelSerialUpload(self):
-        # called by qml if the user presses the cancel button on the main
-        # serial upload screen. Doesn't do anything besides logging
-        Logger.log("i", "serial upload process cancelled")
+    def beginFisnarControl(self):
+        # called when the user presses begin on the fisnar control initial window
+        Logger.log("i", "Attempting to control Fisnar")
+        self.showFisnarProgressWindow()
+        self.upload_timer.start()
+        self.fisnar_controller.test()
+        self.upload_timer.stop()
+        Logger.log("i", "done timing")
 
 
     def showParameterEntryWindow(self):
@@ -287,28 +284,30 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.output_entry_window.show()
 
 
-    def showSerialUploadWindow(self):
-        Logger.log("i", "serial upload window called")  # test
-        if not self.serial_upload_window:
-            self.serial_upload_window = self._createDialogue("serial_upload_window.qml")
-        self.serial_upload_window.show()
+    def showFisnarControlWindow(self):
+        Logger.log("i", "Fisnar control window called")  # test
+        if not self.fisnar_control_window:
+            self.fisnar_control_window = self._createDialogue("fisnar_control_window.qml")
+        self.fisnar_control_window.show()
 
 
-    def showFailedSerialUploadWindow(self):
-        # pop up to show if the serial upload fails, with information about the
-        # error given by the SerialUploader object
-        # Logger.log("i", "failed serial upload window called")  # test
-        if not self.serial_upload_error_window:
-            self.serial_upload_error_window = self._createDialogue("serial_upload_error.qml")
-        self.serial_upload_error_window.show()
+    def showFisnarErrorWindow(self):
+        Logger.log("i", "Fisnar error msg window called")  # test
+        if not self.fisnar_error_window:
+            self.fisnar_error_window = self._createDialogue("fisnar_control_error.qml")
+        self.fisnar_error_window.show()
 
 
-    def showSuccessfulSerialUploadWindow(self):
-        # pop up to show if the serial upload is successful
-        # Logger.log("i", "successful serial upload window called")  # test
-        if not self.serial_upload_success_window:
-            self.serial_upload_success_window = self._createDialogue("serial_upload_success.qml")
-        self.serial_upload_success_window.show()
+    def showFisnarProgressWindow(self):
+        Logger.log("i", "Fisnar progress window called")  # test
+        if not self.fisnar_progress_window:
+            self.fisnar_progress_window = self._createDialogue("fisnar_control_prog.qml")
+
+        # connecting the timer to the progress window's update text function
+        self.upload_timer.timeout.connect(self.fisnar_progress_window.updateProgressText)
+
+        self.fisnar_progress_window.show()
+
 
 
     def _createDialogue(self, qml_file_name):
