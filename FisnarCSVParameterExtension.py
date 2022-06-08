@@ -2,6 +2,7 @@ import copy
 import numpy
 import os.path
 import sys
+import threading
 import time
 from typing import Optional, Union, List
 
@@ -77,10 +78,13 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.fisnar_controller = FisnarController()
         self.conversion_mode = Converter.IO_CARD  # for FisnarCSVWriter to grab to convert
 
-        # timer stuff for fisnar uploading
-        self.upload_timer = QTimer()
-        self.upload_timer.setInterval(100)
-        self.progress = None
+        # multi threading
+        self.upload_thread = None
+
+        # # timer stuff for fisnar uploading
+        # self.upload_timer = QTimer()
+        # self.upload_timer.setInterval(100)
+        # self.progress = None
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -159,7 +163,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
         if uses_io_card:
             self.conversion_mode = Converter.IO_CARD
         else:
-            self.conversion_mode = Converter.NO_IO_CARD
+            # self.conversion_mode = Converter.NO_IO_CARD
+            self.conversion_mode = Converter.IO_CARD  # for fisnar controller printing
 
 
     @pyqtProperty(str)
@@ -253,6 +258,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
         return str(round(float(progress), 2)) + "%"
 
 
+    @pyqtProperty(str)
+    def getFisnarControlErrorMsg(self):
+        return self.fisnar_controller.getInformation()
+
+
     @pyqtSlot()
     def cancelFisnarControl(self):
         # called when the user presses cancel on the fisnar control initial window
@@ -260,14 +270,40 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
 
     @pyqtSlot()
+    def terminateFisnarControl(self):
+        self.fisnar_controller.terminate_running = True
+
+
+    @pyqtSlot()
     def beginFisnarControl(self):
         # called when the user presses begin on the fisnar control initial window
         Logger.log("i", "Attempting to control Fisnar")
-        self.showFisnarProgressWindow()
-        self.upload_timer.start()
-        self.fisnar_controller.test()
-        self.upload_timer.stop()
-        Logger.log("i", "done timing")
+
+        self.showFisnarProgressWindow()  # showing progress window
+
+        # uploading
+        self.fisnar_controller.setCommands(self.most_recent_fisnar_commands)
+
+        # starting upload thread
+        self.upload_thread = threading.Thread(target=self.fisnar_controller.runCommands)
+        self.upload_thread.start()
+        while self.fisnar_controller.successful_print is None:
+            if self.fisnar_controller.terminate_running:
+                break
+            time.sleep(1)  # wait one second
+            Logger.log("i", "waiting...")
+
+        if not self.fisnar_controller.terminate_running:
+            if not self.fisnar_controller.successful_print:
+                self.fisnar_progress_window.close()  # closing progress window
+                self.showFisnarErrorWindow()  # showing the error window
+            else:
+                Logger.log("i", "successful print")
+        else:
+            Logger.log("i", "printing process terminated")
+
+        # resetting FisnarController to prep for next upload
+        self.fisnar_controller.resetInternalState()
 
 
     def showParameterEntryWindow(self):
@@ -303,11 +339,10 @@ class FisnarCSVParameterExtension(QObject, Extension):
         if not self.fisnar_progress_window:
             self.fisnar_progress_window = self._createDialogue("fisnar_control_prog.qml")
 
-        # connecting the timer to the progress window's update text function
-        self.upload_timer.timeout.connect(self.fisnar_progress_window.updateProgressText)
+        # # connecting the timer to the progress window's update text function
+        # self.upload_timer.timeout.connect(self.fisnar_progress_window.updateProgressText)
 
         self.fisnar_progress_window.show()
-
 
 
     def _createDialogue(self, qml_file_name):

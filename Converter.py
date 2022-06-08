@@ -166,7 +166,7 @@ class Converter:
             return False
 
         # default fisnar initial commands
-        fisnar_commands = [["Line Speed", 30], ["Z Clearance", 5], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
+        fisnar_commands = [["Line Speed", 30], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
 
         # finding first extruder used in gcode
         curr_extruder = 0
@@ -243,7 +243,7 @@ class Converter:
         Converter.invertCoords(fisnar_commands, self.fisnar_z_max)
 
         # this is effectively a homing command
-        fisnar_commands[2] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+        fisnar_commands[1] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
 
         # removing redundant output commands
         if self.conversion_mode == Converter.IO_CARD:

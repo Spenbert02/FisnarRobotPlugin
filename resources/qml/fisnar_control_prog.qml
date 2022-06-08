@@ -10,15 +10,26 @@ UM.Dialog
   width: 500 * screenScaleFactor
   minimumWidth: 500 * screenScaleFactor
   height: 150 * screenScaleFactor
-  minimumHeight: 100 * screenScaleFactor
+  minimumHeight: 150 * screenScaleFactor
 
   Label
   {
-    id: progressText
-    text: "0"
+    anchors.horizontalCenter: fisnarProgressDialog.horizontalCenter
+    text: "Uploading commands to Fisnar."
   }
 
-  function updateProgressText() {
-    progressText.text = main.getFisnarControlProgressStr;
+  onRejected: {
+    main.terminateFisnarControl();
   }
+
+  rightButtons: [
+    Button {
+      text: "Terminate"
+      onClicked:
+      {
+        fisnarProgressDialog.reject()
+        fisnarProgressDialog.hide()
+      }
+    }
+  ]
 }

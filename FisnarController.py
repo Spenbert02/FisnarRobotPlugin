@@ -1,5 +1,6 @@
 import serial
 import time
+import copy
 from UM.Logger import Logger
 
 
@@ -21,30 +22,24 @@ class FisnarController:
         # error message
         self.information = None
 
-        # # serial port object - uncomment this for actual use
-        # self.serial_port = serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
+        # serial port object - uncomment this for actual use
+        self.serial_port = serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
 
         # fisnar commands
         self.fisnar_commands = None
+        self.terminate_running = False
+        self.successful_print = None
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
 
-        # test for stuff
-        self.test_val = 0.0
 
-
-    def getCurrentProgress(self):
-        # test for progress update stuff
-        Logger.log("i", "current progress returned: " + str(self.test_val))
-        return self.test_val
-
-
-    def test(self):
-        # test for progress update stuff
-        for i in range(10000):
-            Logger.log("i", "looping: " + str(i))
-            self.test_val = i / 10000.0
+    def resetInternalState(self):
+        # function to be called after uploading a file
+        self.information = None
+        self.terminate_running = False
+        self.successful_print = None
+        self.current_position = [None, None, None]
 
 
     def setInformation(self, info):
@@ -69,44 +64,44 @@ class FisnarController:
         # function to write bytes over the serial port. Exists as a separate
         # function for debugging purposes
 
-        # # actual use
-        # self.serial_port.write(byte_array)
+        # actual use
+        self.serial_port.write(byte_array)
 
         # # debugging small number of commands
         # Logger.log("d", str(byte_array))
 
-        # debugging, if too many commands to write
-        pass
+        # # debugging, if too many commands to write
+        # pass
 
 
     def readUntil(self, last_byte):
         # function to read from the serial port until a certain byte is found
 
-        # # actual use
-        # return self.serial_port.read_until(last_byte)
+        # actual use
+        return self.serial_port.read_until(last_byte)
 
-        # debugging
-        return last_byte
+        # # debugging
+        # return last_byte
 
 
     def readLine(self):
         # read line from the input buffer
 
-        # # actual use
-        # return self.serial_port.readline()
+        # actual use
+        return self.serial_port.readline()
 
-        # debug
-        pass
+        # # debug
+        # pass
 
 
     def read(self, num_bytes):
         # read a given number of bytes from the input buffer
 
-        # # actual use
-        # return self.serial_port.read(num_bytes)
+        # actual use
+        return self.serial_port.read(num_bytes)
 
-        # debug
-        pass
+        # # debug
+        # pass
 
 
     def setCommands(self, command_list):
@@ -117,74 +112,121 @@ class FisnarController:
     def runCommands(self):
         # run the previously uploaded fisnar commands to the fisnar
 
+        def setSuccessfulPrint(tf):
+            # set whether the print was successful or not. If not, then a
+            # finalizer command should be sent
+            self.successful_print = tf
+            if not tf:
+                self.sendCommand(FisnarController.FINALIZER)
+
         # making sure fisnar commands exist
         if self.fisnar_commands is None:
             self.setInformation("slicer output must be saved as CSV before uploading to fisnar")
-            return False
+
+            # 'return False'
+            setSuccessfulPrint(False)
+            return
 
         # initializing
         confirmation = self.sendCommand(FisnarController.INITIALIZER)
         if not confirmation:
-            return False
+            # 'return False'
+            setSuccessfulPrint(False)
+            return
 
         # homing, to start
         confirmation = self.sendCommand(self.HM())
         if not confirmation:
-            return False
+            # 'return False'
+            setSuccessfulPrint(False)
+            return
 
         # iterating over commands
-        for command in self.fisnar_commands:
+        i = 0
+        while (i < len(self.fisnar_commands)) and (not self.terminate_running):
+            command = self.fisnar_commands[i]
             if command[0] == "Dummy Point":
                 x, y, z = [float(a) for a in command[1:]]  # getting command coordinates as floats
 
                 # movement command
                 confirmation = self.sendCommand(self.VA(x, y, z))
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
                 # waiting until machine moves to desired position
                 confirmation = self.sendCommand(self.ID())
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
                 # update current x, y, and z positions after moving
                 confirmation = self.sendCommand(self.PX())
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
                 confirmation = self.sendCommand(self.PY())
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
                 confirmation = self.sendCommand(self.PZ())
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
             elif command[0] == "Output":
                 confirmation = self.sendCommand(self.OU(int(command[1]), int(command[2])))
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
             elif command[0] == "Line Speed":
                 speed = float(command[1])  # getting speed parameter as float
 
                 confirmation = self.sendCommand(self.SP(speed))
                 if not confirmation:
-                    return False
+                    # 'return False'
+                    setSuccessfulPrint(False)
+                    return
 
-            elif command[0] == "End Program":  # I don't think anything has to be done with this
+            elif command[0] in ("End Program", "Z Clearance"):  # I don't think anything has to be done with this
                 pass
 
             else:
                 self.setInformation("Unrecognized command in fisnar command list: " + str(command[0]))
-                return False
+                # 'return False'
+                setSuccessfulPrint(False)
+                return
 
-        # homing again, after all commands are done
+            i += 1
+
+        if not self.terminate_running:  # loop wasn't terminated
+            # homing, to start
+            confirmation = self.sendCommand(self.HM())
+            if not confirmation:
+                # 'return False'
+                setSuccessfulPrint(False)
+                return
+
+        # sending finalizer regardless of whether loop was terminated
         confirmation = self.sendCommand(FisnarController.FINALIZER)
         if not confirmation:
-            return False
+            # 'return False'
+            setSuccessfulPrint(False)
+            return
 
-        return True  # if no errors have triggered so far, all good
+        if not self.terminate_running:  # loop wasn't terminated
+            # if no errors have triggered so far, all good
+            setSuccessfulPrint(True)
+            return  # will return anyway, so this isn't really necessary
 
 
     def sendCommand(self, command_bytes):
@@ -280,14 +322,53 @@ class FisnarController:
         return bytes("ID\r", "ascii")
 
 
+    @staticmethod
+    def readFisnarCommandsFromFile(file_abspath):
+        """
+        this will break down if the file doesn't exist. This is for development,
+        so just make sure the file exists. Returns a 2D array of fisnar commands in the expected format
+        """
+
+        # get the csv cells into a 2D array (again, no error checking)
+        csv_file = open(file_abspath, "r")
+        command_str = csv_file.read()
+        commands = [line.split(",") for line in command_str.split("\n")]
+
+        # converting all 2D array entries into proper types
+        i = 0
+        while i < len(commands):
+            if commands[i][0] == "Output":
+                for j in range(1, 3):
+                    commands[i][j] = int(commands[i][j])
+            elif commands[i][0] == "Dummy Point":
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            elif commands[i][0] == "Line Speed":
+                commands[i][1] = float(commands[i][1])
+            elif commands[i][0] == "Z Clearance":
+                commands[i][1] = int(commands[i][1])
+            elif commands[i][0][:11] == "End Program":
+                pass
+            elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            else:
+                commands.pop(i)
+                i -= 1
+                print("Unexpected command: " + str(commands[i][0]))  # for debugging
+            i += 1
+
+        # # TEST
+        # for command in commands:
+        #     print(str(command))
+
+        return copy.deepcopy(commands)
+
+
 if __name__ == "__main__":
+    filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
+    fisnar_commands = readFisnarCommandsFromFile(filepath)
+
     fc = FisnarController()
-    fc.setCommands([
-        ["Output", 4, 1],
-        ["Line Speed", 20],
-        ["Dummy Point", 50, 10, 10],
-        ["Line Speed", 30],
-        ["Dummy Point", 0, 0, 0],
-        ["Output", 4, 0]
-        ])
+    fc.setCommands(fisnar_commands)
     print(fc.runCommands(), fc.getInformation())
