@@ -14,8 +14,20 @@ UM.Dialog
 
   Label
   {
+    id: mainText
     anchors.horizontalCenter: fisnarProgressDialog.horizontalCenter
-    text: "Uploading commands to Fisnar."
+    text: "Uploading commands to Fisnar. Progress: "
+  }
+
+  Label
+  {
+    id: progressLabel
+    anchors.left: mainText.right
+    text: "0.00 %"
+  }
+
+  function updateProgress() {
+    progressLabel.text = main.getPrintingProgress()
   }
 
   onRejected: {

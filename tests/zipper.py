@@ -2,14 +2,19 @@
 from zipfile import ZipFile
 import os
 
-if __name__ == "__main__":
-    # spencer laptop paths
-    # content_folder_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\FisnarCSVWriter"
-    # zip_file_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\zipping_station\\FisnarCSVWriter.zip"
 
-    # lab computer paths
-    content_folder_path = "C:\\Users\\Lab\\github\\FisnarCSVWriter"
-    zip_file_path = "C:\\Users\\Lab\\github\\packaging_station\\FisnarCSVWriter.zip"
+PERSONAL_PC = True
+
+
+if __name__ == "__main__":
+    if PERSONAL_PC:
+        # spencer laptop paths
+        content_folder_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\FisnarCSVWriter"
+        zip_file_path = "C:\\Users\\spenb\\Downloads\\projects\\cura_plugins\\FisnarCSVWriter\\zipping_station\\FisnarCSVWriter.zip"
+    else:
+        # lab computer paths
+        content_folder_path = "C:\\Users\\Lab\\github\\FisnarCSVWriter"
+        zip_file_path = "C:\\Users\\Lab\\github\\packaging_station\\FisnarCSVWriter.zip"
 
     with ZipFile(zip_file_path, "w") as zip_obj:
         for top_folder, sub_folders, files in os.walk(content_folder_path):

@@ -32,6 +32,7 @@ class Converter:
         self.extruder_3_output = None
         self.extruder_4_output = None
 
+        # only the io_card mode is used. NO_IO_CARD feature is deprecated
         self.conversion_mode = Converter.IO_CARD  # default to using io card
 
         self.information = None  # for error reporting
@@ -166,7 +167,15 @@ class Converter:
             return False
 
         # default fisnar initial commands
-        fisnar_commands = [["Line Speed", 30], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
+        fisnar_commands = None
+        if self.conversion_mode == Converter.IO_CARD:
+            fisnar_commands = [["Line Speed", 30], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
+        elif self.conversion_mode == Converter.NO_IO_CARD:
+            fisnar_commands = [["Line Speed", 20], ["Z Clearance", 5], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
+        else:
+            self.setInformation("internal error: no conversion mode set for Converter (Converter.convertCommands)")
+            return False
+
 
         # finding first extruder used in gcode
         curr_extruder = 0
@@ -227,8 +236,7 @@ class Converter:
                     fisnar_commands.append(["Line End", curr_pos[0], curr_pos[1], curr_pos[2]])
 
             else:
-                self.setInformation("internal error: no conversion mode set for Converter (Converter.convertCommands)")
-                return False
+                pass  # error checking for conversion happens before in this function
 
         # turning off necessary outputs
         if self.conversion_mode == Converter.IO_CARD:
@@ -243,7 +251,12 @@ class Converter:
         Converter.invertCoords(fisnar_commands, self.fisnar_z_max)
 
         # this is effectively a homing command
-        fisnar_commands[1] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+        if self.conversion_mode == Converter.IO_CARD:
+            fisnar_commands[1] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+        elif self.conversion_mode == Converter.NO_IO_CARD:
+            fisnar_commands[2] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+        else:
+            pass  # conversion mode error checking happens before in this function
 
         # removing redundant output commands
         if self.conversion_mode == Converter.IO_CARD:

@@ -74,17 +74,15 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.fisnar_error_window = None
         self.fisnar_progress_window = None
 
-        self.most_recent_fisnar_commands = None  # for passing to serial uploader object
+        # for passing to serial uploader object
+        self.most_recent_fisnar_commands = None
+
+        # initializing FisnarController
         self.fisnar_controller = FisnarController()
-        self.conversion_mode = Converter.IO_CARD  # for FisnarCSVWriter to grab to convert
 
-        # multi threading
-        self.upload_thread = None
-
-        # # timer stuff for fisnar uploading
-        # self.upload_timer = QTimer()
-        # self.upload_timer.setInterval(100)
-        # self.progress = None
+        # timer for updating progress
+        self.progress_update_timer = QTimer()
+        self.progress_update_timer.setInterval(500)
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -153,18 +151,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def logMessage(self):
         # logging message when one of the windows is opened
         Logger.log("i", "Fisnar parameter or output entry window opened")
-
-
-    @pyqtSlot(bool)
-    def setOutputMode(self, uses_io_card):
-        # called by qml when checkbox status changes to change the conversion mode
-        # which whill eventually be grabbed by FisnarCSVWriter for conversion
-        Logger.log("i", str(uses_io_card) + ", " + str(type(uses_io_card)))
-        if uses_io_card:
-            self.conversion_mode = Converter.IO_CARD
-        else:
-            # self.conversion_mode = Converter.NO_IO_CARD
-            self.conversion_mode = Converter.IO_CARD  # for fisnar controller printing
 
 
     @pyqtProperty(str)
@@ -253,14 +239,15 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getFisnarControlProgressStr(self):
-        progress = self.fisnar_controller.getCurrentProgress()
-        return str(round(float(progress), 2)) + "%"
+    def getPrintingProgress(self):
+        Logger.log("i", "getPrintingProgress() called")
+        progress = self.fisnar_controller.printing_progress
+        return str(round(float(progress) * 100, 2)) + "%"
 
 
     @pyqtProperty(str)
     def getFisnarControlErrorMsg(self):
-        return self.fisnar_controller.getInformation()
+        return "Error occured while uploading commands: " + self.fisnar_controller.getInformation()
 
 
     @pyqtSlot()
@@ -271,6 +258,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtSlot()
     def terminateFisnarControl(self):
+        # called by qml when 'terminate' button is pressed during fisnar printing
         self.fisnar_controller.terminate_running = True
 
 
@@ -279,30 +267,35 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # called when the user presses begin on the fisnar control initial window
         Logger.log("i", "Attempting to control Fisnar")
 
-        self.showFisnarProgressWindow()  # showing progress window
+        # showing progress window and starting update timer
+        self.showFisnarProgressWindow()
+        self.progress_update_timer.start()
 
-        # uploading
+        # setting commands
         self.fisnar_controller.setCommands(self.most_recent_fisnar_commands)
 
         # starting upload thread
-        self.upload_thread = threading.Thread(target=self.fisnar_controller.runCommands)
-        self.upload_thread.start()
-        while self.fisnar_controller.successful_print is None:
-            if self.fisnar_controller.terminate_running:
+        upload_thread = threading.Thread(target=self.fisnar_controller.runCommands)
+        upload_thread.start()
+
+        # 'stall' loop while fisnar is being controlled
+        while self.fisnar_controller.successful_print is None:  # while not done uploading and no error
+            if self.fisnar_controller.terminate_running:  # if terminate button has been pressed, break
                 break
-            time.sleep(1)  # wait one second
+            time.sleep(.1)  # wait one second on the main (this) thread
             Logger.log("i", "waiting...")
 
-        if not self.fisnar_controller.terminate_running:
-            if not self.fisnar_controller.successful_print:
+        if not self.fisnar_controller.terminate_running:  # terminate button hasn't been pressed
+            if not self.fisnar_controller.successful_print:  # failed print
                 self.fisnar_progress_window.close()  # closing progress window
                 self.showFisnarErrorWindow()  # showing the error window
-            else:
+            else:  # successful print
                 Logger.log("i", "successful print")
         else:
             Logger.log("i", "printing process terminated")
 
-        # resetting FisnarController to prep for next upload
+        # stopping timer and resetting fisnar controller internal state
+        self.progress_update_timer.stop()
         self.fisnar_controller.resetInternalState()
 
 
@@ -336,13 +329,14 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     def showFisnarProgressWindow(self):
         Logger.log("i", "Fisnar progress window called")  # test
+
+        # displaying window
         if not self.fisnar_progress_window:
             self.fisnar_progress_window = self._createDialogue("fisnar_control_prog.qml")
-
-        # # connecting the timer to the progress window's update text function
-        # self.upload_timer.timeout.connect(self.fisnar_progress_window.updateProgressText)
-
         self.fisnar_progress_window.show()
+
+        # connecting progress update timer
+        self.progress_update_timer.timeout.connect(self.fisnar_progress_window.updateProgress)
 
 
     def _createDialogue(self, qml_file_name):

@@ -1,7 +1,6 @@
 import serial
 import time
 import copy
-from UM.Logger import Logger
 
 
 class FisnarController:
@@ -9,29 +8,58 @@ class FisnarController:
     # object is given commands, it can upload them to the Fisnar
 
 
-    # static member variables
+    # 'setting' variables
     COM_PORT = "COM7"
-    FEEDBACK_COMMANDS = (bytes("PX\r", "ascii"), bytes("PY\r", "ascii"), bytes("PZ\r", "ascii"))
 
+    # byte constants
+    FEEDBACK_COMMANDS = (bytes("PX\r", "ascii"), bytes("PY\r", "ascii"), bytes("PZ\r", "ascii"))
     INITIALIZER = bytes.fromhex("f0 f0 f2")
     FINALIZER = bytes.fromhex("df 00")
     OK = bytes("ok!", "ascii")
+
+    # to turn on or off debugging mode
+    DEBUG_MODE = False
+
+    # for error reporting
+    SERIAL_ERR_MSG = "Failed to connect to Fisnar serial port. Reconnection will be attempted when commands are next uploaded. Ensure the Fisnar is on and connected to the proper COM port, and ensure no other apps are using the COM port."
 
 
     def __init__(self):
         # error message
         self.information = None
 
-        # serial port object - uncomment this for actual use
-        self.serial_port = serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
+        # trying to initialize serial port
+        self.serial_port = None
+        if not FisnarController.DEBUG_MODE:
+            self.serial_port = self.initializeSerialPort()  # try to get serial port object
+            if self.serial_port is None:
+                self.setInformation("Couldn't open serial port: " + str(FisnarController.COM_PORT))
 
         # fisnar commands
         self.fisnar_commands = None
+
+        # for real-time uploading - used to terminate mid-print and report whether print was successful
         self.terminate_running = False
         self.successful_print = None
+        self.print_progress = None
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
+
+
+    def initializeSerialPort(self):
+        # get the serial port object. If it can't be initialized, will return None
+        try:
+            return serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
+        except:
+            if not FisnarController.DEBUG_MODE:
+                Logger.log("w", "failed to initialize FisnarController serial port")
+            return None
+
+
+    def initialized(self):
+        # check if the serial port has been successfully opened
+        return self.serial_port is not None
 
 
     def resetInternalState(self):
@@ -64,44 +92,38 @@ class FisnarController:
         # function to write bytes over the serial port. Exists as a separate
         # function for debugging purposes
 
-        # actual use
-        self.serial_port.write(byte_array)
-
-        # # debugging small number of commands
-        # Logger.log("d", str(byte_array))
-
-        # # debugging, if too many commands to write
-        # pass
+        if FisnarController.DEBUG_MODE:
+            # Logger.log("d", str(byte_array))  # can be used for small prints
+            pass
+        else:
+            self.serial_port.write(byte_array)
 
 
     def readUntil(self, last_byte):
         # function to read from the serial port until a certain byte is found
 
-        # actual use
-        return self.serial_port.read_until(last_byte)
-
-        # # debugging
-        # return last_byte
+        if FisnarController.DEBUG_MODE:
+            pass
+        else:
+            return self.serial_port.read_until(last_byte)
 
 
     def readLine(self):
         # read line from the input buffer
 
-        # actual use
-        return self.serial_port.readline()
-
-        # # debug
-        # pass
+        if FisnarController.DEBUG_MODE:
+            pass
+        else:
+            return self.serial_port.readline()
 
 
     def read(self, num_bytes):
         # read a given number of bytes from the input buffer
 
-        # actual use
-        return self.serial_port.read(num_bytes)
-
-        # # debug
-        # pass
+        if FisnarContrller.DEBUG_MODE:
+            pass
+        else:
+            return self.serial_port.read(num_bytes)
 
 
     def setCommands(self, command_list):
@@ -118,6 +140,19 @@ class FisnarController:
             self.successful_print = tf
             if not tf:
                 self.sendCommand(FisnarController.FINALIZER)
+
+        # beginning progress tracking
+        self.print_progress = 0
+
+        # ensuring serial port is/can be opened
+        if self.serial_port is None:
+            self.serial_port = self.initializeSerialPort()
+            if self.serial_port is None:  # still couldn't open
+                self.setInformation(FisnarController.SERIAL_ERR_MSG)
+
+                # return False, effectively
+                setSuccessfulPrint(False)
+                return
 
         # making sure fisnar commands exist
         if self.fisnar_commands is None:
@@ -145,6 +180,8 @@ class FisnarController:
         i = 0
         while (i < len(self.fisnar_commands)) and (not self.terminate_running):
             command = self.fisnar_commands[i]
+            self.print_progress = i / len(self.fisnar_commands)  # updating progress
+
             if command[0] == "Dummy Point":
                 x, y, z = [float(a) for a in command[1:]]  # getting command coordinates as floats
 
@@ -157,25 +194,6 @@ class FisnarController:
 
                 # waiting until machine moves to desired position
                 confirmation = self.sendCommand(self.ID())
-                if not confirmation:
-                    # 'return False'
-                    setSuccessfulPrint(False)
-                    return
-
-                # update current x, y, and z positions after moving
-                confirmation = self.sendCommand(self.PX())
-                if not confirmation:
-                    # 'return False'
-                    setSuccessfulPrint(False)
-                    return
-
-                confirmation = self.sendCommand(self.PY())
-                if not confirmation:
-                    # 'return False'
-                    setSuccessfulPrint(False)
-                    return
-
-                confirmation = self.sendCommand(self.PZ())
                 if not confirmation:
                     # 'return False'
                     setSuccessfulPrint(False)
@@ -358,10 +376,6 @@ class FisnarController:
                 print("Unexpected command: " + str(commands[i][0]))  # for debugging
             i += 1
 
-        # # TEST
-        # for command in commands:
-        #     print(str(command))
-
         return copy.deepcopy(commands)
 
 
@@ -372,3 +386,7 @@ if __name__ == "__main__":
     fc = FisnarController()
     fc.setCommands(fisnar_commands)
     print(fc.runCommands(), fc.getInformation())
+
+
+if not FisnarController.DEBUG_MODE:  # importing UM if not in debug mode
+    from UM.Logger import Logger

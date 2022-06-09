@@ -25,9 +25,6 @@ class FisnarCSVWriter(MeshWriter):
         #  getting extension instance
         ext = FisnarCSVParameterExtension.getInstance()
 
-        # updating conversion mode
-        self.converter.conversion_mode = ext.conversion_mode
-
         # updating fisnar coords
         self.converter.setPrintSurface(ext.fisnar_x_min,
                                        ext.fisnar_x_max,

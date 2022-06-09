@@ -33,21 +33,6 @@ UM.Dialog //Creates a modal window that pops up above the interface.
       anchors.topMargin: 10 * screenScaleFactor
       anchors.left: base.left
       anchors.leftMargin: 10 * screenScaleFactor
-
-      CheckBox
-      {
-        id: ioCheckbox
-        text: "Convert for i/o card use"
-        checked: true
-        onClicked: {
-          main.setOutputMode(checked)  // updating status in FisnarCSVParameterExtension
-          // if (checked) {  // updating window height
-          //   base.height = 100 + getAdditionalHeightFactor()
-          // } else {
-          //   base.height = 100
-          // }
-        }
-      }
     }
 
     Grid
@@ -55,7 +40,6 @@ UM.Dialog //Creates a modal window that pops up above the interface.
       id: extruderOutputGrid
       columns: 1
       spacing: 5 * screenScaleFactor
-      enabled: ioCheckbox.checked
 
       anchors.top: checkboxTextGrid.bottom
       anchors.topMargin: 10 * screenScaleFactor
