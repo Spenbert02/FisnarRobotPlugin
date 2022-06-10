@@ -42,9 +42,9 @@ class FisnarController:
         # for real-time uploading - used to terminate mid-print and report whether print was successful
         self.terminate_running = False
         self.successful_print = None
-
-        # printing progress and requisite lock to prevent race condition
         self.print_progress = None
+
+        # lock for protecting agains race conditions
         self.lock = threading.Lock()
 
         # current position (automatically updated by Px, PY, and PZ commands)
@@ -71,6 +71,7 @@ class FisnarController:
         self.information = None
         self.terminate_running = False
         self.successful_print = None
+        self.setPrintProgress(None)
         self.current_position = [None, None, None]
 
 
@@ -94,12 +95,9 @@ class FisnarController:
         self.lock.release()
 
 
-    def getPrintingProgress(self, val):
+    def getPrintingProgress(self):
         # get the printing progress
-        self.lock.acquire()
-        ret_val = self.print_progress
-        self.lock.release()
-        return ret_val
+        return self.print_progress
 
 
     def getCurrentPosition(self):
@@ -161,10 +159,7 @@ class FisnarController:
                 self.sendCommand(FisnarController.FINALIZER)
 
         # beginning progress tracking
-        self.print_progress = 0
-        time.sleep(2)
-        self.print_progress = .54321
-        time.sleep(2)
+        self.setPrintProgress(0)
 
         # ensuring serial port is/can be opened
         if self.serial_port is None:
@@ -202,7 +197,7 @@ class FisnarController:
         i = 0
         while (i < len(self.fisnar_commands)) and (not self.terminate_running):
             command = self.fisnar_commands[i]
-            self.print_progress = i / len(self.fisnar_commands)  # updating progress
+            self.setPrintProgress(i / len(self.fisnar_commands))  # updating progress
 
             if command[0] == "Dummy Point":
                 x, y, z = [float(a) for a in command[1:]]  # getting command coordinates as floats

@@ -23,11 +23,11 @@ UM.Dialog
   {
     id: progressLabel
     anchors.left: mainText.right
-    text: "0.00 %"
+    text: "--%"
   }
 
   function updateProgress() {
-    progressLabel.text = main.getPrintingProgress()
+    progressLabel.text = main.getPrintingProgress
   }
 
   onRejected: {

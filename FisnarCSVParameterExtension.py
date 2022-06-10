@@ -240,9 +240,13 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     @pyqtProperty(str)
     def getPrintingProgress(self):
+        # called by qml to get a string representing the printing progress
         Logger.log("i", "getPrintingProgress() called")
         progress = self.fisnar_controller.getPrintingProgress()
-        return str(round(float(progress) * 100, 2)) + "%"
+        if progress is None:
+            return "--%"
+        else:
+            return str(round(float(progress) * 100, 2)) + "%"
 
 
     @pyqtProperty(str)
@@ -278,8 +282,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
                 self.showFisnarErrorWindow()
                 Logger.log("i", "Fisnar print failed...")
 
-        # resetting FisnarController internal state
-        self.fisnar_controller.resetInternalState()
+            # resetting FisnarController internal state
+            self.fisnar_controller.resetInternalState()
 
 
     @pyqtSlot()
