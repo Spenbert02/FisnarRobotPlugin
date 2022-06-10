@@ -11,7 +11,10 @@ do not come with support for printing CAD files, however. Their command language
 is unique and is not supported by any reliable slicer software. This plugin
 solves this issue, by allowing the output of Cura's slicing algorithm to be
 saved as a CSV file of Fisnar commands, that can be uploaded to a Fisnar
-printer for fabrication.
+printer for fabrication. In addition, the plugin provides the ability to control
+the Fisnar in real time over the RS232 port. This means that a file can be sliced
+and printed over USB connection easily, and there is no limit to the size of
+the file being uploaded.
 
 ## Caveats
 This plugin was built for use with a Fisnar model F5200N, so the plugin-generated
@@ -25,12 +28,8 @@ commands. The plugin assumes that the Fisnar has x/y dimensions of 200 x 200 [mm
 when it does this 'flipping'.
 - The Fisnar must be using an output i/o card. This card forks the output
 of the Fisnar using the i/o port, and allows for multiple dispensers to be
-used. The Fisnar command system that is used looks very different depending
-on whether or not the output i/o card is being used. This plugin assumes the
-output i/o card __is__ being used, so as to support conversion of multiple
-extruder prints. In the future, work may be done to add support for setups
-that do not use the Fisnar i/o card. For reference, an image of a Fisnar i/o
-card is shown below.
+used. This plugin assumes the output i/o card __is__ being used, so as to
+support conversion of multiple extruder prints.
 
 ![](docs/doc_pics/io_card.png)
 
