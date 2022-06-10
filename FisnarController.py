@@ -1,6 +1,7 @@
+import copy
 import serial
 import time
-import copy
+import threading
 
 
 class FisnarController:
@@ -41,7 +42,10 @@ class FisnarController:
         # for real-time uploading - used to terminate mid-print and report whether print was successful
         self.terminate_running = False
         self.successful_print = None
+
+        # printing progress and requisite lock to prevent race condition
         self.print_progress = None
+        self.lock = threading.Lock()
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
@@ -81,6 +85,21 @@ class FisnarController:
             return "<no err msg set>"
         else:
             return str(self.information)
+
+
+    def setPrintProgress(self, val):
+        # set the printing progress
+        self.lock.acquire()
+        self.print_progress = val
+        self.lock.release()
+
+
+    def getPrintingProgress(self, val):
+        # get the printing progress
+        self.lock.acquire()
+        ret_val = self.print_progress
+        self.lock.release()
+        return ret_val
 
 
     def getCurrentPosition(self):
@@ -143,6 +162,9 @@ class FisnarController:
 
         # beginning progress tracking
         self.print_progress = 0
+        time.sleep(2)
+        self.print_progress = .54321
+        time.sleep(2)
 
         # ensuring serial port is/can be opened
         if self.serial_port is None:
