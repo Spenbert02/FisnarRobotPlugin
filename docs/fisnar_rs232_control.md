@@ -1,40 +1,114 @@
-_in progress_
-
-# Controlling the Fisnar from python via the RS 232 port
-The Fisnar can be controlled from within python via the RS232 port. Fisnar
-(the company) has been very unhelpful in figuring out the format that these
-commands need to be in, so some work has been done to figure out the command
-format by 'packet sniffing' (tracking the packets of bytes that are sent over
-the RS232 port during the command upload process). All RS232 communication occurs
-in the SerialUploader class (SerialUploader.py) - the user initiates the serial
-upload procedure from the extension menu in Cura.
-
-There are a few areas of prerequisite knowledge for this document: [RS232 protocol](https://circuitdigest.com/article/rs232-serial-communication-protocol-basics-specifications#:~:text=RS232%20is%20a%20standard%20protocol,data%20exchange%20between%20the%20devices.)
-and [single-precision (32 bit) floating point number representation](https://www.geeksforgeeks.org/ieee-standard-754-floating-point-numbers/).
-Also, it might be useful to know the different ways that bytes can be represented
-([see here](http://www.edu4java.com/en/concepts/hexadecimal-binary-number-byte-bit-word.html)).
+# Controlling the Fisnar from python via the RS232 port
+The Fisnar can be controlled in real time via the RS232 port. Generally, there
+are three main stages to the RS232 control process: initialization, command
+packets, and finalization. The initialization process prepares the Fisnar
+to be controlled by the RS232 port. The command packets consist of commands sent
+to the Fisnar over the RS232 port and the verification bytes sent back from
+the Fisnar. Lastly, the finalization process is a simply byte sequence sent to
+the Fisnar over the RS232 port that terminates the RS232 control process.
 
 ## Fisnar RS232 settings
 First, the Fisnar RS232 protocol uses the following settings (which can be seen
-in the SerialUploader initialization function):
+in the FisnarController initialization function):
 - baud rate: 115200
 - start bits: 1
 - data bits: 8
 - parity bit: none
 - stop bits: 1
 
-## General communication format
-The figure below shows the flow of communication that is used when a sequence
-of commands are uploaded over the RS232 port.
+## Byte representation
+Each byte that is sent over is represented by the ascii value associated with it.
+[Ascii table](https://www.asciitable.com/) documentation has all the associated
+character values.
 
-![](doc_pics/RS232_comm_figure.png)
+## Initialization
+The initialization sequence between the computer and the Fisnar takes the
+following form, with the characters in each column representing the ascii
+bytes (some bytes are represented in hexadecimal) that are sent from the
+given column header to the opposite column header.
 
-The general structure consists of the initialization, many commands,
-and the finalization. To let the Fisnar know commands are about to be sent, the host computer sends two 0xF0 bytes over. If the Fisnar is able to receive commands, it will return with a single 0xF0 byte.
+\# |Fisnar | Computer
+---|-------|---------
+1|| 0xf0 0xf0 0xf2
+2|0xf0 |
+3|<< BASIC BIOS 2.2 >>|
+4|0x0d 0x0a|
 
-After initialization, up to 65,535 commands can be sent over in the 'command bytes' format shown in the figure. First, the host computer sends an 0xe8 byte to prepare the Fisnar for the immediately incoming command. Then, the actual command bytes are uploaded in the format described in the next section. Part of this command format is a checksum - a form of error checking. When the Fisnar receives a command, it will calculate the necessary checksum for itself, and send it back to the computer. This makes
-it easy to confirm that the proper and intended command was sent. This command byte communication sequence can be repeated up to 65,534 more times.
+If the computer sends byte sequence 1 and the Fisnar does not send all of
+byte sequences 2-4, then the initialization failed. If initialization fails,
+the finalization still has to be sent to take the Fisnar out of 'RS232 mode'.
 
-After all commands have been sent over, the finalization sequence can be complete. The finalization sequence is very similar to the initialization sequence, except in that 0xF1 bytes are sent instead of 0xF0 bytes. The finalization communication lets the Fisnar know that no more commands will be sent over, and also serves as a final check to verify that the Fisnar is still sending/receiving commands properly.
+## Command packets
+Each command packet consists of sending over each ascii character in the
+command string - one by one - with the Fisnar reciprocating each character for
+confirmation, With a final 'ok!' confirmation. It should be noted that each
+command string is terminated by
+an 0x0d (carriage return in ascii) byte.
 
-## Command bytes format
+For commands that return a value, the value will be sent back to the computer
+in ascii characters before the 'ok!' confirmation, terminated by an 0x0a
+byte.
+
+A sample command packet sequence
+is given below, where the command being sent is 'VX 10.21', which indicates
+a travel from the current position to x = 10.21 at the same y and z positions.
+
+\# | Fisnar | Computer
+---|--------|---------
+1|| V
+2|V|
+3||X
+4|X
+5||1
+6|1|
+7||0
+8|0|
+9||.
+10|.|
+11||2
+12|2|
+13||1
+14|1|
+15||0x0d
+16|0x0d|
+17|0x0a
+18|ok!|
+
+Byte sequences 1 through 17 comprise the actual command and are sent
+immediately in order, and the Fisnar sends byte sequence 18 once it
+has successfully interpreted and executed the command. Once the 'ok!'
+confirmation is received, the next command packet can be sent.
+
+For documentation on specific RS232 commands, see the table below.
+
+#### RS232 command list
+
+Command | Action
+------- | ------
+VA \<x\>, \<y\>, \<z\>| move in a straight line from the current position to the <x, y, z> position
+VX \<x\> | move from the current position to the given X = \<x\> position
+VY \<y\> | move from the current position to the given Y = \<y\> position
+VZ \<z\> | move from the current position to the given Z = \<z\> position
+PX | get the current x position of the robot
+PY | get the current y position of the robot
+PZ | get the current z position of the robot
+HM | travel to the home position
+ID | execute and wait for a move command - this must be sent after each VA, VX, VY, and VZ command to initiate the movement - the 'ok!' confirmation is sent after the movement is completed
+OU \<p\>, \<s\> | turn output pin \<p\> on if \<s\> is 0, or on if \<s\> is 1 - it then follows that \<s\> must either be '0' or '1'
+SP \<s\> | set the line travel speed to \<s\>, in mm/sec
+
+## Finalization
+The finalization procedure tells the Fisnar to go out of 'RS232 mode'. That is,
+it stops listening for bytes sent over the RS232 port. The procedure is very simple:
+
+\# | Fisnar | Computer
+---|--------|---------
+1|| 0xdf 0x00
+
+After that single byte sequence is sent from the computer to the Fisnar, the
+Fisnar is no longer in RS232 mode and must be reinitialized before it can
+be controller again.
+
+The Fisnar must be taken out of RS232 mode before it can do any other functions,
+so sending this command is critical to the performance of the Fisnar after it is
+taken out of RS232 mode.
