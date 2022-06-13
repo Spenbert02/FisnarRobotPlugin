@@ -9,16 +9,16 @@ UM.Dialog //Creates a modal window that pops up above the interface.
     property int numExtruders: main.getNumExtruders
 
     width: 250 * screenScaleFactor
-    height: (185 + getAdditionalHeightFactor()) * screenScaleFactor
+    height: (193 + getAdditionalHeightFactor()) * screenScaleFactor
     minimumWidth: 250 * screenScaleFactor
-    minimumHeight: (185 + getAdditionalHeightFactor()) * screenScaleFactor
+    minimumHeight: (193 + getAdditionalHeightFactor()) * screenScaleFactor
 
     onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
       numExtruders = main.getNumExtruders
     }
 
     function getAdditionalHeightFactor() {  // function to get additional height factor
-      return (numExtruders * 30)
+      return (numExtruders * 29)
     }
 
     Grid

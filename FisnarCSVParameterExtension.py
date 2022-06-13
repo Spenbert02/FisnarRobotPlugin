@@ -49,12 +49,12 @@ class FisnarCSVParameterExtension(QObject, Extension):
         CuraApplication.getInstance().activityChanged.connect(self.resetDisallowedAreas)
 
         # preferences - defining all
-        self.preferences = Application.getInstance().getPreferences()
-        self.preferences.addPreference("fisnar/min_x", 0.0)
-        self.preferences.addPreference("fisnar/max_x", 200.0)
-        self.preferences.addPreference("fisnar/min_y", 0.0)
-        self.preferences.addPreference("fisnar/max_y", 200.0)
-        self.preferences.addPreference("fisnar/max_z", 150.0)
+        # self.preferences = Application.getInstance().getPreferences()
+        # self.preferences.addPreference("fisnar/min_x", 0.0)
+        # self.preferences.addPreference("fisnar/max_x", 200.0)
+        # self.preferences.addPreference("fisnar/min_y", 0.0)
+        # self.preferences.addPreference("fisnar/max_y", 200.0)
+        # self.preferences.addPreference("fisnar/max_z", 150.0)
         # self.preferences.addPreference("fisnar/extruder_1_output", -1)
         # self.preferences.addPreference("fisnar/extruder_2_output", -1)
         # self.preferences.addPreference("fisnar/extruder_3_output", -1)
@@ -74,9 +74,9 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_3_output = None
         self.extruder_4_output = None
 
-        # setting setting values to values stored in preferences, and updating build area view
-        self.setPreferencedValues()
-        self.resetDisallowedAreas()
+        # # setting setting values to values stored in preferences, and updating build area view
+        # self.setPreferencedValues()
+        # self.resetDisallowedAreas()
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -215,18 +215,19 @@ class FisnarCSVParameterExtension(QObject, Extension):
         setattr(self, attribute, float(coord_val))  # validation occurs in the qml file
         # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
 
-        if attribute == "fisnar_x_min":
-            self.preferences.setValue("fisnar/min_x", self.fisnar_x_min)
-        elif attribute == "fisnar_x_max":
-            self.preferences.setValue("fisnar/max_x", self.fisnar_x_max)
-        elif attribute == "fisnar_y_min":
-            self.preferences.setValue("fisnar/min_y", self.fisnar_y_min)
-        elif attribute == "fisnar_y_max":
-            self.preferences.setValue("fisnar/max_y", self.fisnar_y_max)
-        elif attribute == "fisnar_z_max":
-            self.preferences.setValue("fisnar/max_z", self.fisnar_z_max)
-        else:
-            Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
+        # # updating stored preference values
+        # if attribute == "fisnar_x_min":
+        #     self.preferences.setValue("fisnar/min_x", self.fisnar_x_min)
+        # elif attribute == "fisnar_x_max":
+        #     self.preferences.setValue("fisnar/max_x", self.fisnar_x_max)
+        # elif attribute == "fisnar_y_min":
+        #     self.preferences.setValue("fisnar/min_y", self.fisnar_y_min)
+        # elif attribute == "fisnar_y_max":
+        #     self.preferences.setValue("fisnar/max_y", self.fisnar_y_max)
+        # elif attribute == "fisnar_z_max":
+        #     self.preferences.setValue("fisnar/max_z", self.fisnar_z_max)
+        # else:
+        #     Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
 
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
@@ -281,7 +282,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
     @pyqtProperty(str)
     def getPrintingProgress(self):
         # called by qml to get a string representing the printing progress
-        Logger.log("i", "getPrintingProgress() called")
+        # Logger.log("i", "getPrintingProgress() called")
         progress = self.fisnar_controller.getPrintingProgress()
         if progress is None:
             return "--%"

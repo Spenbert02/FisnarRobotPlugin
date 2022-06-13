@@ -54,7 +54,7 @@ class FisnarController:
     def initializeSerialPort(self):
         # get the serial port object. If it can't be initialized, will return None
         try:
-            return serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=30)
+            return serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=20, write_timeout=10)
         except:
             if not FisnarController.DEBUG_MODE:
                 Logger.log("w", "failed to initialize FisnarController serial port")
@@ -137,7 +137,7 @@ class FisnarController:
     def read(self, num_bytes):
         # read a given number of bytes from the input buffer
 
-        if FisnarContrller.DEBUG_MODE:
+        if FisnarController.DEBUG_MODE:
             pass
         else:
             return self.serial_port.read(num_bytes)
@@ -152,11 +152,10 @@ class FisnarController:
         # run the previously uploaded fisnar commands to the fisnar
 
         def setSuccessfulPrint(tf):
-            # set whether the print was successful or not. If not, then a
-            # finalizer command should be sent
+            # set whether the print was successful or not. Regardless, the print
+            # is done and a finalizer should be sent
             self.successful_print = tf
-            if not tf:
-                self.sendCommand(FisnarController.FINALIZER)
+            self.sendCommand(FisnarController.FINALIZER)
 
         # beginning progress tracking
         self.setPrintProgress(0)
@@ -251,13 +250,6 @@ class FisnarController:
                 setSuccessfulPrint(False)
                 return
 
-        # sending finalizer regardless of whether loop was terminated
-        confirmation = self.sendCommand(FisnarController.FINALIZER)
-        if not confirmation:
-            # 'return False'
-            setSuccessfulPrint(False)
-            return
-
         if not self.terminate_running:  # loop wasn't terminated
             # if no errors have triggered so far, all good
             setSuccessfulPrint(True)
@@ -283,14 +275,14 @@ class FisnarController:
 
         else:  # any other command
             self.writeBytes(command_bytes)  # write bytes
-            confirmation = self.read(len(command_bytes) + 1)  # read same bytes back, plus "\n" character
+            confirmation = self.readLine()  # read same bytes back, plus "\n" character
 
             if command_bytes in FisnarController.FEEDBACK_COMMANDS:
                 new_coord = float(self.readLine())
                 self.current_position[FisnarController.FEEDBACK_COMMANDS.index(command_bytes)] = new_coord  # updating coordinate
 
             if confirmation == (command_bytes + bytes("\n", "ascii")):
-                ok_response = self.read(5)  # read 5 bytes - looking for "ok!\r\n" response
+                ok_response = self.readLine()  # read 5 bytes - looking for "ok!\r\n" response
                 if ok_response == FisnarController.OK + bytes("\r\n", "ascii"):
                     return True
                 else:
@@ -397,12 +389,16 @@ class FisnarController:
 
 
 if __name__ == "__main__":
-    filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
-    fisnar_commands = readFisnarCommandsFromFile(filepath)
+    # filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
+    # fisnar_commands = readFisnarCommandsFromFile(filepath)
+    #
+    # fc = FisnarController()
+    # fc.setCommands(fisnar_commands)
+    # print(fc.runCommands(), fc.getInformation())
 
     fc = FisnarController()
-    fc.setCommands(fisnar_commands)
-    print(fc.runCommands(), fc.getInformation())
+
+    fc.writeBytes(FisnarController.FINALIZER)
 
 
 if not FisnarController.DEBUG_MODE:  # importing UM if not in debug mode

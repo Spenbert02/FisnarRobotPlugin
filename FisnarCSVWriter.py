@@ -14,7 +14,6 @@ class FisnarCSVWriter(MeshWriter):
     def __init__(self):
         super().__init__(add_to_recent_files = False)  # don't want the spreadsheets to appear in recent files
         self._application = Application.getInstance()  # I dont need this. might be needed internally, so gonna leave it.
-
         self.converter = Converter()
 
 
@@ -64,6 +63,10 @@ class FisnarCSVWriter(MeshWriter):
         gcode_list = gcode_dict.get(active_build_plate, None)  # returns None if not found
         if gcode_list is not None:  # gcode_list was found
 
+            # # debug
+            # for element in gcode_list:
+            #     Logger.log("d", str(element))
+            
             # setting converter gcode and attempting to convert
             self.converter.setGcode("".join([str(chunk) for chunk in gcode_list]))
             fisnar_commands = self.converter.getFisnarCommands()

@@ -16,7 +16,7 @@ UM.Dialog
   {
     id: mainText
     anchors.horizontalCenter: fisnarProgressDialog.horizontalCenter
-    text: "Uploading commands to Fisnar. Progress: "
+    text: "Printing in progress. Progress: "
   }
 
   Label

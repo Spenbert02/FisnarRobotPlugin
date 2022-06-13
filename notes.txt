@@ -6,6 +6,7 @@ Relevant links:
 - sample plugin examples: https://github.com/Ultimaker/Cura/wiki/Plugin-Directory
 - Cura scene explanation: https://github.com/Ultimaker/Cura/blob/master/docs/scene/scene.md
 - rs232 communication tracker: https://rs-232-data-logger.soft112.com/
+- getting com ports: https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
 
 IEE 754 stuff:
 - https://www.geeksforgeeks.org/ieee-standard-754-floating-point-numbers/
