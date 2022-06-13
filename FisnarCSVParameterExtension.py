@@ -17,6 +17,7 @@ from UM.Extension import Extension
 from UM.Logger import Logger
 from UM.Math.Polygon import Polygon
 from UM.PluginRegistry import PluginRegistry
+from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
 from .FisnarController import FisnarController
@@ -47,12 +48,24 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
         CuraApplication.getInstance().activityChanged.connect(self.resetDisallowedAreas)
 
+        # preferences - defining all
+        self.preferences = Application.getInstance().getPreferences()
+        self.preferences.addPreference("fisnar/min_x", 0.0)
+        self.preferences.addPreference("fisnar/max_x", 200.0)
+        self.preferences.addPreference("fisnar/min_y", 0.0)
+        self.preferences.addPreference("fisnar/max_y", 200.0)
+        self.preferences.addPreference("fisnar/max_z", 150.0)
+        # self.preferences.addPreference("fisnar/extruder_1_output", -1)
+        # self.preferences.addPreference("fisnar/extruder_2_output", -1)
+        # self.preferences.addPreference("fisnar/extruder_3_output", -1)
+        # self.preferences.addPreference("fisnar/extruder_4_output", -1)
+
         # print area parameters
         self.fisnar_x_min = 0.0
         self.fisnar_x_max = 200.0
         self.fisnar_y_min = 0.0
         self.fisnar_y_max = 200.0
-        self.fisnar_z_max = 100.0
+        self.fisnar_z_max = 150.0
 
         # output correlations
         self.num_extruders = None
@@ -61,15 +74,17 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.extruder_3_output = None
         self.extruder_4_output = None
 
+        # setting setting values to values stored in preferences, and updating build area view
+        self.setPreferencedValues()
+        self.resetDisallowedAreas()
+
         # setting up menus
         self.setMenuName("Fisnar Actions")
-        self.addMenuItem("Print Surface Definition", self.showParameterEntryWindow)
-        self.addMenuItem("Output Setup", self.showOutputEntryWindow)
+        self.addMenuItem("Define Setup", self.showDefineSetupWindow)
         self.addMenuItem("Upload Commands to Fisnar", self.showFisnarControlWindow)
 
         # 'lazy loading' windows, so can be called later.
-        self.parameter_entry_window = None
-        self.output_entry_window = None
+        self.define_setup_window = None
         self.fisnar_control_window = None
         self.fisnar_error_window = None
         self.fisnar_progress_window = None
@@ -93,6 +108,17 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def getInstance(cls):
         # factory method
         return cls._instance
+
+
+    def setPreferencedValues(self):
+        # set all setting values to the value stored in the application preferences
+        self.fisnar_x_min = self.preferences.getValue("fisnar/min_x")
+        self.fisnar_x_max = self.preferences.getValue("fisnar/max_x")
+        self.fisnar_y_min = self.preferences.getValue("fisnar/min_y")
+        self.fisnar_y_max = self.preferences.getValue("fisnar/max_y")
+        self.fisnar_z_max = self.preferences.getValue("fisnar/max_z")
+
+        Logger.log("d", "preference values retrieved: " + str(self.fisnar_x_min) + ", " + str(self.fisnar_x_max) + ", " + str(self.fisnar_y_min) + ", " + str(self.fisnar_y_max) + ", " + str(self.fisnar_z_max))
 
 
     def resetDisallowedAreas(self):
@@ -188,6 +214,20 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # slot for qml to set the value of one of the home coordinates
         setattr(self, attribute, float(coord_val))  # validation occurs in the qml file
         # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
+
+        if attribute == "fisnar_x_min":
+            self.preferences.setValue("fisnar/min_x", self.fisnar_x_min)
+        elif attribute == "fisnar_x_max":
+            self.preferences.setValue("fisnar/max_x", self.fisnar_x_max)
+        elif attribute == "fisnar_y_min":
+            self.preferences.setValue("fisnar/min_y", self.fisnar_y_min)
+        elif attribute == "fisnar_y_max":
+            self.preferences.setValue("fisnar/max_y", self.fisnar_y_max)
+        elif attribute == "fisnar_z_max":
+            self.preferences.setValue("fisnar/max_z", self.fisnar_z_max)
+        else:
+            Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
+
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
 
@@ -268,7 +308,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     def trackUploadProgress(self):
         # check if the print is done or has been terminated or has thrown an error
-        # and update ui - update progress if print is still going.
+        # and update ui. Update progress if print is still going.
 
         if (self.fisnar_controller.successful_print is not None) or self.fisnar_controller.terminate_running:  # print either failed or finished or terminated
             self.progress_update_timer.stop()  # stopping timer because print is done
@@ -305,18 +345,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.progress_update_timer.start()
 
 
-    def showParameterEntryWindow(self):
-        # Logger.log("i", "parameter entry window called")  # test
-        if not self.parameter_entry_window:  # ensure a window isn't already created
-            self.parameter_entry_window = self._createDialogue("parameter_entry.qml")
-        self.parameter_entry_window.show()
-
-
-    def showOutputEntryWindow(self):
-        # Logger.log("i", "Output Entry Window Called")  # test
-        if not self.output_entry_window:
-            self.output_entry_window = self._createDialogue("output_entry.qml")
-        self.output_entry_window.show()
+    def showDefineSetupWindow(self):
+        Logger.log("i", "Define setup window called")  # test
+        if not self.define_setup_window:
+            self.define_setup_window = self._createDialogue("define_setup_window.qml")
+        self.define_setup_window.show()
 
 
     def showFisnarControlWindow(self):
