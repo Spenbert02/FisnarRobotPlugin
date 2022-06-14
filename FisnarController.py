@@ -66,15 +66,6 @@ class FisnarController:
         return self.serial_port is not None
 
 
-    def resetInternalState(self):
-        # function to be called after uploading a file
-        self.information = None
-        self.terminate_running = False
-        self.successful_print = None
-        self.setPrintProgress(None)
-        self.current_position = [None, None, None]
-
-
     def setInformation(self, info):
         # set the error information
         self.information = str(info)
@@ -86,6 +77,19 @@ class FisnarController:
             return "<no err msg set>"
         else:
             return str(self.information)
+
+
+    def setTerminateRunning(self, val):
+        # set the terminate running status
+        self.lock.acquire()
+        self.terminate_running = val
+        Logger.log("d", "***** terminate running set to: " + str(val))
+        self.lock.release()
+
+
+    def getTerminateRunning(self):
+        # get the terminate running status
+        return self.terminate_running
 
 
     def setPrintProgress(self, val):
@@ -103,6 +107,26 @@ class FisnarController:
     def getCurrentPosition(self):
         # get the current position of the fisnar as it is running
         return self.current_position
+
+
+    def resetInternalState(self):
+        # function to be called after uploading a file
+
+        self.information = None
+        self.setTerminateRunning(False)
+        self.successful_print = None
+        self.setPrintProgress(None)
+        self.current_position = [None, None, None]
+
+
+    def turnOffOutputs(self):
+        # turn off all outputs on the fisnar
+        for i in range(1, 5):
+            confirmation = self.sendCommand(self.OU(i, 0))
+            if not confirmation:
+                return False
+
+        return True
 
 
     def writeBytes(self, byte_array):
@@ -155,6 +179,7 @@ class FisnarController:
             # set whether the print was successful or not. Regardless, the print
             # is done and a finalizer should be sent
             self.successful_print = tf
+            self.turnOffOutputs()
             self.sendCommand(FisnarController.FINALIZER)
 
         # beginning progress tracking
@@ -192,9 +217,12 @@ class FisnarController:
             setSuccessfulPrint(False)
             return
 
+        Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))
+
         # iterating over commands
         i = 0
-        while (i < len(self.fisnar_commands)) and (not self.terminate_running):
+        while (i < len(self.fisnar_commands)) and (not self.getTerminateRunning()):
+            Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
             command = self.fisnar_commands[i]
             self.setPrintProgress(i / len(self.fisnar_commands))  # updating progress
 
@@ -242,15 +270,17 @@ class FisnarController:
 
             i += 1
 
-        if not self.terminate_running:  # loop wasn't terminated
-            # homing, to start
+        if self.getTerminateRunning():  # loop was terminated
+            self.sendCommand(FisnarController.FINALIZER)
+            return  # will return anyway, so doesn't really matter
+        else:  # loop wasn't terminated
+            # homing, to end
             confirmation = self.sendCommand(self.HM())
             if not confirmation:
                 # 'return False'
                 setSuccessfulPrint(False)
                 return
 
-        if not self.terminate_running:  # loop wasn't terminated
             # if no errors have triggered so far, all good
             setSuccessfulPrint(True)
             return  # will return anyway, so this isn't really necessary
@@ -293,59 +323,59 @@ class FisnarController:
                 return False
 
 
-    def OU(self, port, on_off):
+    def OU(self, port, on_off):  # output command
         return bytes("OU " + str(port) + ", " + str(on_off) + "\r", "ascii")
 
 
-    def SP(self, speed):
+    def SP(self, speed):  # line speed command
         return bytes("SP " + str(speed) + "\r", "ascii")
 
 
-    def PX(self):
+    def PX(self):  # get x position
         return FisnarController.FEEDBACK_COMMANDS[0]
 
 
-    def PY(self):
+    def PY(self):  # get y position
         return FisnarController.FEEDBACK_COMMANDS[1]
 
 
-    def PZ(self):
+    def PZ(self):  # get z position
         return FisnarController.FEEDBACK_COMMANDS[2]
 
 
-    def VA(self, x, y, z):
+    def VA(self, x, y, z):  # travel to point
         return bytes("VA " + str(x) + ", " + str(y) + ", " + str(z) + "\r", "ascii")
 
 
-    def VX(self, x):
+    def VX(self, x):  # travel to x coordinate
         return bytes("VX " + str(x) + "\r", "ascii")
 
 
-    def VY(self, y):
+    def VY(self, y):  # travel to y coordinate
         return bytes("VY " + str(y) + "\r", "ascii")
 
 
-    def VZ(self, z):
+    def VZ(self, z):  # travel to z coordinate
         return bytes("VZ " + str(z) + "\r", "ascii")
 
 
-    def HM(self):
+    def HM(self):  # home command
         return bytes("HM\r", "ascii")
 
 
-    def HX(self):
+    def HX(self):  # home x
         return bytes("HX\r", "ascii")
 
 
-    def HY(self):
+    def HY(self):  # home y
         return bytes("HY\r", "ascii")
 
 
-    def HZ(self):
+    def HZ(self):  # home z
         return bytes("HZ\r", "ascii")
 
 
-    def ID(self):
+    def ID(self):  # execute previous VA commands
         return bytes("ID\r", "ascii")
 
 

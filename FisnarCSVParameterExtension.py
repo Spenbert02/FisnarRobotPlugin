@@ -99,6 +99,12 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.progress_update_timer = QTimer()
         self.progress_update_timer.setInterval(500)
 
+        # timer for resetting FisnarController internal state
+        self.fisnar_reset_timer = QTimer()
+        self.fisnar_reset_timer.setInterval(5000)
+        self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
+        self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
+
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
@@ -172,6 +178,13 @@ class FisnarCSVParameterExtension(QObject, Extension):
                 # Logger.log("i", "****** build volume disallowed areas have been reset")
                 # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
                 # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
+
+
+    def resetFisnarState(self):
+        # reset the internal state of the FisnarController object
+        Logger.log("d", "************************** 1")
+        self.fisnar_controller.resetInternalState()
+        Logger.log("d", "************************** 2")
 
 
     def logMessage(self):
@@ -283,6 +296,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def getPrintingProgress(self):
         # called by qml to get a string representing the printing progress
         # Logger.log("i", "getPrintingProgress() called")
+
         progress = self.fisnar_controller.getPrintingProgress()
         if progress is None:
             return "--%"
@@ -304,18 +318,19 @@ class FisnarCSVParameterExtension(QObject, Extension):
     @pyqtSlot()
     def terminateFisnarControl(self):
         # called by qml when 'terminate' button is pressed during fisnar printing
-        self.fisnar_controller.terminate_running = True
+        # Logger.log("d", "terminateFisnarControl() called")  # test
+        self.fisnar_controller.setTerminateRunning(True)
 
 
     def trackUploadProgress(self):
         # check if the print is done or has been terminated or has thrown an error
         # and update ui. Update progress if print is still going.
 
-        if (self.fisnar_controller.successful_print is not None) or self.fisnar_controller.terminate_running:  # print either failed or finished or terminated
+        if (self.fisnar_controller.successful_print is not None) or self.fisnar_controller.getTerminateRunning():  # print either failed or finished or terminated
             self.progress_update_timer.stop()  # stopping timer because print is done
             self.fisnar_progress_window.close()  # closing the progress window
 
-            if self.fisnar_controller.terminate_running:  # print was terminated
+            if self.fisnar_controller.getTerminateRunning():  # print was terminated
                 Logger.log("i", "print terminated.")
             elif self.fisnar_controller.successful_print:  # print finished succesfully
                 Logger.log("i", "Successful fisnar print!")
@@ -324,8 +339,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
                 Logger.log("i", "Fisnar print failed...")
 
             # resetting FisnarController internal state
-            self.fisnar_controller.resetInternalState()
-
+            self.fisnar_reset_timer.start()
 
     @pyqtSlot()
     def beginFisnarControl(self):
