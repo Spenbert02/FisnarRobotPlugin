@@ -1,13 +1,13 @@
+import copy
+
 from .gcodeBuddy.marlin import Command
 from .PrinterAttributes import PrintSurface, ExtruderArray
-
 from UM.Logger import Logger
 
 
 class Converter:
     # class that facilitates the conversion of gcode commands into Fisnar
     # commands
-
 
     # enumeration for different conversion modes
     IO_CARD = 2
@@ -249,7 +249,6 @@ class Converter:
         # check that all coordinates are within the user specified area. If ANY
         # coordinates fall outside the volume, False will be returned - if all
         # coordinates fall within the volume, True will be returned
-
         for command in fisnar_commands:
             if command[0] in Converter.XYZ_COMMANDS:
                 if not (self.print_surface.getXMin() <= command[1] <= self.print_surface.getXMax()):
@@ -261,16 +260,12 @@ class Converter:
                 if not (0 <= command[3] <= self.print_surface.getZMax()):
                     Logger.log("e", str(command))
                     return False
-
         return True  # functioned hasn't returned False, so all good
-
 
     @staticmethod
     def g0g1NoIO(command, next_command, curr_pos):
         # take a command, the command after it, and the position before the
         # current command
-
-        # determining command type
         command_type = None
         if command.has_param("E") and command.get_param("E") > 0:
             if next_command.has_param("E") and next_command.get_param("E") > 0:  # E -> E
@@ -294,12 +289,10 @@ class Converter:
         # returning command
         return [command_type, curr_pos[0], curr_pos[1], curr_pos[2]]
 
-
     @staticmethod
     def g0g1WithIO(command, curr_output, curr_pos):
         # turn a g0 or g1 command into a list of the corresponding fisnar commands
         # update the given curr_pos list
-
         ret_commands = []
 
         if command.has_param("E") and command.get_param("E") > 0:  # turn output on
@@ -320,18 +313,15 @@ class Converter:
 
         return ret_commands
 
-
     @staticmethod
     def getOutputsInFisnarCommands(commands):
         # return a list of bools representing the outputs in a given list of
         # fisnar commands
-
         outputs = [False, False, False, False]
         for command in commands:
             if command[0] == "Output":
                 outputs[int(command[1]) - 1] = True
         return outputs
-
 
     @staticmethod
     def getStrippedCommands(gcode_lines):
@@ -345,9 +335,7 @@ class Converter:
                     line = line[:line.find(";")]  # removing comments
                 line = line.strip()  # removing whitespace from both ends of string
                 ret_command_list.append(Command(line))
-
         return ret_command_list
-
 
     @staticmethod
     def getFirstExtrudingCommandIndex(gcode_commands):
@@ -360,7 +348,6 @@ class Converter:
                     if command.has_param("E") and (command.get_param("E") > 0):
                         return i
         return None  # no extruding commands. Don't know how a gcode file wouldn't have an extruding command but just in case
-
 
     @staticmethod
     def getFirstPositionalCommandIndex(gcode_commands):
@@ -379,7 +366,6 @@ class Converter:
                         return i
         return None  # this could be for a variety of reasons, some of which aren't that unlikely. This way of doing things is kind of ghetto. Ultimately, a more sophisticated solution should be enacted.
 
-
     @staticmethod
     def getLastExtrudingCommandIndex(gcode_commands):
         # get the last command that extrudes material - the last command that needs to be converted.
@@ -392,11 +378,9 @@ class Converter:
                         return i
         return None  # this should never happen in any reasonable gcode file.
 
-
     @staticmethod
     def optimizeFisnarOutputCommands(fisnar_commands):
         # remove any redundant output commands from fisnar command list
-
         for output in range(1, 5):  # for each output (integer from 1 to 4)
             output_state = None
             i = 0
@@ -416,16 +400,51 @@ class Converter:
             if output_state is None:
                 Logger.log("d", "output " + str(output) + " does not appear in Fisnar commands.")
 
-
     @staticmethod
     def invertCoords(commands, z_dim):
         # invert all coordinate directions for dummy points (modifies the given list)
-
         for i in range(len(commands)):
             if commands[i][0] in Converter.XYZ_COMMANDS:
                 commands[i][1] = 200 - commands[i][1]
                 commands[i][2] = 200 - commands[i][2]
                 commands[i][3] = z_dim - commands[i][3]
+
+    @staticmethod
+    def segmentFisnarCommands(fisnar_commands):
+        # get a 'segmented' list of fisnar commands, with dummy point sequences
+        # of common extrusion state grouped together and all output commands
+        # removed
+        ret_commands = []
+        temp_commands = []
+        for command in fisnar_commands:
+            if command[0] == "Dummy Point":
+                temp_commands.append(copy.deepcopy(command))
+            elif command[0] in ("Line Speed", "Output", "End Program"):
+                if temp_commands != []:
+                    ret_commands.append(temp_commands)
+                    temp_commands = []
+                ret_commands.append(command)
+
+        if temp_commands != []:  # cleaning up if any dummy points left over
+            ret_commands.append(temp_commands)
+            temp_commands = []
+
+        output_states = [0, 0, 0, 0]
+        for i in range(len(ret_commands)):
+            if isinstance(ret_commands[i][0], list):  # is a dummy point sublist
+                ret_commands[i].append([output_states[0], output_states[1], output_states[2], output_states[3]])
+            elif ret_commands[i][0] == "Output":  # isn't a sublist, so check if is an output
+                output_states[ret_commands[i][1] - 1] = ret_commands[i][2]
+
+        # deleting output commands
+        i = 0
+        while i < len(ret_commands):
+            if ret_commands[i][0] == "Output":
+                ret_commands.pop(i)
+            else:
+                i += 1
+
+        return ret_commands
 
 
 if __name__ == "__main__":

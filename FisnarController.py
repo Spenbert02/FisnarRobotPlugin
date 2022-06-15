@@ -3,27 +3,22 @@ import serial
 import time
 import threading
 
+from .Fisnar import Fisnar
+from .Converter import segmentFisnarCommands
+
 
 class FisnarController:
     # class to handle controlling the fisnar via the RS-232 port. Once an
-    # object is given commands, it can upload them to the Fisnar
-
+    # instance is given commands, it can upload them to the Fisnar
 
     # 'setting' variables
     COM_PORT = "COM7"
 
-    # byte constants
-    FEEDBACK_COMMANDS = (bytes("PX\r", "ascii"), bytes("PY\r", "ascii"), bytes("PZ\r", "ascii"))
-    INITIALIZER = bytes.fromhex("f0 f0 f2")
-    FINALIZER = bytes.fromhex("df 00")
-    OK = bytes("ok!", "ascii")
-
     # to turn on or off debugging mode
-    DEBUG_MODE = False
+    DEBUG_MODE = True
 
     # for error reporting
     SERIAL_ERR_MSG = "Failed to connect to Fisnar serial port. Reconnection will be attempted when commands are next uploaded. Ensure the Fisnar is on and connected to the proper COM port, and ensure no other apps are using the COM port."
-
 
     def __init__(self):
         # error message
@@ -44,12 +39,11 @@ class FisnarController:
         self.successful_print = None
         self.print_progress = None
 
-        # lock for protecting agains race conditions
+        # lock for protecting against race conditions
         self.lock = threading.Lock()
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
-
 
     def initializeSerialPort(self):
         # get the serial port object. If it can't be initialized, will return None
@@ -60,16 +54,13 @@ class FisnarController:
                 Logger.log("w", "failed to initialize FisnarController serial port")
             return None
 
-
     def initialized(self):
         # check if the serial port has been successfully opened
         return self.serial_port is not None
 
-
     def setInformation(self, info):
         # set the error information
         self.information = str(info)
-
 
     def getInformation(self):
         # get error information
@@ -78,7 +69,6 @@ class FisnarController:
         else:
             return str(self.information)
 
-
     def setTerminateRunning(self, val):
         # set the terminate running status
         self.lock.acquire()
@@ -86,11 +76,9 @@ class FisnarController:
         Logger.log("d", "***** terminate running set to: " + str(val))
         self.lock.release()
 
-
     def getTerminateRunning(self):
         # get the terminate running status
         return self.terminate_running
-
 
     def setPrintProgress(self, val):
         # set the printing progress
@@ -98,83 +86,66 @@ class FisnarController:
         self.print_progress = val
         self.lock.release()
 
-
     def getPrintingProgress(self):
         # get the printing progress
         return self.print_progress
-
 
     def getCurrentPosition(self):
         # get the current position of the fisnar as it is running
         return self.current_position
 
-
     def resetInternalState(self):
         # function to be called after uploading a file
-
         self.information = None
         self.setTerminateRunning(False)
         self.successful_print = None
         self.setPrintProgress(None)
         self.current_position = [None, None, None]
 
-
     def turnOffOutputs(self):
         # turn off all outputs on the fisnar
         for i in range(1, 5):
-            confirmation = self.sendCommand(self.OU(i, 0))
+            confirmation = self.sendCommand(Fisnar.OU(i, 0))
             if not confirmation:
                 return False
-
         return True
-
 
     def writeBytes(self, byte_array):
         # function to write bytes over the serial port. Exists as a separate
         # function for debugging purposes
-
         if FisnarController.DEBUG_MODE:
             # Logger.log("d", str(byte_array))  # can be used for small prints
             pass
         else:
             self.serial_port.write(byte_array)
 
-
     def readUntil(self, last_byte):
-        # function to read from the serial port until a certain byte is found
-
+        # function to read from the serial port until a certain byte is foun
         if FisnarController.DEBUG_MODE:
             pass
         else:
             return self.serial_port.read_until(last_byte)
 
-
     def readLine(self):
         # read line from the input buffer
-
         if FisnarController.DEBUG_MODE:
             pass
         else:
             return self.serial_port.readline()
 
-
     def read(self, num_bytes):
         # read a given number of bytes from the input buffer
-
         if FisnarController.DEBUG_MODE:
             pass
         else:
             return self.serial_port.read(num_bytes)
 
-
     def setCommands(self, command_list):
         # set the fisnar commands to be uploaded
         self.fisnar_commands = command_list
 
-
     def runCommands(self):
         # run the previously uploaded fisnar commands to the fisnar
-
         def setSuccessfulPrint(tf):
             # set whether the print was successful or not. Regardless, the print
             # is done and a finalizer should be sent
@@ -186,43 +157,37 @@ class FisnarController:
         self.setPrintProgress(0)
 
         # ensuring serial port is/can be opened
-        if self.serial_port is None:
+        if not FisnarController.DEBUG_MODE and self.serial_port is None:
             self.serial_port = self.initializeSerialPort()
             if self.serial_port is None:  # still couldn't open
                 self.setInformation(FisnarController.SERIAL_ERR_MSG)
-
-                # return False, effectively
                 setSuccessfulPrint(False)
                 return
 
         # making sure fisnar commands exist
         if self.fisnar_commands is None:
             self.setInformation("slicer output must be saved as CSV before uploading to fisnar")
-
-            # 'return False'
             setSuccessfulPrint(False)
             return
 
         # initializing
         confirmation = self.sendCommand(FisnarController.INITIALIZER)
         if not confirmation:
-            # 'return False'
             setSuccessfulPrint(False)
             return
 
         # homing, to start
-        confirmation = self.sendCommand(self.HM())
+        confirmation = self.sendCommand(Fisnar.HM())
         if not confirmation:
-            # 'return False'
             setSuccessfulPrint(False)
             return
 
-        Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))
+        Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))  # test
 
         # iterating over commands
         i = 0
         while (i < len(self.fisnar_commands)) and (not self.getTerminateRunning()):
-            Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
+            # Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
             command = self.fisnar_commands[i]
             self.setPrintProgress(i / len(self.fisnar_commands))  # updating progress
 
@@ -230,32 +195,28 @@ class FisnarController:
                 x, y, z = [float(a) for a in command[1:]]  # getting command coordinates as floats
 
                 # movement command
-                confirmation = self.sendCommand(self.VA(x, y, z))
+                confirmation = self.sendCommand(Fisnar.VA(x, y, z))
                 if not confirmation:
-                    # 'return False'
                     setSuccessfulPrint(False)
                     return
 
                 # waiting until machine moves to desired position
-                confirmation = self.sendCommand(self.ID())
+                confirmation = self.sendCommand(Fisnar.ID())
                 if not confirmation:
-                    # 'return False'
                     setSuccessfulPrint(False)
                     return
 
             elif command[0] == "Output":
-                confirmation = self.sendCommand(self.OU(int(command[1]), int(command[2])))
+                confirmation = self.sendCommand(Fisnar.OU(int(command[1]), int(command[2])))
                 if not confirmation:
-                    # 'return False'
                     setSuccessfulPrint(False)
                     return
 
             elif command[0] == "Line Speed":
                 speed = float(command[1])  # getting speed parameter as float
 
-                confirmation = self.sendCommand(self.SP(speed))
+                confirmation = self.sendCommand(Fisnar.SP(speed))
                 if not confirmation:
-                    # 'return False'
                     setSuccessfulPrint(False)
                     return
 
@@ -264,7 +225,6 @@ class FisnarController:
 
             else:
                 self.setInformation("Unrecognized command in fisnar command list: " + str(command[0]))
-                # 'return False'
                 setSuccessfulPrint(False)
                 return
 
@@ -273,18 +233,17 @@ class FisnarController:
         if self.getTerminateRunning():  # loop was terminated
             self.sendCommand(FisnarController.FINALIZER)
             return  # will return anyway, so doesn't really matter
+
         else:  # loop wasn't terminated
             # homing, to end
-            confirmation = self.sendCommand(self.HM())
+            confirmation = self.sendCommand(Fisnar.HM())
             if not confirmation:
-                # 'return False'
                 setSuccessfulPrint(False)
                 return
 
             # if no errors have triggered so far, all good
             setSuccessfulPrint(True)
             return  # will return anyway, so this isn't really necessary
-
 
     def sendCommand(self, command_bytes):
         # write a given command to the fisnar. return false if confirmation
@@ -322,63 +281,6 @@ class FisnarController:
                 self.setInformation("command failed to send. Bytes sent: " + str(command_bytes) + "Bytes recieved: " + str(confirmation))
                 return False
 
-
-    def OU(self, port, on_off):  # output command
-        return bytes("OU " + str(port) + ", " + str(on_off) + "\r", "ascii")
-
-
-    def SP(self, speed):  # line speed command
-        return bytes("SP " + str(speed) + "\r", "ascii")
-
-
-    def PX(self):  # get x position
-        return FisnarController.FEEDBACK_COMMANDS[0]
-
-
-    def PY(self):  # get y position
-        return FisnarController.FEEDBACK_COMMANDS[1]
-
-
-    def PZ(self):  # get z position
-        return FisnarController.FEEDBACK_COMMANDS[2]
-
-
-    def VA(self, x, y, z):  # travel to point
-        return bytes("VA " + str(x) + ", " + str(y) + ", " + str(z) + "\r", "ascii")
-
-
-    def VX(self, x):  # travel to x coordinate
-        return bytes("VX " + str(x) + "\r", "ascii")
-
-
-    def VY(self, y):  # travel to y coordinate
-        return bytes("VY " + str(y) + "\r", "ascii")
-
-
-    def VZ(self, z):  # travel to z coordinate
-        return bytes("VZ " + str(z) + "\r", "ascii")
-
-
-    def HM(self):  # home command
-        return bytes("HM\r", "ascii")
-
-
-    def HX(self):  # home x
-        return bytes("HX\r", "ascii")
-
-
-    def HY(self):  # home y
-        return bytes("HY\r", "ascii")
-
-
-    def HZ(self):  # home z
-        return bytes("HZ\r", "ascii")
-
-
-    def ID(self):  # execute previous VA commands
-        return bytes("ID\r", "ascii")
-
-
     @staticmethod
     def readFisnarCommandsFromFile(file_abspath):
         """
@@ -404,15 +306,15 @@ class FisnarController:
                 commands[i][1] = float(commands[i][1])
             elif commands[i][0] == "Z Clearance":
                 commands[i][1] = int(commands[i][1])
-            elif commands[i][0][:11] == "End Program":
+            elif commands[i][0] == "End Program":
                 pass
             elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
                 for j in range(1, 4):
                     commands[i][j] = float(commands[i][j])
             else:
+                print("Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
                 commands.pop(i)
                 i -= 1
-                print("Unexpected command: " + str(commands[i][0]))  # for debugging
             i += 1
 
         return copy.deepcopy(commands)
@@ -420,15 +322,11 @@ class FisnarController:
 
 if __name__ == "__main__":
     # filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
-    # fisnar_commands = readFisnarCommandsFromFile(filepath)
-    #
-    # fc = FisnarController()
-    # fc.setCommands(fisnar_commands)
-    # print(fc.runCommands(), fc.getInformation())
+    filepath = "C:\\gcode2fisnar_tests\\cura_plugin_tests\\CFFFP_3_18_2022_three_line_test_file.csv"
+    fisnar_commands = FisnarController.readFisnarCommandsFromFile(filepath)
 
-    fc = FisnarController()
-
-    fc.writeBytes(FisnarController.FINALIZER)
+    for c in Converter.segmentFisnarCommands(fisnar_commands):
+        print(c)
 
 
 if not FisnarController.DEBUG_MODE:  # importing UM if not in debug mode
