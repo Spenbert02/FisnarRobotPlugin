@@ -1,4 +1,5 @@
 import copy
+import json
 import numpy
 import os.path
 import sys
@@ -22,6 +23,7 @@ from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
 from .FisnarController import FisnarController
 from .Converter import Converter
+from .PrinterAttributes import PrintSurface, ExtruderArray
 
 
 class FisnarCSVParameterExtension(QObject, Extension):
@@ -39,7 +41,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
         # factory object creation
         if FisnarCSVParameterExtension._instance is not None:  # if object has already been instantiated
-            Logger.log("e", "****** FisnarCSVParameterExtension instantiated more than once")
+            Logger.log("e", "FisnarCSVParameterExtension instantiated more than once")
         else:  # first time instantiating object
             # Logger.log("i", "****** FisnarCSVParameterExtension instantiated for the first time")  # test
             FisnarCSVParameterExtension._instance = self
@@ -48,35 +50,23 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
         CuraApplication.getInstance().activityChanged.connect(self.resetDisallowedAreas)
 
-        # preferences - defining all
-        # self.preferences = Application.getInstance().getPreferences()
-        # self.preferences.addPreference("fisnar/min_x", 0.0)
-        # self.preferences.addPreference("fisnar/max_x", 200.0)
-        # self.preferences.addPreference("fisnar/min_y", 0.0)
-        # self.preferences.addPreference("fisnar/max_y", 200.0)
-        # self.preferences.addPreference("fisnar/max_z", 150.0)
-        # self.preferences.addPreference("fisnar/extruder_1_output", -1)
-        # self.preferences.addPreference("fisnar/extruder_2_output", -1)
-        # self.preferences.addPreference("fisnar/extruder_3_output", -1)
-        # self.preferences.addPreference("fisnar/extruder_4_output", -1)
+        # preferences - defining all into a single preference in the form of a dictionary
+        self.preferences = Application.getInstance().getPreferences()
+        default_preferences = {
+            "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0]
+        }
+        self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
-        # print area parameters
-        self.fisnar_x_min = 0.0
-        self.fisnar_x_max = 200.0
-        self.fisnar_y_min = 0.0
-        self.fisnar_y_max = 200.0
-        self.fisnar_z_max = 150.0
+        # defining print surface
+        self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
 
         # output correlations
         self.num_extruders = None
-        self.extruder_1_output = None
-        self.extruder_2_output = None
-        self.extruder_3_output = None
-        self.extruder_4_output = None
+        self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
 
         # # setting setting values to values stored in preferences, and updating build area view
-        # self.setPreferencedValues()
-        # self.resetDisallowedAreas()
+        self.updateFromPreferencedValues()
+        self.resetDisallowedAreas()
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -116,15 +106,26 @@ class FisnarCSVParameterExtension(QObject, Extension):
         return cls._instance
 
 
-    def setPreferencedValues(self):
+    def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-        self.fisnar_x_min = self.preferences.getValue("fisnar/min_x")
-        self.fisnar_x_max = self.preferences.getValue("fisnar/max_x")
-        self.fisnar_y_min = self.preferences.getValue("fisnar/min_y")
-        self.fisnar_y_max = self.preferences.getValue("fisnar/max_y")
-        self.fisnar_z_max = self.preferences.getValue("fisnar/max_z")
 
-        Logger.log("d", "preference values retrieved: " + str(self.fisnar_x_min) + ", " + str(self.fisnar_x_max) + ", " + str(self.fisnar_y_min) + ", " + str(self.fisnar_y_max) + ", " + str(self.fisnar_z_max))
+        Logger.log("d", self.preferences.getValue("fisnar/setup"))
+
+        pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
+        if pref_dict["print_surface"] is not None:
+            self.print_surface.updateFromTuple(pref_dict["print_surface"])
+
+        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()))
+
+
+    def updatePreferencedValues(self):
+        # update the stored preference values from the user entered values
+
+        new_pref_dict = {
+            "print_surface": self.print_surface.getAsTuple()
+        }
+
+        self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
 
     def resetDisallowedAreas(self):
@@ -133,6 +134,9 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # also, the min and max nomenclatures are flipped (because the directions are inverted)
         # NOTE: for some reason, the build volume class takes the origin of the build plate to be at the center
         # NOTE: this code assumes a build volume x-y dimension of (200, 200). Any integers seen in this code are based off of this assumption
+
+        # test
+        # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
 
         # adding disallowed areas to each BuildVolume object
         scene = Application.getInstance().getController().getScene()
@@ -144,11 +148,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
                 y_dim = node.getDepth()  # NOTE: same as above comment. I think this is right
 
                 # converting coord system from fisnar to build volume coord system
-                bv_x_min = 100 - self.fisnar_x_max
-                bv_x_max = 100 - self.fisnar_x_min
-                bv_y_min = self.fisnar_y_min - 100
-                bv_y_max = self.fisnar_y_max - 100
-                new_z_dim = self.fisnar_z_max
+                bv_x_min = 100 - self.print_surface.getXMax()
+                bv_x_max = 100 - self.print_surface.getXMin()
+                bv_y_min = self.print_surface.getYMin() - 100
+                bv_y_max = self.print_surface.getYMax() - 100
+                new_z_dim = self.print_surface.getZMax()
 
                 # establishing new dissalowed areas (list of Polygon objects)
                 new_disallowed_areas = []
@@ -182,9 +186,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     def resetFisnarState(self):
         # reset the internal state of the FisnarController object
-        Logger.log("d", "************************** 1")
         self.fisnar_controller.resetInternalState()
-        Logger.log("d", "************************** 2")
 
 
     def logMessage(self):
@@ -195,53 +197,52 @@ class FisnarCSVParameterExtension(QObject, Extension):
     @pyqtProperty(str)
     def getXMin(self):
         # called by qml to get the min x coord
-        return str(self.fisnar_x_min)
+        return str(self.print_surface.getXMin())
 
 
     @pyqtProperty(str)
     def getXMax(self):
         # called by qml to get the max x coord
-        return str(self.fisnar_x_max)
+        return str(self.print_surface.getXMax())
 
 
     @pyqtProperty(str)
     def getYMin(self):
         # called by qml to get the min y coord
-        return str(self.fisnar_y_min)
+        return str(self.print_surface.getYMin())
 
 
     @pyqtProperty(str)
     def getYMax(self):
         # called by qml to get the max y coord
-        return str(self.fisnar_y_max)
+        return str(self.print_surface.getYMax())
 
 
     @pyqtProperty(str)
     def getZMax(self):
         # called by qml to get the max z coord
-        return str(self.fisnar_z_max)
+        return str(self.print_surface.getZMax())
 
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
         # slot for qml to set the value of one of the home coordinates
-        setattr(self, attribute, float(coord_val))  # validation occurs in the qml file
-        # Logger.log("i", "***** " + str(attribute) + " set to " + str(getattr(self, attribute)) + " *****")  # test
 
-        # # updating stored preference values
-        # if attribute == "fisnar_x_min":
-        #     self.preferences.setValue("fisnar/min_x", self.fisnar_x_min)
-        # elif attribute == "fisnar_x_max":
-        #     self.preferences.setValue("fisnar/max_x", self.fisnar_x_max)
-        # elif attribute == "fisnar_y_min":
-        #     self.preferences.setValue("fisnar/min_y", self.fisnar_y_min)
-        # elif attribute == "fisnar_y_max":
-        #     self.preferences.setValue("fisnar/max_y", self.fisnar_y_max)
-        # elif attribute == "fisnar_z_max":
-        #     self.preferences.setValue("fisnar/max_z", self.fisnar_z_max)
-        # else:
-        #     Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
+        # updating coordinate value
+        if attribute == "fisnar_x_min":
+            self.print_surface.setXMin(float(coord_val))
+        elif attribute == "fisnar_x_max":
+            self.print_surface.setXMax(float(coord_val))
+        elif attribute == "fisnar_y_min":
+            self.print_surface.setYMin(float(coord_val))
+        elif attribute == "fisnar_y_max":
+            self.print_surface.setYMax(float(coord_val))
+        elif attribute == "fisnar_z_max":
+            self.print_surface.setZMax(float(coord_val))
+        else:
+            Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
 
+        self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
 
@@ -253,38 +254,17 @@ class FisnarCSVParameterExtension(QObject, Extension):
         return self.num_extruders
 
 
-    @pyqtProperty(str)
-    def getExtruder1Output(self):
-        # called by qml to get the output number associated with extruder 1
-        return str(self.extruder_1_output)
-
-
-    @pyqtProperty(str)
-    def getExtruder2Output(self):
-        # called by qml to get the output number associated with extruder 2
-        return str(self.extruder_2_output)
-
-
-    @pyqtProperty(str)
-    def getExtruder3Output(self):
-        # called by qml to get the output number associated with extruder 3
-        return str(self.extruder_3_output)
-
-
-    @pyqtProperty(str)
-    def getExtruder4Output(self):
-        # called by qml to get the output number associated with extruder 4
-        return str(self.extruder_4_output)
-
-
+    # This function (below) can be removed if the 'getextruderoutput' function works
     @pyqtSlot(str, str)
-    def setExtruderOutput(self, attribute, output_val):
+    def setExtruderOutput(self, extruder_num, output_val):
         # slot for qml to set the output associated with one of the extruders
-        if str(output_val) == "None":  # None value set
-            setattr(self, attribute, None)
-        else:  # actual output value
-            setattr(self, attribute, int(output_val))
-        Logger.log("i", "***** attribute '" + str(attribute) + "' set to " + str(getattr(self, attribute)) + "(" + str(type(getattr(self, attribute))) + ")")  # test
+
+        extruder_num = int(extruder_num)
+        if extruder_num in (1, 2, 3, 4):
+            self.extruder_outputs.setOutput(extruder_num, output_val)
+        else:  # throw a warning and return
+            Logger.log("w", "Out of range extruder number set in setExtruderOutput(): " + str(extruder_num))
+            return
 
 
     @pyqtProperty(str)

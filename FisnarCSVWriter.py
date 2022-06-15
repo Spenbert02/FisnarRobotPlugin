@@ -25,18 +25,11 @@ class FisnarCSVWriter(MeshWriter):
         ext = FisnarCSVParameterExtension.getInstance()
 
         # updating fisnar coords
-        self.converter.setPrintSurface(ext.fisnar_x_min,
-                                       ext.fisnar_x_max,
-                                       ext.fisnar_y_min,
-                                       ext.fisnar_y_max,
-                                       ext.fisnar_z_max)
+        self.converter.setPrintSurface(ext.print_surface)
         Logger.log("i", "Build area updated in FisnarCSVWriter. New print surface: " + str(self.converter.getPrintSurface()))  # test
 
         # updating extruder correlations
-        self.converter.setExtruderOutputs(ext.extruder_1_output,
-                                          ext.extruder_2_output,
-                                          ext.extruder_3_output,
-                                          ext.extruder_4_output)
+        self.converter.setExtruderOutputs(ext.extruder_outputs)
         Logger.log("i", "Extruder outputs passed to FisnarCSVWriter. New outputs: " + str(self.converter.getExtruderOutputs()))  # test
 
 
@@ -66,7 +59,7 @@ class FisnarCSVWriter(MeshWriter):
             # # debug
             # for element in gcode_list:
             #     Logger.log("d", str(element))
-            
+
             # setting converter gcode and attempting to convert
             self.converter.setGcode("".join([str(chunk) for chunk in gcode_list]))
             fisnar_commands = self.converter.getFisnarCommands()

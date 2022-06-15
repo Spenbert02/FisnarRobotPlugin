@@ -1,4 +1,6 @@
 from .gcodeBuddy.marlin import Command
+from .PrinterAttributes import PrintSurface, ExtruderArray
+
 from UM.Logger import Logger
 
 
@@ -19,18 +21,10 @@ class Converter:
         self.gcode_commands_lst = None  # gcode commands as a list of Command objects
         self.last_converted_fisnar_commands = None  # the last converted fisnar command list
 
-        # fisnar print surface coordinates
-        self.fisnar_x_min = None
-        self.fisnar_x_max = None
-        self.fisnar_y_min = None
-        self.fisnar_y_max = None
-        self.fisnar_z_max = None
+        self.print_surface = None
 
         # extruder-output correlations
-        self.extruder_1_output = None
-        self.extruder_2_output = None
-        self.extruder_3_output = None
-        self.extruder_4_output = None
+        self.extruder_outputs = ExtruderArray(4)
 
         # only the io_card mode is used. NO_IO_CARD feature is deprecated
         self.conversion_mode = Converter.IO_CARD  # default to using io card
@@ -51,40 +45,26 @@ class Converter:
             return str(self.information)
 
 
-    def setPrintSurface(self, x_min, x_max, y_min, y_max, z_max):
+    def setPrintSurface(self, print_surface):
         # set the Fisnar print surface coordinates
-        self.fisnar_x_min = x_min
-        self.fisnar_x_max = x_max
-        self.fisnar_y_min = y_min
-        self.fisnar_y_max = y_max
-        self.fisnar_z_max = z_max
+        self.print_surface = print_surface
 
 
     def getPrintSurface(self):
         # get the Fisnar print surface area as an array of coords in the form:
         # [x min, x max, y min, y max, z max]
-        return [self.fisnar_x_min,
-                self.fisnar_x_max,
-                self.fisnar_y_min,
-                self.fisnar_y_max,
-                self.fisnar_z_max]
+        return self.print_surface
 
 
-    def setExtruderOutputs(self, ext_1, ext_2, ext_3, ext_4):
+    def setExtruderOutputs(self, extruder_outputs):
         # set the output assigned to each extruder
-        self.extruder_1_output = ext_1
-        self.extruder_2_output = ext_2
-        self.extruder_3_output = ext_3
-        self.extruder_4_output = ext_4
+        self.extruder_outputs = extruder_outputs
 
 
     def getExtruderOutputs(self):
         # get the outputs associated with each extruder in a list of the form:
         # [extr 1, extr 2, extr 3, extr 4]
-        return [self.extruder_1_output,
-                self.extruder_2_output,
-                self.extruder_3_output,
-                self.extruder_4_output]
+        return self.extruder_outputs
 
 
     def setGcode(self, gcode_str):
@@ -130,7 +110,7 @@ class Converter:
             # checking that user has entered necessary extruder outputs
             for i in range(len(gcode_extruders)):
                 if gcode_extruders[i]:
-                    if user_extruders[i] is None:  # user hasn't entered output for extruder 'i + 1'
+                    if user_extruders.getOutput(i + 1) is None:  # user hasn't entered output for extruder 'i + 1'
                         self.setInformation("Output for extruder " + str(i + 1) + " must be entered")
                         return False
         else:
@@ -198,7 +178,7 @@ class Converter:
             if self.conversion_mode == Converter.IO_CARD:
                 if first_relevant_command_index <= i <= last_relevant_command_index:  # command needs to be converted
                     if command.get_command() in ("G0", "G1"):
-                        new_commands = Converter.g0g1WithIO(command, extruder_outputs[curr_extruder], curr_pos)
+                        new_commands = Converter.g0g1WithIO(command, extruder_outputs.getOutput(curr_extruder + 1), curr_pos)
                         for command in new_commands:
                             fisnar_commands.append(command)
                     elif command.get_command() in ("G2", "G3"):
@@ -248,13 +228,13 @@ class Converter:
         fisnar_commands.append(["End Program"])
 
         # inverting and shifting coordinate system from gcode to fisnar, then putting home travel command
-        Converter.invertCoords(fisnar_commands, self.fisnar_z_max)
+        Converter.invertCoords(fisnar_commands, self.print_surface.getZMax())
 
         # this is effectively a homing command
         if self.conversion_mode == Converter.IO_CARD:
-            fisnar_commands[1] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+            fisnar_commands[1] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
         elif self.conversion_mode == Converter.NO_IO_CARD:
-            fisnar_commands[2] = ["Dummy Point", self.fisnar_x_min, self.fisnar_y_min, self.fisnar_z_max]
+            fisnar_commands[2] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
         else:
             pass  # conversion mode error checking happens before in this function
 
@@ -270,16 +250,15 @@ class Converter:
         # coordinates fall outside the volume, False will be returned - if all
         # coordinates fall within the volume, True will be returned
 
-        print_surface = self.getPrintSurface()
         for command in fisnar_commands:
             if command[0] in Converter.XYZ_COMMANDS:
-                if not (print_surface[0] <= command[1] <= print_surface[1]):
+                if not (self.print_surface.getXMin() <= command[1] <= self.print_surface.getXMax()):
                     Logger.log("e", str(command))
                     return False
-                if not (print_surface[2] <= command[2] <= print_surface[3]):
+                if not (self.print_surface.getYMin() <= command[2] <= self.print_surface.getYMax()):
                     Logger.log("e", str(command))
                     return False
-                if not (0 <= command[3] <= print_surface[4]):
+                if not (0 <= command[3] <= self.print_surface.getZMax()):
                     Logger.log("e", str(command))
                     return False
 

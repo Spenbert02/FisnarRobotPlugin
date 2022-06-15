@@ -26,7 +26,7 @@ Grid {
       ListElement {text: "4"}
     }
     onCurrentIndexChanged: {
-      main.setExtruderOutput("extruder_3_output", ext3List.get(currentIndex).text)
+      main.setExtruderOutput("3", ext3List.get(currentIndex).text)
     }
   }
 }
