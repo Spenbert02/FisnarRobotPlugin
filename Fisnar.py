@@ -75,7 +75,7 @@ class Fisnar:
 
     @staticmethod
     def expectedReturn(byte_array):
-        return byte_array + bytes("\n", "ascii")
+        return byte_array + bytes("\n", "ascii") + Fisnar.okConfirmation() + bytes("\n", "ascii")
 
     @staticmethod
     def feedbackCommands():

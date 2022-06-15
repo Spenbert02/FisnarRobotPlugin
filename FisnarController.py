@@ -184,51 +184,51 @@ class FisnarController:
 
         Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))  # test
 
-        # iterating over commands
-        i = 0
-        while (i < len(self.fisnar_commands)) and (not self.getTerminateRunning()):
+        i = 0  # index
+        segmented_commands = Converter.segmentFisnarCommands(self.fisnar_commands)
+        output_states = [0, 0, 0, 0]
+        # iterating over commands, uploading bytes without sendCommand function
+        while (i < len(segmented_commands)) and (not self.getTerminateRunning()):
             # Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
-            command = self.fisnar_commands[i]
-            self.setPrintProgress(i / len(self.fisnar_commands))  # updating progress
+            self.setPrintProgress(i / segmented_commands)  # updating progress
 
-            if command[0] == "Dummy Point":
-                x, y, z = [float(a) for a in command[1:]]  # getting command coordinates as floats
+            if isinstance(segmented_commands[i], str):  # not chunk of dummy points
+                command = segmented_commands[i]
+                if command[0] == "Line Speed":
+                    confirmation = self.sendCommand(Fisnar.SP(command[1]))
+                    if not confirmation:
+                        setSuccessfulPrint(False)
+                        return
+                else:
+                    Logger.log("d", "forgotten about command: '" + str(command[0]) + "'")
+            else:  # chunk of dummy points
+                expected_bytes = bytes()
 
-                # movement command
-                confirmation = self.sendCommand(Fisnar.VA(x, y, z))
-                if not confirmation:
+                for j in range(len(segmented_commands[i]) - 1):  # sending VA commands
+                    command = segmented_commands[i][j]
+                    command_bytes = Fisnar.VA(command[1], command[2], command[3])
+                    self.writeBytes(command_bytes)
+                    expected_bytes += Fisnar.expectedReturn(command_bytes)
+
+                if segmented_commands[i][-1] != output_states:  # change in output state(s)
+                    for k in range(len(4)):
+                        if segmented_commands[i][-1][k] != output_states[k]:
+                            output_command = Fisnar.OU(k + 1, segmented_commands[i][-1][k])
+                            self.writeBytes(output_command)
+                            expected_bytes += Fisnar.expectedReturn(output_command)
+
+                self.writeBytes(Fisnar.ID())  # ID and confirmation bytes
+                expected_bytes += Fisnar.expectedReturn(Fisnar.ID())
+
+                received_bytes = bytes()  # reading as many lines as necessary
+                for j in range(expected_bytes.count("\n")):
+                    received_bytes += self.readLine()
+
+                if expected_bytes != received_bytes:  # improper confirmation bytes recieved
+                    Logger.log("e", "byte mismatch:\n-- expected --\n" + str(expected_bytes) + "\n-- received --\n" + str(received_bytes))
+                    self.setInformation("failed to send commands over RS232 port - incorrect confirmation bytes recieved")
                     setSuccessfulPrint(False)
                     return
-
-                # waiting until machine moves to desired position
-                confirmation = self.sendCommand(Fisnar.ID())
-                if not confirmation:
-                    setSuccessfulPrint(False)
-                    return
-
-            elif command[0] == "Output":
-                confirmation = self.sendCommand(Fisnar.OU(int(command[1]), int(command[2])))
-                if not confirmation:
-                    setSuccessfulPrint(False)
-                    return
-
-            elif command[0] == "Line Speed":
-                speed = float(command[1])  # getting speed parameter as float
-
-                confirmation = self.sendCommand(Fisnar.SP(speed))
-                if not confirmation:
-                    setSuccessfulPrint(False)
-                    return
-
-            elif command[0] in ("End Program", "Z Clearance"):  # I don't think anything has to be done with this
-                pass
-
-            else:
-                self.setInformation("Unrecognized command in fisnar command list: " + str(command[0]))
-                setSuccessfulPrint(False)
-                return
-
-            i += 1
 
         if self.getTerminateRunning():  # loop was terminated
             self.sendCommand(FisnarController.FINALIZER)
@@ -247,7 +247,7 @@ class FisnarController:
 
     def sendCommand(self, command_bytes):
         # write a given command to the fisnar. return false if confirmation
-        # recieved, false otherwise
+        # received, false otherwise
 
         if command_bytes == FisnarController.INITIALIZER:  # initialization command
             self.writeBytes(command_bytes)
@@ -255,12 +255,12 @@ class FisnarController:
             if confirmation == bytes.fromhex("f0") + bytes("<< BASIC BIOS 2.2 >>\r\n", "ascii"):
                 return True
             else:
-                self.setInformation("initializer confirmation failed. Bytes recieved: " + str(confirmation))
+                self.setInformation("initializer confirmation failed. Bytes received: " + str(confirmation))
                 return False
 
         elif command_bytes == FisnarController.FINALIZER:  # finalization command
             self.writeBytes(command_bytes)
-            return True  # nothing is being recieved from the fisnar, so can't go wrong here
+            return True  # nothing is being received from the fisnar, so can't go wrong here
 
         else:  # any other command
             self.writeBytes(command_bytes)  # write bytes
@@ -278,7 +278,7 @@ class FisnarController:
                     self.setInformation("failed to recieve 'ok!' confirmation. Actual response: " + str(ok_response))
                     return False
             else:
-                self.setInformation("command failed to send. Bytes sent: " + str(command_bytes) + "Bytes recieved: " + str(confirmation))
+                self.setInformation("command failed to send. Bytes sent: " + str(command_bytes) + "Bytes received: " + str(confirmation))
                 return False
 
     @staticmethod

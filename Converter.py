@@ -409,6 +409,21 @@ class Converter:
                 commands[i][2] = 200 - commands[i][2]
                 commands[i][3] = z_dim - commands[i][3]
 
+
+    @staticmethod
+    def numNestedElements(nested_list):
+        # get the number of commands in a list of segmented command coords - the
+        # commands counted are dummy point and line speed (not ouput)
+        ret_sum = 0
+        for command in nested_list:
+            if isinstance(command[0], list):
+                for j in range(len(command) - 1):
+                    ret_sum += 1
+            else:
+                ret_sum += 1
+        return ret_sum
+
+
     @staticmethod
     def segmentFisnarCommands(fisnar_commands):
         # get a 'segmented' list of fisnar commands, with dummy point sequences
