@@ -15,7 +15,7 @@ class Fisnar:
 
     @staticmethod
     def okConfirmation():
-        return bytes("ok!\r")
+        return bytes("ok!\r", "ascii")
 
     @staticmethod
     def OU(port, status):
@@ -80,3 +80,7 @@ class Fisnar:
     @staticmethod
     def feedbackCommands():
         return (self.PX(), self.PY(), self.PZ())
+
+
+if __name__ == "__main__":
+    print(Fisnar.VA(1.12345, 2, 3))

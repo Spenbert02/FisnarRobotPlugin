@@ -4,7 +4,7 @@ import time
 import threading
 
 from .Fisnar import Fisnar
-from .Converter import segmentFisnarCommands
+from .Converter import Converter
 
 
 class FisnarController:
@@ -15,7 +15,7 @@ class FisnarController:
     COM_PORT = "COM7"
 
     # to turn on or off debugging mode
-    DEBUG_MODE = True
+    DEBUG_MODE = False
 
     # for error reporting
     SERIAL_ERR_MSG = "Failed to connect to Fisnar serial port. Reconnection will be attempted when commands are next uploaded. Ensure the Fisnar is on and connected to the proper COM port, and ensure no other apps are using the COM port."
@@ -150,8 +150,7 @@ class FisnarController:
             # set whether the print was successful or not. Regardless, the print
             # is done and a finalizer should be sent
             self.successful_print = tf
-            self.turnOffOutputs()
-            self.sendCommand(FisnarController.FINALIZER)
+            self.sendCommand(Fisnar.finalizer())
 
         # beginning progress tracking
         self.setPrintProgress(0)
@@ -171,7 +170,7 @@ class FisnarController:
             return
 
         # initializing
-        confirmation = self.sendCommand(FisnarController.INITIALIZER)
+        confirmation = self.sendCommand(Fisnar.initializer())
         if not confirmation:
             setSuccessfulPrint(False)
             return
@@ -189,10 +188,10 @@ class FisnarController:
         output_states = [0, 0, 0, 0]
         # iterating over commands, uploading bytes without sendCommand function
         while (i < len(segmented_commands)) and (not self.getTerminateRunning()):
-            # Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
-            self.setPrintProgress(i / segmented_commands)  # updating progress
+            Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
+            self.setPrintProgress(i / len(segmented_commands))  # updating progress
 
-            if isinstance(segmented_commands[i], str):  # not chunk of dummy points
+            if isinstance(segmented_commands[i][0], str):  # not chunk of dummy points
                 command = segmented_commands[i]
                 if command[0] == "Line Speed":
                     confirmation = self.sendCommand(Fisnar.SP(command[1]))
@@ -211,17 +210,19 @@ class FisnarController:
                     expected_bytes += Fisnar.expectedReturn(command_bytes)
 
                 if segmented_commands[i][-1] != output_states:  # change in output state(s)
-                    for k in range(len(4)):
+                    for k in range(4):
                         if segmented_commands[i][-1][k] != output_states[k]:
                             output_command = Fisnar.OU(k + 1, segmented_commands[i][-1][k])
                             self.writeBytes(output_command)
                             expected_bytes += Fisnar.expectedReturn(output_command)
+                    output_states = copy.deepcopy(segmented_commands[i][-1])
+                    Logger.log("d", str(output_states))
 
                 self.writeBytes(Fisnar.ID())  # ID and confirmation bytes
                 expected_bytes += Fisnar.expectedReturn(Fisnar.ID())
 
                 received_bytes = bytes()  # reading as many lines as necessary
-                for j in range(expected_bytes.count("\n")):
+                for j in range(expected_bytes.count(bytes("\n", "ascii"))):
                     received_bytes += self.readLine()
 
                 if expected_bytes != received_bytes:  # improper confirmation bytes recieved
@@ -229,13 +230,15 @@ class FisnarController:
                     self.setInformation("failed to send commands over RS232 port - incorrect confirmation bytes recieved")
                     setSuccessfulPrint(False)
                     return
+            i += 1
 
         if self.getTerminateRunning():  # loop was terminated
-            self.sendCommand(FisnarController.FINALIZER)
+            self.sendCommand(Fisnar.finalizer())
             return  # will return anyway, so doesn't really matter
 
         else:  # loop wasn't terminated
             # homing, to end
+            self.turnOffOutputs()
             confirmation = self.sendCommand(Fisnar.HM())
             if not confirmation:
                 setSuccessfulPrint(False)
@@ -249,16 +252,16 @@ class FisnarController:
         # write a given command to the fisnar. return false if confirmation
         # received, false otherwise
 
-        if command_bytes == FisnarController.INITIALIZER:  # initialization command
+        if command_bytes == Fisnar.initializer():  # initialization command
             self.writeBytes(command_bytes)
             confirmation = self.readLine()
-            if confirmation == bytes.fromhex("f0") + bytes("<< BASIC BIOS 2.2 >>\r\n", "ascii"):
+            if (bytes.fromhex("f0") + bytes("<< BASIC BIOS 2.2 >>\r\n", "ascii")) in confirmation:
                 return True
             else:
                 self.setInformation("initializer confirmation failed. Bytes received: " + str(confirmation))
                 return False
 
-        elif command_bytes == FisnarController.FINALIZER:  # finalization command
+        elif command_bytes == Fisnar.finalizer():  # finalization command
             self.writeBytes(command_bytes)
             return True  # nothing is being received from the fisnar, so can't go wrong here
 
@@ -266,17 +269,22 @@ class FisnarController:
             self.writeBytes(command_bytes)  # write bytes
             confirmation = self.readLine()  # read same bytes back, plus "\n" character
 
-            if command_bytes in FisnarController.FEEDBACK_COMMANDS:
-                new_coord = float(self.readLine())
-                self.current_position[FisnarController.FEEDBACK_COMMANDS.index(command_bytes)] = new_coord  # updating coordinate
+            if command_bytes in (Fisnar.PX(), Fisnar.PY(), Fisnar.PZ()):
+                new_coord = float(self.readLine()[:-1])
 
-            if confirmation == (command_bytes + bytes("\n", "ascii")):
-                ok_response = self.readLine()  # read 5 bytes - looking for "ok!\r\n" response
-                if ok_response == FisnarController.OK + bytes("\r\n", "ascii"):
-                    return True
+                # updating coordinate
+                pos_ind = None
+                if command_bytes == Fisnar.PX():
+                    pos_ind = 0
+                elif command_bytes == Fisnar.PY():
+                    pos_ind = 1
                 else:
-                    self.setInformation("failed to recieve 'ok!' confirmation. Actual response: " + str(ok_response))
-                    return False
+                    pos_ind = 2
+                self.current_position[pos_ind] = new_coord
+
+            confirmation += self.readLine()  # reading 'ok!' response
+            if confirmation == Fisnar.expectedReturn(command_bytes):
+                return True
             else:
                 self.setInformation("command failed to send. Bytes sent: " + str(command_bytes) + "Bytes received: " + str(confirmation))
                 return False
@@ -322,11 +330,14 @@ class FisnarController:
 
 if __name__ == "__main__":
     # filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
-    filepath = "C:\\gcode2fisnar_tests\\cura_plugin_tests\\CFFFP_3_18_2022_three_line_test_file.csv"
-    fisnar_commands = FisnarController.readFisnarCommandsFromFile(filepath)
+    # filepath = "C:\\gcode2fisnar_tests\\cura_plugin_tests\\CFFFP_3_18_2022_three_line_test_file.csv"
+    # fisnar_commands = FisnarController.readFisnarCommandsFromFile(filepath)
+    #
+    # for c in Converter.segmentFisnarCommands(fisnar_commands):
+    #     print(c)
 
-    for c in Converter.segmentFisnarCommands(fisnar_commands):
-        print(c)
+    fc = FisnarController()
+    fc.sendCommand(Fisnar.finalizer())
 
 
 if not FisnarController.DEBUG_MODE:  # importing UM if not in debug mode

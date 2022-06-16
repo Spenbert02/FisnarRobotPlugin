@@ -2,6 +2,7 @@ import copy
 
 from .gcodeBuddy.marlin import Command
 from .PrinterAttributes import PrintSurface, ExtruderArray
+
 from UM.Logger import Logger
 
 
