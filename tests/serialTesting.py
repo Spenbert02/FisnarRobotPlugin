@@ -40,22 +40,22 @@ stop bits: 1
 """
 
 
-# # 5/24 tests (trying to interface with Nordson pressure controller from Python)
-# import serial
-#
-# # creating serial port object
-# pressureController = serial.Serial("COM7", timeout=10)  # 10 indicates a read timeout of 10 seconds
-#
-# # preparing string and converting string to ascii bytes
-# str_to_write = f"{chr(5)}{chr(2)}03DI F0{chr(3)}{chr(4)}"  # ascii characters: ENQ, STX, ETX, EOT
-# bytes_to_write = bytes(str_to_write, "ascii")
-#
-# # writing command to dispenser and reading returned line
-# write_ret_val = pressureController.write(bytes_to_write)
-# confirm_line = pressureController.read_until(expected=bytes(chr(3), "ascii"))  # reading input buffer until 0x03 (ETX) character is read
-#
-# # printing returned line
-# print(confirm_line)
+# 5/24 tests (trying to interface with Nordson pressure controller from Python)
+import serial
+
+# creating serial port object
+pressureController = serial.Serial("COM4", timeout=10)  # 10 indicates a read timeout of 10 seconds
+
+# preparing string and converting string to ascii bytes
+str_to_write = f"{chr(5)}{chr(2)}03DI F0{chr(3)}{chr(4)}"  # ascii characters: ENQ, STX, ETX, EOT
+bytes_to_write = bytes(str_to_write, "ascii")
+
+# writing command to dispenser and reading returned line
+write_ret_val = pressureController.write(bytes_to_write)
+confirm_line = pressureController.read_until(expected=bytes(chr(3), "ascii"))  # reading input buffer until 0x03 (ETX) character is read
+
+# printing returned line
+print(confirm_line)
 
 
 # # function to get check byte from a string of hex bytes
@@ -170,9 +170,9 @@ def getSinglePrecisionBits(number):
 
 
 
-if __name__ == "__main__":
-    testFloat = 15.123
-    print(testFloat, getSinglePrecisionBits(testFloat))
+# if __name__ == "__main__":
+#     testFloat = 15.123
+#     print(testFloat, getSinglePrecisionBits(testFloat))
 
 
 

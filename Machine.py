@@ -1,6 +1,8 @@
 import serial
 
-class Machine:
+from abc import ABC, abstractmethod
+
+class Machine(ABC):
     # class that represents a physical machine, that deals with opening serial
     # ports and sending/recieving bytes
 
@@ -43,6 +45,18 @@ class Machine:
         self.serial_port = None
         self.initializeSerialPort()  # try to initialize
 
+    @abstractmethod
+    def sendCommand(self, command_bytes):
+        # send a command to the machine - return True if confirmation recieved,
+        # or otherwise False
+        pass
+
+    @abstractmethod
+    def sendFeedbackCommand(self, command_bytes):
+        # send a command to the machine - return the recieved information
+        # bytes if successful, or otherwise False
+        pass
+
     def getInformation(self):
         # get information from Machine instance
         if self.information is None:
@@ -69,7 +83,7 @@ class Machine:
                 timeout=self.read_timeout,
                 write_timeout=self.write_timeout
             )
-        except:
+        except serial.SerialException:
             self.serial_port = None
             self.setInformation("failed to initialize serial port")
 
