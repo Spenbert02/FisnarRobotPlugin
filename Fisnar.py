@@ -1,9 +1,12 @@
-class Fisnar:
+from .Machine import Machine
+
+
+class Fisnar(Machine):
     # class representing physical Fisnar machine, with functions representing
     # different RS232 commands
 
-    def __init__(self):
-        pass
+    def __init__(self, port_name, *args):
+        super().__init__(port_name, *args)
 
     @staticmethod
     def initializer():
@@ -83,4 +86,5 @@ class Fisnar:
 
 
 if __name__ == "__main__":
-    print(Fisnar.VA(1.12345, 2, 3))
+    fisnar_machine = Fisnar("COM 7", 115200)
+    print(fisnar_machine.getDebugString())

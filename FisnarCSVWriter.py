@@ -1,6 +1,5 @@
 from .FisnarCSVParameterExtension import FisnarCSVParameterExtension
 from .Converter import Converter
-from .AutoUploader import AutoUploader
 
 from UM.Mesh.MeshWriter import MeshWriter
 from UM.Application import Application
@@ -68,7 +67,7 @@ class FisnarCSVWriter(MeshWriter):
                 self.setInformation(catalog.i18nc("@warning:status", self.converter.getInformation()))
                 return False  # error
 
-            csv_string = AutoUploader.fisnarCommandsToCSVString(fisnar_commands)
+            csv_string = Converter.fisnarCommandsToCSVString(fisnar_commands)
             stream.write(csv_string)  # writing to file
             FisnarCSVParameterExtension.getInstance().most_recent_fisnar_commands = fisnar_commands  # updating in extension class
 

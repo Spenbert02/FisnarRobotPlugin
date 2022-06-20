@@ -24,12 +24,13 @@ class FisnarController:
         # error message
         self.information = None
 
+        # creating fisnar and trying to initialize serial port
+        self.fisnar_machine = Fisnar(FisnarController.COM_PORT, 115200)
+
         # trying to initialize serial port
-        self.serial_port = None
-        if not FisnarController.DEBUG_MODE:
-            self.serial_port = self.initializeSerialPort()  # try to get serial port object
-            if self.serial_port is None:
-                self.setInformation("Couldn't open serial port: " + str(FisnarController.COM_PORT))
+        self.fisnar_machine.initializeSerialPort()
+        if self.fisnar_machine.serial_port is None:
+            self.setInformation(self.fisnar_machine.getInformation())
 
         # fisnar commands
         self.fisnar_commands = None
@@ -44,19 +45,6 @@ class FisnarController:
 
         # current position (automatically updated by Px, PY, and PZ commands)
         self.current_position = [None, None, None]
-
-    def initializeSerialPort(self):
-        # get the serial port object. If it can't be initialized, will return None
-        try:
-            return serial.Serial(FisnarController.COM_PORT, 115200, serial.EIGHTBITS, serial.PARITY_NONE, serial.STOPBITS_ONE, timeout=20, write_timeout=10)
-        except:
-            if not FisnarController.DEBUG_MODE:
-                Logger.log("w", "failed to initialize FisnarController serial port")
-            return None
-
-    def initialized(self):
-        # check if the serial port has been successfully opened
-        return self.serial_port is not None
 
     def setInformation(self, info):
         # set the error information
@@ -110,36 +98,6 @@ class FisnarController:
                 return False
         return True
 
-    def writeBytes(self, byte_array):
-        # function to write bytes over the serial port. Exists as a separate
-        # function for debugging purposes
-        if FisnarController.DEBUG_MODE:
-            # Logger.log("d", str(byte_array))  # can be used for small prints
-            pass
-        else:
-            self.serial_port.write(byte_array)
-
-    def readUntil(self, last_byte):
-        # function to read from the serial port until a certain byte is foun
-        if FisnarController.DEBUG_MODE:
-            pass
-        else:
-            return self.serial_port.read_until(last_byte)
-
-    def readLine(self):
-        # read line from the input buffer
-        if FisnarController.DEBUG_MODE:
-            pass
-        else:
-            return self.serial_port.readline()
-
-    def read(self, num_bytes):
-        # read a given number of bytes from the input buffer
-        if FisnarController.DEBUG_MODE:
-            pass
-        else:
-            return self.serial_port.read(num_bytes)
-
     def setCommands(self, command_list):
         # set the fisnar commands to be uploaded
         self.fisnar_commands = command_list
@@ -157,7 +115,7 @@ class FisnarController:
 
         # ensuring serial port is/can be opened
         if not FisnarController.DEBUG_MODE and self.serial_port is None:
-            self.serial_port = self.initializeSerialPort()
+            self.serial_port = self.fisnar_machine.initializeSerialPort()
             if self.serial_port is None:  # still couldn't open
                 self.setInformation(FisnarController.SERIAL_ERR_MSG)
                 setSuccessfulPrint(False)
@@ -206,24 +164,24 @@ class FisnarController:
                 for j in range(len(segmented_commands[i]) - 1):  # sending VA commands
                     command = segmented_commands[i][j]
                     command_bytes = Fisnar.VA(command[1], command[2], command[3])
-                    self.writeBytes(command_bytes)
+                    self.fisnar_machine.writeBytes(command_bytes)
                     expected_bytes += Fisnar.expectedReturn(command_bytes)
 
                 if segmented_commands[i][-1] != output_states:  # change in output state(s)
                     for k in range(4):
                         if segmented_commands[i][-1][k] != output_states[k]:
                             output_command = Fisnar.OU(k + 1, segmented_commands[i][-1][k])
-                            self.writeBytes(output_command)
+                            self.fisnar_machine.writeBytes(output_command)
                             expected_bytes += Fisnar.expectedReturn(output_command)
                     output_states = copy.deepcopy(segmented_commands[i][-1])
                     Logger.log("d", str(output_states))
 
-                self.writeBytes(Fisnar.ID())  # ID and confirmation bytes
+                self.fisnar_machine.writeBytes(Fisnar.ID())  # ID and confirmation bytes
                 expected_bytes += Fisnar.expectedReturn(Fisnar.ID())
 
                 received_bytes = bytes()  # reading as many lines as necessary
                 for j in range(expected_bytes.count(bytes("\n", "ascii"))):
-                    received_bytes += self.readLine()
+                    received_bytes += self.fisnar_machine.readLine()
 
                 if expected_bytes != received_bytes:  # improper confirmation bytes recieved
                     Logger.log("e", "byte mismatch:\n-- expected --\n" + str(expected_bytes) + "\n-- received --\n" + str(received_bytes))
@@ -232,13 +190,13 @@ class FisnarController:
                     return
             i += 1
 
+        self.turnOffOutputs()  # turning off output no matter what
         if self.getTerminateRunning():  # loop was terminated
             self.sendCommand(Fisnar.finalizer())
             return  # will return anyway, so doesn't really matter
 
         else:  # loop wasn't terminated
             # homing, to end
-            self.turnOffOutputs()
             confirmation = self.sendCommand(Fisnar.HM())
             if not confirmation:
                 setSuccessfulPrint(False)
@@ -253,8 +211,8 @@ class FisnarController:
         # received, false otherwise
 
         if command_bytes == Fisnar.initializer():  # initialization command
-            self.writeBytes(command_bytes)
-            confirmation = self.readLine()
+            self.fisnar_machine.writeBytes(command_bytes)
+            confirmation = self.fisnar_machine.readLine()
             if (bytes.fromhex("f0") + bytes("<< BASIC BIOS 2.2 >>\r\n", "ascii")) in confirmation:
                 return True
             else:
@@ -262,15 +220,15 @@ class FisnarController:
                 return False
 
         elif command_bytes == Fisnar.finalizer():  # finalization command
-            self.writeBytes(command_bytes)
+            self.fisnar_machine.writeBytes(command_bytes)
             return True  # nothing is being received from the fisnar, so can't go wrong here
 
         else:  # any other command
-            self.writeBytes(command_bytes)  # write bytes
-            confirmation = self.readLine()  # read same bytes back, plus "\n" character
+            self.fisnar_machine.writeBytes(command_bytes)  # write bytes
+            confirmation = self.fisnar_machine.readLine()  # read same bytes back, plus "\n" character
 
             if command_bytes in (Fisnar.PX(), Fisnar.PY(), Fisnar.PZ()):
-                new_coord = float(self.readLine()[:-1])
+                new_coord = float(self.fisnar_machine.readLine()[:-1])
 
                 # updating coordinate
                 pos_ind = None
@@ -282,7 +240,7 @@ class FisnarController:
                     pos_ind = 2
                 self.current_position[pos_ind] = new_coord
 
-            confirmation += self.readLine()  # reading 'ok!' response
+            confirmation += self.fisnar_machine.readLine()  # reading 'ok!' response
             if confirmation == Fisnar.expectedReturn(command_bytes):
                 return True
             else:

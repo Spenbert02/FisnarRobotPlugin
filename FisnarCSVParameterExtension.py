@@ -142,6 +142,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
         scene = Application.getInstance().getController().getScene()
         for node in BreadthFirstIterator(scene.getRoot()):
             if isinstance(node, BuildVolume):
+
                 # getting build volume dimensions and original disallowed areas, for documentation
                 orig_disallowed_areas = node.getDisallowedAreas()
                 x_dim = node.getWidth()  # NOTE: I think width corresponds to x, not sure

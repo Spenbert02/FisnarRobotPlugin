@@ -463,5 +463,20 @@ class Converter:
         return ret_commands
 
 
+    @staticmethod
+    def fisnarCommandsToCSVString(fisnar_commands):
+        # turn a 2d list of fisnar commands into a csv string
+        ret_string = ""
+        for i in range(len(fisnar_commands)):
+            for j in range(len(fisnar_commands[i])):
+                ret_string += str(fisnar_commands[i][j])
+                if j == len(fisnar_commands[i]) - 1:
+                    ret_string += "\n"
+                else:
+                    ret_string += ","
+
+        return ret_string
+
+
 if __name__ == "__main__":
     pass
