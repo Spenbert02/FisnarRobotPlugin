@@ -3,7 +3,7 @@ from zipfile import ZipFile
 import os
 
 
-PERSONAL_PC = False
+PERSONAL_PC = True
 
 
 if __name__ == "__main__":

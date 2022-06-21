@@ -10,8 +10,8 @@ from typing import Optional, Union, List
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
 
-from PyQt5.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
-from PyQt5.QtQml import QQmlComponent, QQmlContext
+from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
+from PyQt6.QtQml import QQmlComponent, QQmlContext
 
 from UM.Application import Application
 from UM.Extension import Extension
@@ -53,7 +53,8 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = Application.getInstance().getPreferences()
         default_preferences = {
-            "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0]
+            "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
+            "extruder_outputs": [None, None, None, None]
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
@@ -71,7 +72,7 @@ class FisnarCSVParameterExtension(QObject, Extension):
         # setting up menus
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Define Setup", self.showDefineSetupWindow)
-        self.addMenuItem("Upload Commands to Fisnar", self.showFisnarControlWindow)
+        self.addMenuItem("Print", self.showFisnarControlWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.define_setup_window = None
@@ -108,23 +109,23 @@ class FisnarCSVParameterExtension(QObject, Extension):
 
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-
         Logger.log("d", self.preferences.getValue("fisnar/setup"))
 
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
-        if pref_dict["print_surface"] is not None:
+        if pref_dict.get("print_surface", None) is not None:
             self.print_surface.updateFromTuple(pref_dict["print_surface"])
+        if pref_dict.get("extruder_outputs", None) is not None:
+            self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
 
-        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()))
+        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()))
 
 
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
-
         new_pref_dict = {
-            "print_surface": self.print_surface.getAsTuple()
+            "print_surface": self.print_surface.getAsTuple(),
+            "extruder_outputs": self.extruder_outputs.getAsTuple()
         }
-
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
 
@@ -255,7 +256,6 @@ class FisnarCSVParameterExtension(QObject, Extension):
         return self.num_extruders
 
 
-    # This function (below) can be removed if the 'getextruderoutput' function works
     @pyqtSlot(str, str)
     def setExtruderOutput(self, extruder_num, output_val):
         # slot for qml to set the output associated with one of the extruders
@@ -266,6 +266,41 @@ class FisnarCSVParameterExtension(QObject, Extension):
         else:  # throw a warning and return
             Logger.log("w", "Out of range extruder number set in setExtruderOutput(): " + str(extruder_num))
             return
+        self.updatePreferencedValues()
+
+
+    @pyqtProperty(int)
+    def getExt1OutputInd(self):
+        # get the output of extruder 1 as the index of the list model of outputs in qml code.
+        # for reference, 0->None, 1->1, 2->2, 3->3, 4->4
+        if self.extruder_outputs.getOutput(1) is None:
+            return 0
+        else:
+            return int(self.extruder_outputs.getOutput(1))
+
+
+    @pyqtProperty(int)
+    def getExt2OutputInd(self):
+        if self.extruder_outputs.getOutput(2) is None:
+            return 0
+        else:
+            return int(self.extruder_outputs.getOutput(2))
+
+
+    @pyqtProperty(int)
+    def getExt3OutputInd(self):
+        if self.extruder_outputs.getOutput(3) is None:
+            return 0
+        else:
+            return int(self.extruder_outputs.getOutput(3))
+
+
+    @pyqtProperty(int)
+    def getExt4OutputInd(self):
+        if self.extruder_outputs.getOutput(4) is None:
+            return 0
+        else:
+            return int(self.extruder_outputs.getOutput(4))
 
 
     @pyqtProperty(str)

@@ -80,11 +80,11 @@ class ExtruderArray:
         else:
             self.outputs[extruder - 1] = int(output)
 
-    def getAsIntTuple(self):
+    def getAsTuple(self):
         ret_tuple = []
         for output in self.outputs:
             if output is None:
-                ret_tuple.append(0)
+                ret_tuple.append(None)
             else:
                 ret_tuple.append(int(output))
         return ret_tuple
