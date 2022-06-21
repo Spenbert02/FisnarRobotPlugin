@@ -6,6 +6,8 @@ import threading
 from .Fisnar import Fisnar
 from .Converter import Converter
 
+from UM.Logger import Logger
+
 
 class FisnarController:
     # class to handle controlling the fisnar via the RS-232 port. Once an
@@ -108,6 +110,7 @@ class FisnarController:
             # set whether the print was successful or not. Regardless, the print
             # is done and a finalizer should be sent
             self.successful_print = tf
+            self.turnOffOutputs()
             self.fisnar_machine.sendCommand(Fisnar.finalizer())
 
         # beginning progress tracking
@@ -115,10 +118,8 @@ class FisnarController:
 
         # ensuring serial port is/can be opened
         if not FisnarController.DEBUG_MODE and not self.fisnar_machine.isInitialized():
-            Logger.log("d", "*********** 1")
             self.fisnar_machine.initializeSerialPort()
             if not self.fisnar_machine.isInitialized():  # still couldn't open
-                Logger.log("d", "*********** 2")
                 setSuccessfulPrint(False)
                 return
 
@@ -140,14 +141,40 @@ class FisnarController:
             setSuccessfulPrint(False)
             return
 
-        Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))  # test
+        # # test
+        # Logger.log("d", "before running commands, terminate running: " + str(self.getTerminateRunning()))
+        # test = [[], [], []]
+
+        # segmenting commands, turning into new command segment list where the max dummy point length is set
+        initial_segmented_commands = Converter.segmentFisnarCommands(self.fisnar_commands)
+        segmented_commands = []
+        max_dummy_seg_length = 50
+        for i in range(len(initial_segmented_commands)):  # iterating over segmented commands from Converter
+            if isinstance(initial_segmented_commands[i][0], list):  # is list of dummy command
+                dummy_list = initial_segmented_commands[i][:-1]  # current dummy command list
+                output_list = initial_segmented_commands[i][-1]
+
+                new_dummy_segs = []  # list of lists of dummy commands (with output ending)
+                for j in range(len(dummy_list)):
+                    if j % max_dummy_seg_length == 0:
+                        new_dummy_segs.append([])
+                    new_dummy_segs[-1].append(dummy_list[j])
+
+                for j in range(len(new_dummy_segs)):
+                    new_dummy_segs[j].append(output_list)
+                    segmented_commands.append(new_dummy_segs[j])
+            else:  # Line speed, etc. - just not dummy point list
+                segmented_commands.append(initial_segmented_commands[i])
+
+        # # test
+        # for element in segmented_commands:
+        #     Logger.log("d", str(element))
 
         i = 0  # index
-        segmented_commands = Converter.segmentFisnarCommands(self.fisnar_commands)
         output_states = [0, 0, 0, 0]
         # iterating over commands, uploading bytes without sendCommand function
         while (i < len(segmented_commands)) and (not self.getTerminateRunning()):
-            Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
+            # Logger.log("d", "command " + str(i) + ", terminate running: " + str(self.getTerminateRunning()))  # test
             self.setPrintProgress(i / len(segmented_commands))  # updating progress
 
             if isinstance(segmented_commands[i][0], str):  # not chunk of dummy points
@@ -158,7 +185,7 @@ class FisnarController:
                         setSuccessfulPrint(False)
                         return
                 else:
-                    Logger.log("d", "forgotten about command: '" + str(command[0]) + "'")
+                    Logger.log("i", "forgotten about command: '" + str(command[0]) + "'")
             else:  # chunk of dummy points
                 expected_bytes = bytes()
 
@@ -168,6 +195,9 @@ class FisnarController:
                     self.fisnar_machine.writeBytes(command_bytes)
                     expected_bytes += Fisnar.expectedReturn(command_bytes)
 
+                    # test[0].append(str(command_bytes))  # test
+                    # test[1].append(str(Fisnar.expectedReturn(command_bytes)))
+
                 if segmented_commands[i][-1] != output_states:  # change in output state(s)
                     for k in range(4):
                         if segmented_commands[i][-1][k] != output_states[k]:
@@ -175,17 +205,26 @@ class FisnarController:
                             self.fisnar_machine.writeBytes(output_command)
                             expected_bytes += Fisnar.expectedReturn(output_command)
                     output_states = copy.deepcopy(segmented_commands[i][-1])
-                    Logger.log("d", str(output_states))
 
                 self.fisnar_machine.writeBytes(Fisnar.ID())  # ID and confirmation bytes
                 expected_bytes += Fisnar.expectedReturn(Fisnar.ID())
 
-                received_bytes = bytes()  # reading as many lines as necessary
+                received_bytes = bytes()
                 for j in range(expected_bytes.count(bytes("\n", "ascii"))):
-                    received_bytes += self.fisnar_machine.readLine()
+                    temp = self.fisnar_machine.readLine()
+                    received_bytes += temp
+                    # # test
+                    # if j % 2 == 0:
+                    #     test[2].append(str(temp))
+                    # else:
+                    #     test[2][-1] += str(temp)
+
+                # for j in range(len(test[0])):  # test
+                #     Logger.log("d", "sent: " + str(test[0][j]) + "  |  expected: " + str(test[1][j]) + "  |  received: " + str(test[2][j]))
 
                 if expected_bytes != received_bytes:  # improper confirmation bytes recieved
                     Logger.log("e", "byte mismatch:\n-- expected --\n" + str(expected_bytes) + "\n-- received --\n" + str(received_bytes))
+                    Logger.log("e", "newline count: " + str(expected_bytes.count(bytes("\n", "ascii"))))
                     self.setInformation("failed to send commands over RS232 port - incorrect confirmation bytes recieved")
                     setSuccessfulPrint(False)
                     return
@@ -256,7 +295,3 @@ if __name__ == "__main__":
 
     fc = FisnarController()
     fc.fisnar_machine.sendCommand(Fisnar.finalizer())
-
-
-if not FisnarController.DEBUG_MODE:  # importing UM if not in debug mode
-    from UM.Logger import Logger
