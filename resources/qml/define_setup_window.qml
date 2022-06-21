@@ -11,7 +11,7 @@ UM.Dialog {
 
     width: minimumWidth
     height: minimumHeight
-    minimumWidth: 500 * screenScaleFactor
+    minimumWidth: 430 * screenScaleFactor
     minimumHeight: 235 * screenScaleFactor
 
     onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
