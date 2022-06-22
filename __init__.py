@@ -1,5 +1,5 @@
 from . import FisnarCSVWriter
-from . import FisnarCSVParameterExtension
+from . import FisnarRobotExtension
 
 
 def getMetaData():
@@ -17,6 +17,6 @@ def getMetaData():
 
 def register(app):
     return {
-    "extension": FisnarCSVParameterExtension.FisnarCSVParameterExtension(),
+    "extension": FisnarCSVRobotExtension.FisnarRobotExtension(),
     "mesh_writer": FisnarCSVWriter.FisnarCSVWriter()
     }

@@ -26,11 +26,11 @@ includes: keyboard, pyautogui, PyGetWindow, and PyRect.
 │    │         └─── PyRect  
 │    ├─── convert.py  
 │    │    └─── gcodeBuddy  
-│    └─── FisnarCSVParameterExtension.py  
+│    └─── FisnarRobotExtension.py  
 │         ├─── pyperclip  
 │         └─── AutoUploader.py  
 │              ├─── \<see above\>  
-└─── FisnarCSVParameterExtension.py  
+└─── FisnarRobotExtension.py  
      └─── \<see above\>  
 
 ## Importing manually included libraries

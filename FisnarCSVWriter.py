@@ -1,4 +1,4 @@
-from .FisnarCSVParameterExtension import FisnarCSVParameterExtension
+from .FisnarRobotExtension import FisnarRobotExtension
 from .Converter import Converter
 
 from UM.Mesh.MeshWriter import MeshWriter
@@ -21,7 +21,7 @@ class FisnarCSVWriter(MeshWriter):
         # and update the Converter object
 
         #  getting extension instance
-        ext = FisnarCSVParameterExtension.getInstance()
+        ext = FisnarRobotExtension.getInstance()
 
         # updating fisnar coords
         self.converter.setPrintSurface(ext.print_surface)
@@ -69,7 +69,7 @@ class FisnarCSVWriter(MeshWriter):
 
             csv_string = Converter.fisnarCommandsToCSVString(fisnar_commands)
             stream.write(csv_string)  # writing to file
-            FisnarCSVParameterExtension.getInstance().most_recent_fisnar_commands = fisnar_commands  # updating in extension class
+            FisnarRobotExtension.getInstance().most_recent_fisnar_commands = fisnar_commands  # updating in extension class
 
             return True  # successful conversion
         else:  # gcode list not found, log error

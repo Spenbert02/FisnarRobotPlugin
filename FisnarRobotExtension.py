@@ -26,7 +26,7 @@ from .Converter import Converter
 from .PrinterAttributes import PrintSurface, ExtruderArray
 
 
-class FisnarCSVParameterExtension(QObject, Extension):
+class FisnarRobotExtension(QObject, Extension):
 
 
     # for factory methods. This will be set to the instance of this class once initialized.
@@ -40,11 +40,11 @@ class FisnarCSVParameterExtension(QObject, Extension):
         Extension.__init__(self)
 
         # factory object creation
-        if FisnarCSVParameterExtension._instance is not None:  # if object has already been instantiated
-            Logger.log("e", "FisnarCSVParameterExtension instantiated more than once")
+        if FisnarRobotExtension._instance is not None:  # if object has already been instantiated
+            Logger.log("e", "FisnarRobotExtension instantiated more than once")
         else:  # first time instantiating object
-            # Logger.log("i", "****** FisnarCSVParameterExtension instantiated for the first time")  # test
-            FisnarCSVParameterExtension._instance = self
+            # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
+            FisnarRobotExtension._instance = self
 
         # signal to update disallowed areas whenever build plate activity is changed
         # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
@@ -96,6 +96,16 @@ class FisnarCSVParameterExtension(QObject, Extension):
         self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
         self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
+        # # filepaths to local resources
+        # self.local_meshes_path = os.path.join(Resources.getStoragePathForType(Resources.Resources), "meshes")
+        # self.local_printer_defs_path = os.path.join(Resources.getStoragePathForType(Resources.DefinitionContainers))
+        #
+        # # checking if plugin files are installed
+        # if self.isInstalled():
+        #     pass
+        # else:
+        #     pass
+
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
         Application.getInstance().mainWindowChanged.connect(self.logMessage)
@@ -105,6 +115,16 @@ class FisnarCSVParameterExtension(QObject, Extension):
     def getInstance(cls):
         # factory method
         return cls._instance
+
+
+    # def isInstalled(self):
+    #     # return True if all plugin files are already installed, and False if
+    #     # ANY are not
+    #     fisnar_buildplate_file = os.path.join(self.local_meshes_path, "fisnar_buildplate.3mf")
+    #     fisnar_f5200n_def_file = os.path.join(self.local_printer_defs_path, "fisnar_f5200n.def.json")
+    #
+    #     if not os.path.isfile(fisnar_buildplate_file):
+    #         Logger.log("i", "FisnarRobotPlugin")
 
 
     def updateFromPreferencedValues(self):

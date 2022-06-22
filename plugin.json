@@ -1,5 +1,5 @@
 {
-    "name": "Fisnar CSV Writer",
+    "name": "Fisnar Robot Plugin",
     "author": "Spencer Bertram",
     "version": "1.1.0",
     "description": "Provides support for outputting Fisnar CSV Command Files",

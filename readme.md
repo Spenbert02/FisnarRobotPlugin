@@ -1,5 +1,5 @@
 # README
-FisnarCSVWriter is a plugin for Utlimaker's [Cura](https://github.com/Ultimaker/Cura) slicer software that adds functionality for printing
+FisnarRobotPlugin is a plugin for Utlimaker's [Cura](https://github.com/Ultimaker/Cura) slicer software that adds functionality for printing
 CAD files with Fisnar dispensing robots. It is still in development and this
 page will be updated regularly.
 
@@ -42,7 +42,7 @@ being used.
 The easiest way to download the plugin will be to download it from Ultimaker's
 [plugin marketplace](https://marketplace.ultimaker.com/app/cura/plugins). This
 plugin isn't published there yet, but once it is it can be found by searching
-'FisnarCSVWriter' on the plugin marketplace page.
+'FisnarRobotPlugin' on the plugin marketplace page.
 
 In the meantime, the file found in the 'packaged_plugins/universal_packaged_plugins'
 directory can be drag and dropped into Cura. This will begin installation in Cura.

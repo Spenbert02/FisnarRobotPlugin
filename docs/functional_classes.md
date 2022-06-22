@@ -8,7 +8,7 @@ help with different tasks within the plugin. These are described below.
 
 ## AutoUploader
 The AutoUploader class handles execution of the auto upload process. The
-FisnarCSVParameterExtension object creates an instance of an AutoUploader
+FisnarRobotExtension object creates an instance of an AutoUploader
 when Cura boots up. When the 'Start auto upload process' menu item is clicked,
 an AutoUploader method is called that starts the auto upload process. The
 AutoUploader object then begins an internal process where the auto upload
@@ -28,7 +28,7 @@ sequentially uploaded during the auto upload process.
 The HandledPolygon class is a simple child class of Uranium's Polygon class.
 This class doesn't do anything crazy, and exists only for identification purposes.
 When the 'Set print area' menu item is clicked and specific printable coordinates
-are entered, the FisnarCSVParameterExtension object calls a method on the
+are entered, the FisnarRobotExtension object calls a method on the
 main CuraApplication instance (which is also a 'singleton', as described above) that sets
 the disallowed areas on the build plate. This method takes a Polygon object,
 which is pretty much just a set of x and y coordinates describing a shape on the
