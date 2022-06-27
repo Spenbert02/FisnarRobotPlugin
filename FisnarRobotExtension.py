@@ -1,10 +1,14 @@
 import copy
 import json
 import numpy
+import os
 import os.path
+import stat
 import sys
 import threading
 import time
+import zipfile
+
 from typing import Optional, Union, List
 
 from cura.BuildVolume import BuildVolume
@@ -13,10 +17,12 @@ from cura.CuraApplication import CuraApplication
 from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
 from PyQt6.QtQml import QQmlComponent, QQmlContext
 
+from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Extension import Extension
 from UM.Logger import Logger
 from UM.Math.Polygon import Polygon
+from UM.Message import Message
 from UM.PluginRegistry import PluginRegistry
 from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
@@ -24,6 +30,8 @@ from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 from .FisnarController import FisnarController
 from .Converter import Converter
 from .PrinterAttributes import PrintSurface, ExtruderArray
+
+catalog = i18nCatalog("cura")
 
 
 class FisnarRobotExtension(QObject, Extension):
@@ -97,7 +105,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
         # filepaths to local resources
-        self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin"))
+        self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
         self.local_meshes_path = os.path.join(Resources.getStoragePathForType(Resources.Resources), "meshes")
         self.local_printer_defs_path = os.path.join(Resources.getStoragePathForType(Resources.DefinitionContainers))
 
@@ -117,10 +125,6 @@ class FisnarRobotExtension(QObject, Extension):
             self.installDefFiles()
             Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
 
-        # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
-        # ya pretty sure this is totally irrelevant but I'm gonna leave it
-        Application.getInstance().mainWindowChanged.connect(self.logMessage)
-
 
     @classmethod
     def getInstance(cls):
@@ -132,7 +136,7 @@ class FisnarRobotExtension(QObject, Extension):
         # return True if the locally installed def files are up to date,
         # otherwise return False. Not sure the mechanism by which the version
         # can be tracked, but probably just go off the Dremel plugin example
-        return False
+        return True
 
 
     def isInstalled(self):
@@ -152,19 +156,37 @@ class FisnarRobotExtension(QObject, Extension):
     def installDefFiles(self):
         # install definition files
 
-        files_to_install = {  # dictionary in <file_name> : [<plugin file abs path>, <local file abs path>]
-            "fisnar_buildplate.3mf" : [os.path.join(self.this_plugin_path, "resources", "definitions", "fisnar_buildplate.3mf"), os.path.join(self.local_meshes_path, "fisnar_buildplate.3mf")],
-            "fisnar_f5200n.def.json" : [os.path.join(self.this_plugin_path, "resources", "definitions", "fisnar_f5200n.def.json"), os.path.join(self.local_printer_defs_path, "fisnar_f5200n.def.json")]
-        }
+        try:
+            zipdata = os.path.join(self.this_plugin_path, "resources", "definitions.zip")
+            Logger.log("i", f"found zipfile: {zipdata}")
 
-        for file in files_to_install:  # installing each file
-            plugin_file = open(files_to_install[file][0], "rb")
-            local_file = open(files_to_install[file][1], "wb")
-            local_file.write(plugin_file.read())
+            with zipfile.ZipFile(zipdata, "r") as zip_files:
+                for info in zip_files.infolist():
+                    Logger.log("i", f"found in zip file: {info.filename}")
 
-            plugin_file.close()
-            local_file.close()
-            Logger.log("i", f"file '{file}' installed and is now up-to-date")
+                    folder = None
+                    if info.filename == "fisnar_buildplate.3mf":
+                        folder = self.local_meshes_path
+                        if not os.path.exists(folder):  # making the meshes folder because cura doesn't make it for some reason
+                            os.mkdir(folder)
+                    elif info.filename == "fisnar_f5200n.def.json":
+                        folder = self.local_printer_defs_path
+
+                    if folder is not None:
+                        extracted_path = zip_files.extract(info.filename, path=folder)
+                        permissions = os.stat(extracted_path).st_mode
+                        os.chmod(extracted_path, permissions | stat.S_IEXEC)  # bitwise OR?
+                        Logger.log("i", f"file {info.filename} installed to {extracted_path}")
+                    else:
+                        Logger.log("w", f"unrecognized file in definitions.zip: {info.filename}")
+
+            if self.isInstalled():
+                Logger.log("i", "all Fisnar Robot Plugin files successfully installed")
+        except:
+            Logger.log("w", "An error occured while installing the Fisnar Robot Plugin files.")
+            warning = Message(catalog.i18nc("@warning:status", "An error occured while installing Fisnar Robot Plugin files."))
+            warning.show()
+
 
 
     def updateFromPreferencedValues(self):
