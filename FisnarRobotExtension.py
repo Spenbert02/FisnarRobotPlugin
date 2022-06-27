@@ -96,15 +96,26 @@ class FisnarRobotExtension(QObject, Extension):
         self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
         self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
-        # # filepaths to local resources
-        # self.local_meshes_path = os.path.join(Resources.getStoragePathForType(Resources.Resources), "meshes")
-        # self.local_printer_defs_path = os.path.join(Resources.getStoragePathForType(Resources.DefinitionContainers))
-        #
-        # # checking if plugin files are installed
-        # if self.isInstalled():
-        #     pass
-        # else:
-        #     pass
+        # filepaths to local resources
+        self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin"))
+        self.local_meshes_path = os.path.join(Resources.getStoragePathForType(Resources.Resources), "meshes")
+        self.local_printer_defs_path = os.path.join(Resources.getStoragePathForType(Resources.DefinitionContainers))
+
+        # checking if plugin files are installed
+        update_necessary = False
+        if self.isInstalled():
+            if self.defFilesAreUpdated():  # up-to-date
+                Logger.log("i", "Up-to-date FisnarRobotPlugin extension files are already installed.")
+            else:  # need to be updated
+                Logger.log("i", "FisnarRobotPlugin files need to be updated.")
+                update_necessary = True
+        else:  # files not installed
+            Logger.log("i", "One or more FisnarRobotPlugin files needs to be installed")
+            update_necessary = True
+
+        if update_necessary:
+            self.installDefFiles()
+            Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
 
         # writes to logger when something happens (TODO figure out when this is called, although it doesn't really matter).
         # ya pretty sure this is totally irrelevant but I'm gonna leave it
@@ -117,14 +128,43 @@ class FisnarRobotExtension(QObject, Extension):
         return cls._instance
 
 
-    # def isInstalled(self):
-    #     # return True if all plugin files are already installed, and False if
-    #     # ANY are not
-    #     fisnar_buildplate_file = os.path.join(self.local_meshes_path, "fisnar_buildplate.3mf")
-    #     fisnar_f5200n_def_file = os.path.join(self.local_printer_defs_path, "fisnar_f5200n.def.json")
-    #
-    #     if not os.path.isfile(fisnar_buildplate_file):
-    #         Logger.log("i", "FisnarRobotPlugin")
+    def defFilesAreUpdated(self):
+        # return True if the locally installed def files are up to date,
+        # otherwise return False. Not sure the mechanism by which the version
+        # can be tracked, but probably just go off the Dremel plugin example
+        return False
+
+
+    def isInstalled(self):
+        # return True if all plugin files are already installed, and False if
+        # ANY are not
+        fisnar_buildplate_file = os.path.join(self.local_meshes_path, "fisnar_buildplate.3mf")
+        fisnar_f5200n_def_file = os.path.join(self.local_printer_defs_path, "fisnar_f5200n.def.json")
+
+        if not os.path.isfile(fisnar_buildplate_file):
+            Logger.log("i", f"file '{fisnar_buildplate_file}' is not installed")
+            return False
+        if not os.path.isfile(fisnar_f5200n_def_file):
+            Logger.log("i", f"file '{fisnar_f5200n_def_file}' is not installed")
+            return False
+
+
+    def installDefFiles(self):
+        # install definition files
+
+        files_to_install = {  # dictionary in <file_name> : [<plugin file abs path>, <local file abs path>]
+            "fisnar_buildplate.3mf" : [os.path.join(self.this_plugin_path, "resources", "definitions", "fisnar_buildplate.3mf"), os.path.join(self.local_meshes_path, "fisnar_buildplate.3mf")],
+            "fisnar_f5200n.def.json" : [os.path.join(self.this_plugin_path, "resources", "definitions", "fisnar_f5200n.def.json"), os.path.join(self.local_printer_defs_path, "fisnar_f5200n.def.json")]
+        }
+
+        for file in files_to_install:  # installing each file
+            plugin_file = open(files_to_install[file][0], "rb")
+            local_file = open(files_to_install[file][1], "wb")
+            local_file.write(plugin_file.read())
+
+            plugin_file.close()
+            local_file.close()
+            Logger.log("i", f"file '{file}' installed and is now up-to-date")
 
 
     def updateFromPreferencedValues(self):
@@ -159,6 +199,12 @@ class FisnarRobotExtension(QObject, Extension):
         # test
         # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
 
+        # only update if the active machine is the fisnar
+        active_machine = CuraApplication.getInstance().getMachineManager().activeMachine
+        if active_machine is not None:
+            if active_machine.id != "Fisnar F5200N":
+                return
+
         # adding disallowed areas to each BuildVolume object
         scene = Application.getInstance().getController().getScene()
         for node in BreadthFirstIterator(scene.getRoot()):
@@ -183,20 +229,8 @@ class FisnarRobotExtension(QObject, Extension):
                 new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
                 new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
 
-                # getting rid of old polygons in old list
-                iter = 0
-                while iter < len(orig_disallowed_areas):
-                    if isinstance(orig_disallowed_areas[iter], self.HandledPolygon):
-                        orig_disallowed_areas.pop(iter)
-                    else:
-                        iter += 1
-
-                # updating original list with new list
-                for poly in new_disallowed_areas:
-                    orig_disallowed_areas.append(poly)
-
                 # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
-                node.setDisallowedAreas(orig_disallowed_areas)
+                node.setDisallowedAreas(new_disallowed_areas)
                 node.setHeight(new_z_dim)
                 node.rebuild()
 
@@ -432,7 +466,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
-        qml_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath(self.getPluginId()), "resources", "qml", qml_file_name)
+        qml_file_path = os.path.join(self.this_plugin_path, "resources", "qml", qml_file_name)
         component = Application.getInstance().createQmlComponent(qml_file_path, {"main": self})
         return component
 

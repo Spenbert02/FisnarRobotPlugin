@@ -1,0 +1,54 @@
+{
+    "version": 2,
+    "name": "Fisnar F5200N",
+    "inherits": "fdmprinter",
+    "metadata": {
+        "visible": true,
+        "author": "McAlpine Research Group",
+        "manufacturer": "Fisnar",
+        "file_formats": "text/x-gcode",
+        "has_materials": true,
+        "platform": "fisnar_buildplate.3mf",
+        "platform_offset": [0, 5, -95],
+        "machine_extruder_trains":
+        {
+            "0": "custom_extruder_1",
+            "1": "custom_extruder_2",
+            "2": "custom_extruder_3",
+            "3": "custom_extruder_4",
+            "4": "custom_extruder_5",
+            "5": "custom_extruder_6",
+            "6": "custom_extruder_7",
+            "7": "custom_extruder_8"
+        },
+        "first_start_actions": ["MachineSettingsAction"],
+        "file_formats": "text/csv"
+    },
+    "overrides": {
+      "machine_disallowed_areas": {
+        "default_value": []
+      },
+      "machine_name": { "default_value": "Fisnar F5200N" },
+      "machine_width": { "default_value": 200 },
+      "machine_depth": { "default_value": 200 },
+      "machine_height": { "default_value": 150 },
+      "machine_start_gcode": {
+          "label": "Start G-code",
+          "description": "G-code commands to be executed at the very start - separated by \\n.",
+          "default_value": "",
+          "type": "str",
+          "settable_per_mesh": false,
+          "settable_per_extruder": false,
+          "settable_per_meshgroup": false
+      },
+      "machine_end_gcode": {
+          "label": "End G-code",
+          "description": "G-code commands to be executed at the very end - separated by \\n.",
+          "default_value": "",
+          "type": "str",
+          "settable_per_mesh": false,
+          "settable_per_extruder": false,
+          "settable_per_meshgroup": false
+      }
+    }
+}

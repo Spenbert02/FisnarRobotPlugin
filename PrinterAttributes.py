@@ -57,6 +57,13 @@ class PrintSurface:
     def getZMax(self):
         return float(self.z_max)
 
+    def realign(self):
+        # ensure that coord values are in proper order
+        if self.x_min > self.x_max:
+            self.x_min, self.x_max = self.x_max, self.x_min
+        if self.y_min > self.y_max:
+            self.y_min, self.y_max = self.y_max, self.y_min
+
     def getDebugString(self):
         return "\nx_min: " + str(self.x_min) + ", " + str(type(self.x_min)) + "\nx_max: " + str(self.x_max) + ", " + str(type(self.x_max)) + "\ny_min: " + str(self.y_min) + ", " + str(type(self.y_min)) + "\ny_max: " + str(self.y_max) + ", " + str(type(self.y_max)) + "\nz_max: " + str(self.z_max) + ", " + str(type(self.z_max))
 

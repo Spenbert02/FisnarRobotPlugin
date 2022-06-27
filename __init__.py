@@ -17,6 +17,6 @@ def getMetaData():
 
 def register(app):
     return {
-    "extension": FisnarCSVRobotExtension.FisnarRobotExtension(),
+    "extension": FisnarRobotExtension.FisnarRobotExtension(),
     "mesh_writer": FisnarCSVWriter.FisnarCSVWriter()
     }
