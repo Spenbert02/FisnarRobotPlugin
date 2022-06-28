@@ -1,8 +1,5 @@
 from .Machine import Machine
 
-# test
-from UM.Logger import Logger
-
 
 class Fisnar(Machine):
     # class representing physical Fisnar machine, with functions representing
@@ -21,7 +18,6 @@ class Fisnar(Machine):
                 self.setInformation("initializer confirmation failed. Bytes recieved: " + str(confirmation))
                 return False
         elif command_bytes == Fisnar.finalizer():  # finalizer bytes, no return bytes expected so just send and return True
-            Logger.log("d", "finalizer sent: " + str(Fisnar.finalizer()))
             self.writeBytes(Fisnar.finalizer())
             return True
         else:  # any non-feedback command besides initial and final ones

@@ -72,7 +72,7 @@ class FisnarController:
         # set the terminate running status
         self.lock.acquire()
         self.terminate_running = val
-        Logger.log("d", "***** terminate running set to: " + str(val))
+        # Logger.log("d", "***** terminate running set to: " + str(val))
         self.lock.release()
 
     def getTerminateRunning(self):

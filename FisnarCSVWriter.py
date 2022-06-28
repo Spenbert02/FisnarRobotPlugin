@@ -25,11 +25,11 @@ class FisnarCSVWriter(MeshWriter):
 
         # updating fisnar coords
         self.converter.setPrintSurface(ext.print_surface)
-        Logger.log("i", "Build area updated in FisnarCSVWriter. New print surface: " + str(self.converter.getPrintSurface()))  # test
+        # Logger.log("i", "Build area updated in FisnarCSVWriter. New print surface: " + str(self.converter.getPrintSurface()))  # test
 
         # updating extruder correlations
         self.converter.setExtruderOutputs(ext.extruder_outputs)
-        Logger.log("i", "Extruder outputs passed to FisnarCSVWriter. New outputs: " + str(self.converter.getExtruderOutputs()))  # test
+        # Logger.log("i", "Extruder outputs passed to FisnarCSVWriter. New outputs: " + str(self.converter.getExtruderOutputs()))  # test
 
 
     def write(self, stream, nodes, mode=MeshWriter.OutputMode.TextMode):

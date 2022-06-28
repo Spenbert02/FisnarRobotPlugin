@@ -207,7 +207,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-        Logger.log("d", self.preferences.getValue("fisnar/setup"))
+        Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
 
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
         if pref_dict.get("print_surface", None) is not None:
@@ -218,7 +218,7 @@ class FisnarRobotExtension(QObject, Extension):
             self.com_port = pref_dict["com_port"]
             self.fisnar_controller.setComPort(self.com_port)
 
-        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
+        # Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
 
     def updatePreferencedValues(self):
@@ -293,7 +293,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     def logMessage(self):
         # logging message when one of the windows is opened
-        Logger.log("i", "Fisnar parameter or output entry window opened")
+        Logger.log("i", "Fisnar window opened")
 
 
     @pyqtProperty(str)
@@ -494,28 +494,28 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     def showDefineSetupWindow(self):
-        Logger.log("i", "Define setup window called")  # test
+        # Logger.log("i", "Define setup window called")  # test
         if not self.define_setup_window:
             self.define_setup_window = self._createDialogue("define_setup_window.qml")
         self.define_setup_window.show()
 
 
     def showFisnarControlWindow(self):
-        Logger.log("i", "Fisnar control window called")  # test
+        # Logger.log("i", "Fisnar control window called")  # test
         if not self.fisnar_control_window:
             self.fisnar_control_window = self._createDialogue("fisnar_control_window.qml")
         self.fisnar_control_window.show()
 
 
     def showFisnarErrorWindow(self):
-        Logger.log("i", "Fisnar error msg window called")  # test
+        # Logger.log("i", "Fisnar error msg window called")  # test
         if not self.fisnar_error_window:
             self.fisnar_error_window = self._createDialogue("fisnar_control_error.qml")
         self.fisnar_error_window.show()
 
 
     def showFisnarProgressWindow(self):
-        Logger.log("i", "Fisnar progress window called")  # test
+        # Logger.log("i", "Fisnar progress window called")  # test
 
         # displaying window
         if not self.fisnar_progress_window:

@@ -222,7 +222,7 @@ class Converter:
         # turning off necessary outputs
         if self.conversion_mode == Converter.IO_CARD:
             gcode_outputs = Converter.getOutputsInFisnarCommands(fisnar_commands)
-            Logger.log("i", "gcode outputs: " + str(gcode_outputs))
+            Logger.log("d", "gcode outputs: " + str(gcode_outputs))
             for i in range(4):
                 if gcode_outputs[i]:
                     fisnar_commands.append(["Output", i + 1, 0])
@@ -253,13 +253,13 @@ class Converter:
         for command in fisnar_commands:
             if command[0] in Converter.XYZ_COMMANDS:
                 if not (self.print_surface.getXMin() <= command[1] <= self.print_surface.getXMax()):
-                    Logger.log("e", str(command))
+                    Logger.log("e", f"command found outside user-defined build volume: {str(command)}")
                     return False
                 if not (self.print_surface.getYMin() <= command[2] <= self.print_surface.getYMax()):
-                    Logger.log("e", str(command))
+                    Logger.log("e", f"command found outside user-defined build volume: {str(command)}")
                     return False
                 if not (0 <= command[3] <= self.print_surface.getZMax()):
-                    Logger.log("e", str(command))
+                    Logger.log("e", f"command found outside user-defined build volume: {str(command)}")
                     return False
         return True  # functioned hasn't returned False, so all good
 
@@ -398,8 +398,8 @@ class Converter:
                 else:
                     i += 1
 
-            if output_state is None:
-                Logger.log("d", "output " + str(output) + " does not appear in Fisnar commands.")
+            # if output_state is None:
+            #     Logger.log("d", "output " + str(output) + " does not appear in Fisnar commands.")
 
     @staticmethod
     def invertCoords(commands, z_dim):

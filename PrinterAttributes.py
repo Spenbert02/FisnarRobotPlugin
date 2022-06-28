@@ -1,6 +1,3 @@
-from UM.Logger import Logger
-
-
 class PrintSurface:
     # simple class representing the print area.
 
@@ -100,7 +97,6 @@ class ExtruderArray:
         return self.outputs[extruder - 1]
 
     def getOutputAsInt(self, extruder):
-        Logger.log("d", "in PrinterAttributes, self.outputs: " + str(self.outputs))
         ret_output = self.outputs[extruder - 1]
         if ret_output is None:
             return 0
