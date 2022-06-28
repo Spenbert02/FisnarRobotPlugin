@@ -13,9 +13,6 @@ class FisnarController:
     # class to handle controlling the fisnar via the RS-232 port. Once an
     # instance is given commands, it can upload them to the Fisnar
 
-    # 'setting' variables
-    COM_PORT = "COM7"
-
     # to turn on or off debugging mode
     DEBUG_MODE = False
 
@@ -26,13 +23,9 @@ class FisnarController:
         # error message
         self.information = None
 
-        # creating fisnar and trying to initialize serial port
-        self.fisnar_machine = Fisnar(FisnarController.COM_PORT, 115200)
-
-        # trying to initialize serial port
-        self.fisnar_machine.initializeSerialPort()
-        if not self.fisnar_machine.isInitialized():
-            self.setInformation(self.fisnar_machine.getInformation())
+        # fisnar machine initialization
+        self.fisnar_machine = None
+        self.com_port = None
 
         # fisnar commands
         self.fisnar_commands = None
@@ -58,6 +51,20 @@ class FisnarController:
             return "<no err msg set>"
         else:
             return str(self.information)
+
+    def setComPort(self, com_port):
+        # update the com port and create fisnar machine if the port
+        # isn't None
+        if com_port is None or com_port == "None":
+            self.com_port = None
+        else:
+            self.com_port = str(com_port)
+            if self.fisnar_machine is not None:  # delete com port object to free port
+                del self.fisnar_machine
+            self.fisnar_machine = Fisnar(self.com_port, 115200)
+
+    def getComPort(self):
+        return str(self.com_port)
 
     def setTerminateRunning(self, val):
         # set the terminate running status
@@ -104,22 +111,32 @@ class FisnarController:
         # set the fisnar commands to be uploaded
         self.fisnar_commands = command_list
 
+
     def runCommands(self):
         # run the previously uploaded fisnar commands to the fisnar
         def setSuccessfulPrint(tf):
             # set whether the print was successful or not. Regardless, the print
             # is done and a finalizer should be sent
             self.successful_print = tf
-            self.turnOffOutputs()
-            self.fisnar_machine.sendCommand(Fisnar.finalizer())
+
+            if self.fisnar_machine is not None:
+                self.turnOffOutputs()
+                self.fisnar_machine.sendCommand(Fisnar.finalizer())
 
         # beginning progress tracking
         self.setPrintProgress(0)
+
+        # for testing
+        if self.fisnar_machine is None:
+            setSuccessfulPrint(False)
+            self.setInformation("Developer Error: fisnar_machine in FisnarController.py has not been set")
+            return
 
         # ensuring serial port is/can be opened
         if not FisnarController.DEBUG_MODE and not self.fisnar_machine.isInitialized():
             self.fisnar_machine.initializeSerialPort()
             if not self.fisnar_machine.isInitialized():  # still couldn't open
+                self.setInformation(self.fisnar_machine.getInformation())
                 setSuccessfulPrint(False)
                 return
 

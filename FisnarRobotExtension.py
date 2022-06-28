@@ -65,16 +65,16 @@ class FisnarRobotExtension(QObject, Extension):
         self.preferences = self._application.getPreferences()
         default_preferences = {
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
-            "extruder_outputs": [None, None, None, None]
+            "extruder_outputs": [None, None, None, None],
+            "com_port": None
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
-        # defining print surface
+        # internal preference values
         self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
-
-        # output correlations
         self.num_extruders = None
         self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
+        self.com_port = None
 
         # # setting setting values to values stored in preferences, and updating build area view
         self.updateFromPreferencedValues()
@@ -193,7 +193,6 @@ class FisnarRobotExtension(QObject, Extension):
             warning.show()
 
 
-
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
         Logger.log("d", self.preferences.getValue("fisnar/setup"))
@@ -203,15 +202,18 @@ class FisnarRobotExtension(QObject, Extension):
             self.print_surface.updateFromTuple(pref_dict["print_surface"])
         if pref_dict.get("extruder_outputs", None) is not None:
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
+        if pref_dict.get("com_port", -1) is not -1:
+            self.com_port = pref_dict["com_port"]
 
-        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()))
+        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
 
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
         new_pref_dict = {
             "print_surface": self.print_surface.getAsTuple(),
-            "extruder_outputs": self.extruder_outputs.getAsTuple()
+            "extruder_outputs": self.extruder_outputs.getAsTuple(),
+            "com_port": self.com_port
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -334,7 +336,6 @@ class FisnarRobotExtension(QObject, Extension):
     @pyqtSlot(str, str)
     def setExtruderOutput(self, extruder_num, output_val):
         # slot for qml to set the output associated with one of the extruders
-
         extruder_num = int(extruder_num)
         if extruder_num in (1, 2, 3, 4):
             self.extruder_outputs.setOutput(extruder_num, output_val)
@@ -376,6 +377,24 @@ class FisnarRobotExtension(QObject, Extension):
             return 0
         else:
             return int(self.extruder_outputs.getOutput(4))
+
+
+    @pyqtProperty(str)
+    def getComPort(self):
+        Logger.log("d", f"com port retrieved: '{self.com_port}'")
+        return str(self.com_port)
+
+
+    @pyqtSlot(str)
+    def setComPort(self, com_port):
+        # set the com port value connected to the Fisnar
+        Logger.log("d", f"com port set to: '{com_port}'")
+        if com_port is None or com_port == "None":
+            self.com_port = None
+        else:
+            self.com_port = com_port
+        self.fisnar_controller.setComPort(self.com_port)
+        self.updatePreferencedValues()
 
 
     @pyqtProperty(str)
