@@ -54,12 +54,15 @@ class FisnarRobotExtension(QObject, Extension):
             # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
             FisnarRobotExtension._instance = self
 
+        self._application = Application.getInstance()
+        self._cura_app = CuraApplication.getInstance()
+
         # signal to update disallowed areas whenever build plate activity is changed
         # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
-        CuraApplication.getInstance().activityChanged.connect(self.resetDisallowedAreas)
+        self._cura_app.activityChanged.connect(self.resetDisallowedAreas)
 
         # preferences - defining all into a single preference in the form of a dictionary
-        self.preferences = Application.getInstance().getPreferences()
+        self.preferences = self._application.getPreferences()
         default_preferences = {
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
             "extruder_outputs": [None, None, None, None]
@@ -136,7 +139,7 @@ class FisnarRobotExtension(QObject, Extension):
         # return True if the locally installed def files are up to date,
         # otherwise return False. Not sure the mechanism by which the version
         # can be tracked, but probably just go off the Dremel plugin example
-        return True
+        return False
 
 
     def isInstalled(self):
@@ -151,6 +154,8 @@ class FisnarRobotExtension(QObject, Extension):
         if not os.path.isfile(fisnar_f5200n_def_file):
             Logger.log("i", f"file '{fisnar_f5200n_def_file}' is not installed")
             return False
+
+        return True  # all files are installed
 
 
     def installDefFiles(self):
@@ -221,14 +226,8 @@ class FisnarRobotExtension(QObject, Extension):
         # test
         # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
 
-        # only update if the active machine is the fisnar
-        active_machine = CuraApplication.getInstance().getMachineManager().activeMachine
-        if active_machine is not None:
-            if active_machine.id != "Fisnar F5200N":
-                return
-
         # adding disallowed areas to each BuildVolume object
-        scene = Application.getInstance().getController().getScene()
+        scene = self._application.getController().getScene()
         for node in BreadthFirstIterator(scene.getRoot()):
             if isinstance(node, BuildVolume):
 
@@ -327,7 +326,7 @@ class FisnarRobotExtension(QObject, Extension):
     @pyqtProperty(int)
     def getNumExtruders(self):
         # called by qml to get the number of active extruders in Cura
-        self.num_extruders = len(Application.getInstance().getExtrudersModel()._active_machine_extruders)
+        self.num_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
         # Logger.log("i", "***** number of extruders: " + str(self.num_extruders))  # test
         return self.num_extruders
 
@@ -489,7 +488,7 @@ class FisnarRobotExtension(QObject, Extension):
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
         qml_file_path = os.path.join(self.this_plugin_path, "resources", "qml", qml_file_name)
-        component = Application.getInstance().createQmlComponent(qml_file_path, {"main": self})
+        component = self._application.createQmlComponent(qml_file_path, {"main": self})
         return component
 
 
