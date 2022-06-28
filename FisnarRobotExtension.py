@@ -78,7 +78,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         # # setting setting values to values stored in preferences, and updating build area view
         self.updateFromPreferencedValues()
-        self.resetDisallowedAreas()
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -109,10 +108,10 @@ class FisnarRobotExtension(QObject, Extension):
 
         # timer for resetting disallowed areas when a file is loaded
         self.reset_dis_areas_timer = QTimer()
-        self.reset_dis_areas_timer.setInterval(5000)
+        self.reset_dis_areas_timer.setInterval(500)
         self.reset_dis_areas_timer.setSingleShot(True)
         self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
-        self._cura_app.fileLoaded.connect(self.startResetDisAreasTimer)
+        self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -134,6 +133,9 @@ class FisnarRobotExtension(QObject, Extension):
         if update_necessary:
             self.installDefFiles()
             Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
+
+        # initial disallowed areas update
+        self.startResetDisAreasTimer()
 
 
     @classmethod
@@ -264,8 +266,15 @@ class FisnarRobotExtension(QObject, Extension):
                 new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
                 new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
 
-                # for i in range(len(new_disallowed_areas)):
-                #     if new_disallowed_areas[i].
+                # removing zero area polygons from disallowed area polygon list
+                i = 0
+                while i < len(new_disallowed_areas):
+                    if new_disallowed_areas[i].isZeroArea():
+                        Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
+                        new_disallowed_areas.pop(i)
+                    else:
+                        i += 1
+
 
                 # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
                 node.setDisallowedAreas(new_disallowed_areas)
@@ -532,7 +541,25 @@ class FisnarRobotExtension(QObject, Extension):
         def __init__(self, points: Optional[Union[numpy.ndarray, List]] = None):
             super().__init__(points)
 
+        def isZeroArea(self):
+            # determine whether a given polygon has zero area
+            if len(self._points) != 4:
+                return False
+
+            # check if all x's are the same
+            linearly_coincident_x_coords = True
+            for i in range(1, len(self._points)):
+                if numpy.absolute(self._points[0][0] - self._points[i][0]) > 0.001:
+                    linearly_coincident_x_coords = False  # unequal x's, area can't be zero area
+
+            # check if all y's are the same
+            linearly_coincident_y_coords = True
+            for i in range(1, len(self._points)):
+                if numpy.absolute(self._points[0][1] - self._points[i][1]) > 0.0001:
+                    linearly_coincident_y_coords = False  # unequal y's, so area isn't 0 area
+
+            return (linearly_coincident_x_coords or linearly_coincident_y_coords)
+
 
 if __name__ == "__main__":
-    p = FisnarRobotExtension.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]])
-    print(p)
+    pass
