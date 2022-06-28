@@ -76,9 +76,6 @@ class FisnarRobotExtension(QObject, Extension):
         self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
         self.com_port = None
 
-        # # setting setting values to values stored in preferences, and updating build area view
-        self.updateFromPreferencedValues()
-
         # setting up menus
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Define Setup", self.showDefineSetupWindow)
@@ -134,8 +131,9 @@ class FisnarRobotExtension(QObject, Extension):
             self.installDefFiles()
             Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
 
-        # initial disallowed areas update
+        # setting setting values to values stored in preferences, and updating build area view
         self.startResetDisAreasTimer()
+        self.updateFromPreferencedValues()
 
 
     @classmethod
@@ -218,6 +216,7 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) is not -1:
             self.com_port = pref_dict["com_port"]
+            self.fisnar_controller.setComPort(self.com_port)
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 

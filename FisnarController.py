@@ -57,6 +57,8 @@ class FisnarController:
         # isn't None
         if com_port is None or com_port == "None":
             self.com_port = None
+            if self.fisnar_machine is not None:
+                del self.fisnar_machine
         else:
             self.com_port = str(com_port)
             if self.fisnar_machine is not None:  # delete com port object to free port
@@ -129,7 +131,7 @@ class FisnarController:
         # for testing
         if self.fisnar_machine is None:
             setSuccessfulPrint(False)
-            self.setInformation("Developer Error: fisnar_machine in FisnarController.py has not been set")
+            self.setInformation("no Fisnar COM port selected.")
             return
 
         # ensuring serial port is/can be opened
