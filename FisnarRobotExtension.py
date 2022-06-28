@@ -57,9 +57,9 @@ class FisnarRobotExtension(QObject, Extension):
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal to update disallowed areas whenever build plate activity is changed
+        # signal to update disallowed areas whenever build plate activity is changed  --  DELETE THIS CHUNK OF CODE
         # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
-        self._cura_app.activityChanged.connect(self.resetDisallowedAreas)
+        # self._cura_app.activityChanged.connect(self.resetDisallowedAreas)
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -106,6 +106,13 @@ class FisnarRobotExtension(QObject, Extension):
         self.fisnar_reset_timer.setInterval(5000)
         self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
         self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
+
+        # timer for resetting disallowed areas when a file is loaded
+        self.reset_dis_areas_timer = QTimer()
+        self.reset_dis_areas_timer.setInterval(5000)
+        self.reset_dis_areas_timer.setSingleShot(True)
+        self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
+        self._cura_app.fileLoaded.connect(self.startResetDisAreasTimer)
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -193,6 +200,11 @@ class FisnarRobotExtension(QObject, Extension):
             warning.show()
 
 
+    def startResetDisAreasTimer(self):
+        # start the reset disallowed areas timer
+        self.reset_dis_areas_timer.start()
+
+
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
         Logger.log("d", self.preferences.getValue("fisnar/setup"))
@@ -251,6 +263,9 @@ class FisnarRobotExtension(QObject, Extension):
                 new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
                 new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
                 new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
+
+                # for i in range(len(new_disallowed_areas)):
+                #     if new_disallowed_areas[i].
 
                 # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
                 node.setDisallowedAreas(new_disallowed_areas)
@@ -516,3 +531,8 @@ class FisnarRobotExtension(QObject, Extension):
         # to see if a 'Polygon' object is HandledPolygon, just check the instance's type
         def __init__(self, points: Optional[Union[numpy.ndarray, List]] = None):
             super().__init__(points)
+
+
+if __name__ == "__main__":
+    p = FisnarRobotExtension.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]])
+    print(p)
