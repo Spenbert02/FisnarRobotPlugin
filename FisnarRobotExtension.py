@@ -207,7 +207,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-        Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
+        # Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
 
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
         if pref_dict.get("print_surface", None) is not None:
@@ -218,7 +218,7 @@ class FisnarRobotExtension(QObject, Extension):
             self.com_port = pref_dict["com_port"]
             self.fisnar_controller.setComPort(self.com_port)
 
-        # Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
+        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
 
     def updatePreferencedValues(self):
