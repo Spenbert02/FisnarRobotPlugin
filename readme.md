@@ -166,6 +166,10 @@ If an error occurs during or before the printing process, printing will halt and
 
 ![error message pop-up](docs/doc_pics/init_fail_msg.png)
 
+__Important:__ the commands that will be printed are whatever commands were in the
+last saved Fisnar .csv file. Simply slicing the model does not queue the commands
+to be printed the next time the 'Print' button is pressed. This is because the commands aren't actually generated until the slicer output is saved as a Fisnar .csv.
+
 ## Technical Details
 
 ### Fisnar CSV Format
