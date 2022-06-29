@@ -37,9 +37,9 @@ In order to use the plugin, the Fisnar F5200N in use needs to be using an
 i/o card to control its outputs. This i/o card can be purchased from Fisnar,
 and is pictured below.
 
-![i/o card diagram from Fisnar F5200N manual](docs/doc_pics/io_card.png)
+![i/o card diagram from Fisnar F5200N manual](docs/doc_pics/io_card_2.png)
 
-![](docs/doc_pics/physical_io_card.png)
+![](docs/doc_pics/io_card_setup_marked.jpg)
 
 ### Entering Setup Information
 
