@@ -39,7 +39,7 @@ and is pictured below.
 
 ![i/o card diagram from Fisnar F5200N manual](docs/doc_pics/io_card_2.png)
 
-![](docs/doc_pics/io_card_setup_marked.jpg)
+![physical i/o card setup](docs/doc_pics/io_card_setup_marked.jpg)
 
 ### Entering Setup Information
 
