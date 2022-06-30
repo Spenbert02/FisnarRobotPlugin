@@ -14,7 +14,7 @@ from typing import Optional, Union, List
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
 
-from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
+from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty, pyqtSignal
 from PyQt6.QtQml import QQmlComponent, QQmlContext
 
 from UM.i18n import i18nCatalog
