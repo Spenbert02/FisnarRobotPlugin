@@ -7,7 +7,7 @@ UM.Dialog {
     id: base
     title: "Fisnar Setup"
 
-    property int numExtruders: main.getNumExtruders
+    property int numExtruders: main.num_extruders
 
     width: minimumWidth
     height: minimumHeight
@@ -15,7 +15,7 @@ UM.Dialog {
     minimumHeight: 235 * screenScaleFactor
 
     onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
-      numExtruders = main.getNumExtruders
+      numExtruders = main.num_extruders
     }
 
     Row {
@@ -46,7 +46,7 @@ UM.Dialog {
           TextField {
             id: xMinEntry
             width: 100
-            text: main.getXMin
+            text: main.x_min
             validator: DoubleValidator {
               decimals: 4
               locale: "en_US"
@@ -66,7 +66,7 @@ UM.Dialog {
           TextField {
             id: xMaxEntry
             width: 100
-            text: main.getXMax
+            text: main.x_max
             validator: DoubleValidator {
               decimals: 4
               locale: "en_US"
@@ -86,7 +86,7 @@ UM.Dialog {
           TextField {
             id: yMinEntry
             width: 100
-            text: main.getYMin
+            text: main.y_min
             validator: DoubleValidator {
               decimals: 4
               locale: "en_US"
@@ -106,7 +106,7 @@ UM.Dialog {
           TextField {
             id: yMaxEntry
             width: 100
-            text: main.getYMax
+            text: main.y_max
             validator: DoubleValidator {
               decimals: 4
               locale: "en_US"
@@ -126,7 +126,7 @@ UM.Dialog {
           TextField {
             id: zMaxEntry
             width: 100
-            text: main.getZMax
+            text: main.z_max
             validator: DoubleValidator {
               decimals: 4
               locale: "en_US"
@@ -159,7 +159,7 @@ UM.Dialog {
             horizontalAlignment: Text.AlignRight
           }
           ComboBox {
-            currentIndex: main.getExt1OutputInd
+            currentIndex: main.ext_1_output_ind
             enabled: base.numExtruders >= 1
             editable: false
             width: 70 * screenScaleFactor
@@ -182,7 +182,7 @@ UM.Dialog {
             horizontalAlignment: Text.AlignRight
           }
           ComboBox {
-            currentIndex: main.getExt2OutputInd
+            currentIndex: main.get_ext_2_output_ind
             enabled: base.numExtruders >= 2
             editable: false
             width: 70 * screenScaleFactor
@@ -205,7 +205,7 @@ UM.Dialog {
             horizontalAlignment: Text.AlignRight
           }
           ComboBox {
-            currentIndex: main.getExt3OutputInd
+            currentIndex: main.ext_3_output_ind
             enabled: base.numExtruders >= 3
             editable: false
             width: 70 * screenScaleFactor
@@ -228,7 +228,7 @@ UM.Dialog {
             horizontalAlignment: Text.AlignRight
           }
           ComboBox {
-            currentIndex: main.getExt4OutputInd
+            currentIndex: main.ext_4_output_ind
             enabled: base.numExtruders >= 4
             editable: false
             width: 70 * screenScaleFactor
@@ -268,7 +268,7 @@ UM.Dialog {
           TextField {
             id: fisnarComEntry
             width: 100
-            text: main.getComPort
+            text: main.com_port_text
             onEditingFinished: {
               main.setComPort(text)
             }

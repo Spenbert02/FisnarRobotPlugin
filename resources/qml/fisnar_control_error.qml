@@ -13,7 +13,7 @@ UM.Dialog
 
   Label
   {
-    text: main.getFisnarControlErrorMsg
+    text: main.fisnar_control_error_msg
     wrapMode: Label.WordWrap
     width: Math.floor(parent.width * .9)
     anchors.horizontalCenter: fisnarControllerErrorDialog.horizontalCenter

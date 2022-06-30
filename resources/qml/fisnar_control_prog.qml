@@ -27,7 +27,7 @@ UM.Dialog
   }
 
   function updateProgress() {
-    progressLabel.text = main.getPrintingProgress
+    progressLabel.text = main.printing_progress
   }
 
   onRejected: {

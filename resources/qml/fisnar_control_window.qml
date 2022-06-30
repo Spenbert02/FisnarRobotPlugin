@@ -14,7 +14,7 @@ UM.Dialog
 
   Label
   {
-    text: main.getFisnarControlText
+    text: main.fisnar_control_text
     wrapMode: Label.WordWrap
     width: Math.floor(parent.width * .9)
     anchors.horizontalCenter: fisnarControlDialog.horizontalCenter

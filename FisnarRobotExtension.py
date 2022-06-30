@@ -72,7 +72,7 @@ class FisnarRobotExtension(QObject, Extension):
 
         # internal preference values
         self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
-        self.num_extruders = None
+        self.num_active_extruders = None
         self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
         self.com_port = None
 
@@ -297,31 +297,31 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getXMin(self):
+    def x_min(self):
         # called by qml to get the min x coord
         return str(self.print_surface.getXMin())
 
 
     @pyqtProperty(str)
-    def getXMax(self):
+    def x_max(self):
         # called by qml to get the max x coord
         return str(self.print_surface.getXMax())
 
 
     @pyqtProperty(str)
-    def getYMin(self):
+    def y_min(self):
         # called by qml to get the min y coord
         return str(self.print_surface.getYMin())
 
 
     @pyqtProperty(str)
-    def getYMax(self):
+    def y_max(self):
         # called by qml to get the max y coord
         return str(self.print_surface.getYMax())
 
 
     @pyqtProperty(str)
-    def getZMax(self):
+    def z_max(self):
         # called by qml to get the max z coord
         return str(self.print_surface.getZMax())
 
@@ -349,11 +349,11 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(int)
-    def getNumExtruders(self):
+    def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
-        self.num_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
-        # Logger.log("i", "***** number of extruders: " + str(self.num_extruders))  # test
-        return self.num_extruders
+        self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
+        # Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
+        return self.num_active_extruders
 
 
     @pyqtSlot(str, str)
@@ -369,7 +369,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(int)
-    def getExt1OutputInd(self):
+    def ext_1_output_ind(self):
         # get the output of extruder 1 as the index of the list model of outputs in qml code.
         # for reference, 0->None, 1->1, 2->2, 3->3, 4->4
         if self.extruder_outputs.getOutput(1) is None:
@@ -379,7 +379,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(int)
-    def getExt2OutputInd(self):
+    def ext_2_output_ind(self):
         if self.extruder_outputs.getOutput(2) is None:
             return 0
         else:
@@ -387,7 +387,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(int)
-    def getExt3OutputInd(self):
+    def ext_3_output_ind(self):
         if self.extruder_outputs.getOutput(3) is None:
             return 0
         else:
@@ -395,7 +395,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(int)
-    def getExt4OutputInd(self):
+    def ext_4_output_ind(self):
         if self.extruder_outputs.getOutput(4) is None:
             return 0
         else:
@@ -403,7 +403,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getComPort(self):
+    def com_port_text(self):
         Logger.log("d", f"com port retrieved: '{self.com_port}'")
         return str(self.com_port)
 
@@ -421,12 +421,12 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getFisnarControlText(self):
+    def fisnar_control_text(self):
         return "The most recently saved Fisnar CSV will be uploaded to the Fisnar. To go back, press 'Cancel'. To begin the uploading process, press 'Begin'. Once the process begins, a 'terminate' button will appear that can be used to kill the process."
 
 
     @pyqtProperty(str)
-    def getPrintingProgress(self):
+    def printing_progress(self):
         # called by qml to get a string representing the printing progress
         # Logger.log("i", "getPrintingProgress() called")
 
@@ -438,7 +438,7 @@ class FisnarRobotExtension(QObject, Extension):
 
 
     @pyqtProperty(str)
-    def getFisnarControlErrorMsg(self):
+    def fisnar_control_error_msg(self):
         return "Error occured while uploading commands: " + self.fisnar_controller.getInformation()
 
 
