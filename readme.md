@@ -36,6 +36,9 @@ from source. Instructions to do so can be found [here](https://community.ultimak
 Once the plugin is accepted, a more user-friendly description of how to download
 it will be provided.
 
+After installing the plugin, the Fisnar F5200N printer has to be added
+before the plugin can be used. First, go to
+
 ## Necessary Physical Printer Configuration
 In order to use this plugin, the Fisnar F5200N in use needs to be using an
 i/o card to control its outputs. This i/o card can be purchased from Fisnar,
