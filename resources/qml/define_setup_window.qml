@@ -182,7 +182,7 @@ UM.Dialog {
             horizontalAlignment: Text.AlignRight
           }
           ComboBox {
-            currentIndex: main.get_ext_2_output_ind
+            currentIndex: main.ext_2_output_ind
             enabled: base.numExtruders >= 2
             editable: false
             width: 70 * screenScaleFactor
@@ -268,9 +268,9 @@ UM.Dialog {
           TextField {
             id: fisnarComEntry
             width: 100
-            text: main.com_port_text
+            text: main.com_port_name
             onEditingFinished: {
-              main.setComPort(text)
+              main.updateComPort(text)
             }
           }
         }

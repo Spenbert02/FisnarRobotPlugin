@@ -33,14 +33,11 @@ from .PrinterAttributes import PrintSurface, ExtruderArray
 
 catalog = i18nCatalog("cura")
 
-
 class FisnarRobotExtension(QObject, Extension):
-
 
     # for factory methods. This will be set to the instance of this class once initialized.
     # this class is only instantiated once, when Cura first opens.
     _instance = None
-
 
     def __init__(self, parent=None):
         # calling necessary super methods.
@@ -54,9 +51,11 @@ class FisnarRobotExtension(QObject, Extension):
             # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
             FisnarRobotExtension._instance = self
 
+        # initializing applications
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
+        # signal emitted when ExtrudersModel changes
         numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
 
         # preferences - defining all into a single preference in the form of a dictionary
@@ -133,19 +132,16 @@ class FisnarRobotExtension(QObject, Extension):
         self.startResetDisAreasTimer()
         self.updateFromPreferencedValues()
 
-
     @classmethod
     def getInstance(cls):
         # factory method
         return cls._instance
-
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
         # otherwise return False. Not sure the mechanism by which the version
         # can be tracked, but probably just go off the Dremel plugin example
         return False
-
 
     def isInstalled(self):
         # return True if all plugin files are already installed, and False if
@@ -161,7 +157,6 @@ class FisnarRobotExtension(QObject, Extension):
             return False
 
         return True  # all files are installed
-
 
     def installDefFiles(self):
         # install definition files
@@ -197,11 +192,9 @@ class FisnarRobotExtension(QObject, Extension):
             warning = Message(catalog.i18nc("@warning:status", "An error occured while installing Fisnar Robot Plugin files."))
             warning.show()
 
-
     def startResetDisAreasTimer(self):
         # start the reset disallowed areas timer
         self.reset_dis_areas_timer.start()
-
 
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
@@ -218,7 +211,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
-
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
         new_pref_dict = {
@@ -227,7 +219,6 @@ class FisnarRobotExtension(QObject, Extension):
             "com_port": self.com_port
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
-
 
     def resetDisallowedAreas(self):
         # turning fisnar coords to gcode coords (fisnar coords are inverted in each direction)
@@ -272,7 +263,6 @@ class FisnarRobotExtension(QObject, Extension):
                     else:
                         i += 1
 
-
                 # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
                 node.setDisallowedAreas(new_disallowed_areas)
                 node.setHeight(new_z_dim)
@@ -283,46 +273,67 @@ class FisnarRobotExtension(QObject, Extension):
                 # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
                 # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
 
-
     def resetFisnarState(self):
         # reset the internal state of the FisnarController object
         self.fisnar_controller.resetInternalState()
-
 
     def logMessage(self):
         # logging message when one of the windows is opened
         Logger.log("i", "Fisnar window opened")
 
+    printSurfaceChanged = pyqtSignal() # signal to notify print surface properties
 
-    @pyqtProperty(str)
-    def x_min(self):
-        # called by qml to get the min x coord
+    def setXMin(self, x_min):
+        # x min setter
+        self.print_surface.setXMin(float(x_min))
+
+    def getXMin(self):
+        # x min getter
         return str(self.print_surface.getXMin())
 
+    x_min = pyqtProperty(str, fset=setXMin, fget=getXMin, notify=printSurfaceChanged)
 
-    @pyqtProperty(str)
-    def x_max(self):
-        # called by qml to get the max x coord
+    def setXMax(self, x_max):
+        # x max setter
+        self.print_surface.setXMax(float(x_max))
+
+    def getXMax(self):
+        # x max getter
         return str(self.print_surface.getXMax())
 
+    x_max = pyqtProperty(str, fset=setXMax, fget=getXMax, notify=printSurfaceChanged)
 
-    @pyqtProperty(str)
-    def y_min(self):
-        # called by qml to get the min y coord
+    def setYMin(self, y_min):
+        # y min setter
+        self.print_surface.setYMin(float(y_min))
+
+    def getYMin(self):
+        # y min getter
         return str(self.print_surface.getYMin())
 
+    y_min = pyqtProperty(str, fset=setYMin, fget=getYMin, notify=printSurfaceChanged)
 
-    @pyqtProperty(str)
-    def y_max(self):
-        # called by qml to get the max y coord
+    def setYMax(self, y_max):
+        # y max setter
+        self.print_surface.setYMax(float(y_max))
+
+    def getYMax(self):
+        # y max getter
         return str(self.print_surface.getYMax())
 
+    y_max = pyqtProperty(str, fset=setYMax, fget=getYMax, notify=printSurfaceChanged)
 
-    @pyqtProperty(str)
-    def z_max(self):
-        # called by qml to get the max z coord
-        return str(self.print_surface.getZMax())
+    def setZMax(self, z_max):
+        # z max setter
+        Logger.log("d", f"***** z max set: {z_max}")
+        self.print_surface.setZMax(float(z_max))
 
+    def getZMax(self):
+        # z max getter
+        Logger.log("d", f"****** z max got: {self.print_surface.getZMax()}")
+        return(str(self.print_surface.getZMax()))
+
+    z_max = pyqtProperty(str, fset=setZMax, fget=getZMax, notify=printSurfaceChanged)
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
@@ -330,21 +341,34 @@ class FisnarRobotExtension(QObject, Extension):
 
         # updating coordinate value
         if attribute == "fisnar_x_min":
-            self.print_surface.setXMin(float(coord_val))
+            self.setXMin(float(coord_val))
         elif attribute == "fisnar_x_max":
-            self.print_surface.setXMax(float(coord_val))
+            self.setXMax(float(coord_val))
         elif attribute == "fisnar_y_min":
-            self.print_surface.setYMin(float(coord_val))
+            self.setYMin(float(coord_val))
         elif attribute == "fisnar_y_max":
-            self.print_surface.setYMax(float(coord_val))
+            self.setYMax(float(coord_val))
         elif attribute == "fisnar_z_max":
-            self.print_surface.setZMax(float(coord_val))
+            self.setZMax(float(coord_val))
         else:
             Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
 
+        # adjusting x min/max values if they are in reverse order
+        if self.print_surface.getXMax() < self.print_surface.getXMin():
+            new_x_max, new_x_min = self.print_surface.getXMin(), self.print_surface.getXMax()
+            self.setXMin(new_x_min)
+            self.setXMax(new_x_max)
+            self.printSurfaceChanged.emit()
+
+        # adjusting y min/max values if they are in reverse order
+        if self.print_surface.getYMax() < self.print_surface.getYMin():
+            new_y_max, new_y_min = self.print_surface.getYMin(), self.print_surface.getYMax()
+            self.setYMin(new_y_min)
+            self.setYMax(new_y_max)
+            self.printSurfaceChanged.emit()
+
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
-
 
     numActiveExtrudersChanged = pyqtSignal()
     @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
@@ -354,105 +378,153 @@ class FisnarRobotExtension(QObject, Extension):
         # Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
         return self.num_active_extruders
 
+    # signal for updating extruder values
+    extruderOutputsChanged = pyqtSignal()
+
+    def setExt1Out(self, output):
+        # extruder 1 output setter
+        if output == "None" or output == None or output == 0:
+            self.extruder_outputs.setOutput(1, None)
+        else:
+            self.extruder_outputs.setOutput(1, int(output))
+        Logger.log("d", f"***** extruder 1 set to output: {self.extruder_outputs.getOutput(1)}")
+
+    def getExt1OutInd(self):
+        # extruder 1 output index getter
+        output = self.extruder_outputs.getOutput(1)
+        if output == None:
+            return 0
+        else:
+            return output
+
+    ext_1_output_ind = pyqtProperty(int, fset=setExt1Out, fget=getExt1OutInd, notify=extruderOutputsChanged)
+
+    def setExt2Out(self, output):
+        # extruder 2 output setter
+        if output == None or output == "None" or output == 0:
+            self.extruder_outputs.setOutput(2, None)
+        else:
+            self.extruder_outputs.setOutput(2, int(output))
+        Logger.log("d", f"***** extruder 2 set to output: {self.extruder_outputs.getOutput(2)}")
+
+    def getExt2OutInd(self):
+        # extruder 2 output index getter
+        output = self.extruder_outputs.getOutput(2)
+        if output is None:
+            return 0
+        else:
+            return output
+
+    ext_2_output_ind = pyqtProperty(int, fset=setExt2Out, fget=getExt2OutInd, notify=extruderOutputsChanged)
+
+    def setExt3Out(self, output):
+        # extruder 2 output setter
+        if output == None or output == "None" or output == 0:
+            self.extruder_outputs.setOutput(3, None)
+        else:
+            self.extruder_outputs.setOutput(3, int(output))
+        Logger.log("d", f"***** extruder 3 set to output: {self.extruder_outputs.getOutput(3)}")
+
+    def getExt3OutInd(self):
+        # extruder 2 output index getter
+        output = self.extruder_outputs.getOutput(3)
+        if output is None:
+            return 0
+        else:
+            return output
+
+    ext_3_output_ind = pyqtProperty(int, fset=setExt3Out, fget=getExt3OutInd, notify=extruderOutputsChanged)
+
+    def setExt4Out(self, output):
+        # extruder 2 output setter
+        if output == None or output == "None" or output == 0:
+            self.extruder_outputs.setOutput(4, None)
+        else:
+            self.extruder_outputs.setOutput(4, int(output))
+        Logger.log("d", f"***** extruder 4 set to output: {self.extruder_outputs.getOutput(4)}")
+
+    def getExt4OutInd(self):
+        # extruder 2 output index getter
+        output = self.extruder_outputs.getOutput(4)
+        if output is None:
+            return 0
+        else:
+            return output
+
+    ext_4_output_ind = pyqtProperty(int, fset=setExt4Out, fget=getExt4OutInd, notify=extruderOutputsChanged)
 
     @pyqtSlot(str, str)
     def setExtruderOutput(self, extruder_num, output_val):
         # slot for qml to set the output associated with one of the extruders
         extruder_num = int(extruder_num)
-        if extruder_num in (1, 2, 3, 4):
-            self.extruder_outputs.setOutput(extruder_num, output_val)
+        if extruder_num == 1:
+            self.setExt1Out(output_val)
+        elif extruder_num == 2:
+            self.setExt2Out(output_val)
+        elif extruder_num == 3:
+            self.setExt3Out(output_val)
+        elif extruder_num == 4:
+            self.setExt4Out(output_val)
         else:  # throw a warning and return
             Logger.log("w", "Out of range extruder number set in setExtruderOutput(): " + str(extruder_num))
             return
         self.updatePreferencedValues()
 
+    comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
 
-    @pyqtProperty(int)
-    def ext_1_output_ind(self):
-        # get the output of extruder 1 as the index of the list model of outputs in qml code.
-        # for reference, 0->None, 1->1, 2->2, 3->3, 4->4
-        if self.extruder_outputs.getOutput(1) is None:
-            return 0
-        else:
-            return int(self.extruder_outputs.getOutput(1))
-
-
-    @pyqtProperty(int)
-    def ext_2_output_ind(self):
-        if self.extruder_outputs.getOutput(2) is None:
-            return 0
-        else:
-            return int(self.extruder_outputs.getOutput(2))
-
-
-    @pyqtProperty(int)
-    def ext_3_output_ind(self):
-        if self.extruder_outputs.getOutput(3) is None:
-            return 0
-        else:
-            return int(self.extruder_outputs.getOutput(3))
-
-
-    @pyqtProperty(int)
-    def ext_4_output_ind(self):
-        if self.extruder_outputs.getOutput(4) is None:
-            return 0
-        else:
-            return int(self.extruder_outputs.getOutput(4))
-
-
-    @pyqtProperty(str)
-    def com_port_text(self):
-        Logger.log("d", f"com port retrieved: '{self.com_port}'")
-        return str(self.com_port)
-
-
-    @pyqtSlot(str)
-    def setComPort(self, com_port):
-        # set the com port value connected to the Fisnar
-        Logger.log("d", f"com port set to: '{com_port}'")
-        if com_port is None or com_port == "None":
+    def setComPortName(self, new_com_port):
+        # com port name setter
+        if new_com_port == "None" or new_com_port == None:
             self.com_port = None
         else:
-            self.com_port = com_port
+            self.com_port = str(new_com_port)
+
+    def getComPortName(self):
+        # com port name getter
+        return str(self.com_port)
+
+    com_port_name = pyqtProperty(str, fset=setComPortName, fget=getComPortName, notify=comPortNameUpdated)
+
+    @pyqtSlot(str)
+    def updateComPort(self, com_port):
+        # set the com port value connected to the Fisnar
+        Logger.log("d", f"com port set to: '{com_port}'")
+        self.setComPortName(com_port)
         self.fisnar_controller.setComPort(self.com_port)
         self.updatePreferencedValues()
 
-
-    @pyqtProperty(str)
+    @pyqtProperty(str, constant=True)
     def fisnar_control_text(self):
+        # text for fisnar control initial window
         return "The most recently saved Fisnar CSV will be uploaded to the Fisnar. To go back, press 'Cancel'. To begin the uploading process, press 'Begin'. Once the process begins, a 'terminate' button will appear that can be used to kill the process."
 
-
-    @pyqtProperty(str)
+    updatePrintingProgress = pyqtSignal()
+    @pyqtProperty(str, notify=updatePrintingProgress)
     def printing_progress(self):
         # called by qml to get a string representing the printing progress
         # Logger.log("i", "getPrintingProgress() called")
-
         progress = self.fisnar_controller.getPrintingProgress()
         if progress is None:
             return "--%"
         else:
             return str(round(float(progress) * 100, 2)) + "%"
 
-
-    @pyqtProperty(str)
+    updateFisnarControlErrorMsg = pyqtSignal()
+    @pyqtProperty(str, notify=updateFisnarControlErrorMsg)
     def fisnar_control_error_msg(self):
+        # QML property for fisnar control error message
         return "Error occured while uploading commands: " + self.fisnar_controller.getInformation()
-
 
     @pyqtSlot()
     def cancelFisnarControl(self):
         # called when the user presses cancel on the fisnar control initial window
         Logger.log("i", "Fisnar control cancelled")
 
-
     @pyqtSlot()
     def terminateFisnarControl(self):
         # called by qml when 'terminate' button is pressed during fisnar printing
         # Logger.log("d", "terminateFisnarControl() called")  # test
         self.fisnar_controller.setTerminateRunning(True)
-
 
     def trackUploadProgress(self):
         # check if the print is done or has been terminated or has thrown an error
@@ -491,13 +563,11 @@ class FisnarRobotExtension(QObject, Extension):
         # starting update progress timer, which will update the progress window
         self.progress_update_timer.start()
 
-
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
         if not self.define_setup_window:
             self.define_setup_window = self._createDialogue("define_setup_window.qml")
         self.define_setup_window.show()
-
 
     def showFisnarControlWindow(self):
         # Logger.log("i", "Fisnar control window called")  # test
@@ -505,13 +575,11 @@ class FisnarRobotExtension(QObject, Extension):
             self.fisnar_control_window = self._createDialogue("fisnar_control_window.qml")
         self.fisnar_control_window.show()
 
-
     def showFisnarErrorWindow(self):
         # Logger.log("i", "Fisnar error msg window called")  # test
         if not self.fisnar_error_window:
             self.fisnar_error_window = self._createDialogue("fisnar_control_error.qml")
         self.fisnar_error_window.show()
-
 
     def showFisnarProgressWindow(self):
         # Logger.log("i", "Fisnar progress window called")  # test
@@ -525,13 +593,11 @@ class FisnarRobotExtension(QObject, Extension):
         self.progress_update_timer.timeout.connect(self.fisnar_progress_window.updateProgress)
         self.progress_update_timer.timeout.connect(self.trackUploadProgress)
 
-
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
         qml_file_path = os.path.join(self.this_plugin_path, "resources", "qml", qml_file_name)
         component = self._application.createQmlComponent(qml_file_path, {"main": self})
         return component
-
 
     class HandledPolygon(Polygon):
         # class that extends Polygon object so a polygon can be checked if it has been set in this extension or by something else
@@ -557,7 +623,6 @@ class FisnarRobotExtension(QObject, Extension):
                     linearly_coincident_y_coords = False  # unequal y's, so area isn't 0 area
 
             return (linearly_coincident_x_coords or linearly_coincident_y_coords)
-
 
 if __name__ == "__main__":
     pass
