@@ -14,7 +14,7 @@ from typing import Optional, Union, List
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
 
-from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty
+from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty, pyqtSignal
 from PyQt6.QtQml import QQmlComponent, QQmlContext
 
 from UM.i18n import i18nCatalog
@@ -54,12 +54,12 @@ class FisnarRobotExtension(QObject, Extension):
             # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
             FisnarRobotExtension._instance = self
 
+        # initializing applications
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal to update disallowed areas whenever build plate activity is changed  --  DELETE THIS CHUNK OF CODE
-        # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
-        # self._cura_app.activityChanged.connect(self.resetDisallowedAreas)
+        # signal for ExtrudersModel changes
+        numActiveExtrudersChanged = self._cura_app.getInstance().getExtrudersModel().modelChanged
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -296,9 +296,18 @@ class FisnarRobotExtension(QObject, Extension):
         Logger.log("i", "Fisnar window opened")
 
 
+    # x min setter and getter system
+    xMinChanged = pyqtSignal()
+    def setXMin(self, new_x_min):
+        Logger.log("d", "********* setXMin() called")
+        self.print_surface.setXMin(float(new_x_min))
+        self.xMinChanged.emit()
+
     @pyqtProperty(str)
-    def x_min(self):
-        # called by qml to get the min x coord
+    def x_min(self, fset=setXMin, notify=xMinChanged):
+        Logger.log("d", "*********** x_min() <pyqtproperty> called")
+        # called by qml to get the min x coord - also called via signal if the
+        # x min value is changed internally (not via UI entry)
         return str(self.print_surface.getXMin())
 
 
@@ -344,11 +353,19 @@ class FisnarRobotExtension(QObject, Extension):
         else:
             Logger.log("w", "setCoord() attribute not recognized: '" + str(attribute) + "'")
 
+        # adjusting min/max values if they are in reverse order
+        # NOTE: it only sets the XMin value because I'm just testing trying to
+        #   change the value in the GUI. As the code is, the GUI does not update
+        #   after the following setXMin() function is called.
+        if self.print_surface.getXMax() < self.print_surface.getXMin():
+            self.setXMin(self.print_surface.getXMax())
+
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
 
-    @pyqtProperty(int)
+    numActiveExtrudersChanged = pyqtSignal()
+    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
     def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
         self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
