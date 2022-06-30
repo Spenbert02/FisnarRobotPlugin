@@ -161,7 +161,3 @@ class Machine(ABC):
         # set the length of the serial port write timeout (in seconds)
         self.write_timeout = timeout
         self.updateSerialPort()
-
-
-if __name__ == "__main__":
-    pass

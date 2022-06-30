@@ -137,12 +137,3 @@ class UltimusV(Machine):
         tens_digit = num // 16
         ones_digit = num % 16
         return bytes(hex(tens_digit)[2:].upper() + hex(ones_digit)[2:].upper(), "ascii")
-
-
-if __name__ == "__main__":
-    disp = UltimusV("COM4")
-
-    if disp.isInitialized():
-        print(disp.sendCommand(UltimusV.setPressure(20, UltimusV.PSI)))
-
-    print(disp.getInformation())

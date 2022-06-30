@@ -623,6 +623,3 @@ class FisnarRobotExtension(QObject, Extension):
                     linearly_coincident_y_coords = False  # unequal y's, so area isn't 0 area
 
             return (linearly_coincident_x_coords or linearly_coincident_y_coords)
-
-if __name__ == "__main__":
-    pass

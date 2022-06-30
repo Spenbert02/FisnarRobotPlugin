@@ -105,11 +105,3 @@ class ExtruderArray:
 
     def getDebugString(self):
         return "\nextruder 1: " + str(self.outputs[0]) + "\nextruder 2: " + str(self.outputs[1]) + "\nextruder 3: " + str(self.outputs[2]) + "\nextruder 4: " + str(self.outputs[3])
-
-
-if __name__ == "__main__":
-    ea = ExtruderArray(4)
-    ea.updateFromTuple([2, 0, 0, 0])
-    # print(ea.outputs)
-    for i in range(1, 5):
-        print(ea.getOutputAsInt(i))

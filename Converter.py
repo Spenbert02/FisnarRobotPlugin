@@ -476,7 +476,3 @@ class Converter:
                     ret_string += ","
 
         return ret_string
-
-
-if __name__ == "__main__":
-    pass

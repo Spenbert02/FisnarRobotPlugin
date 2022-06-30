@@ -123,12 +123,3 @@ class Fisnar(Machine):
     @staticmethod
     def feedbackCommands():
         return (self.PX(), self.PY(), self.PZ())
-
-
-if __name__ == "__main__":
-    fis = Fisnar("COM7", 115200)
-    print(fis.sendCommand(Fisnar.initializer()))
-    print(fis.sendCommand(Fisnar.HM()))
-    print(fis.sendFeedbackCommand(Fisnar.PX()))
-    print(fis.sendCommand(Fisnar.HM()))
-    print(fis.sendCommand(Fisnar.finalizer()))

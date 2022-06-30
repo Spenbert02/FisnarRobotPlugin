@@ -302,15 +302,3 @@ class FisnarController:
             i += 1
 
         return copy.deepcopy(commands)
-
-
-if __name__ == "__main__":
-    # filepath = "C:\\Users\\Lab\Desktop\\G-code Project\\single_extruder_testing\\CFFFP_5x5x5_cube.csv"
-    # filepath = "C:\\gcode2fisnar_tests\\cura_plugin_tests\\CFFFP_3_18_2022_three_line_test_file.csv"
-    # fisnar_commands = FisnarController.readFisnarCommandsFromFile(filepath)
-    #
-    # for c in Converter.segmentFisnarCommands(fisnar_commands):
-    #     print(c)
-
-    fc = FisnarController()
-    fc.fisnar_machine.sendCommand(Fisnar.finalizer())
