@@ -55,8 +55,8 @@ class FisnarRobotExtension(QObject, Extension):
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal for ExtrudersModel changes
-        numActiveExtrudersChanged = self._cura_app.getInstance().getExtrudersModel().modelChanged
+        # signal emitted when ExtrudersModel changes
+        numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
