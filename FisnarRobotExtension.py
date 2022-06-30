@@ -57,9 +57,7 @@ class FisnarRobotExtension(QObject, Extension):
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal to update disallowed areas whenever build plate activity is changed  --  DELETE THIS CHUNK OF CODE
-        # this is called a shit load. It works for now, but maybe look for a cleaner solution in the future
-        # self._cura_app.activityChanged.connect(self.resetDisallowedAreas)
+        numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -348,7 +346,8 @@ class FisnarRobotExtension(QObject, Extension):
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
 
-    @pyqtProperty(int)
+    numActiveExtrudersChanged = pyqtSignal()
+    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
     def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
         self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
