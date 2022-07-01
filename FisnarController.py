@@ -57,11 +57,14 @@ class FisnarController:
         # isn't None
         if com_port is None or com_port == "None":
             self.com_port = None
-            if self.fisnar_machine is not None:
+            if self.fisnar_machine is not None:  # None signals to get rid of port
+                self.fisnar_machine.close()
                 del self.fisnar_machine
+                self.fisnar_machine = None
         else:
             self.com_port = str(com_port)
             if self.fisnar_machine is not None:  # delete com port object to free port
+                self.fisnar_machine.close()
                 del self.fisnar_machine
             self.fisnar_machine = Fisnar(self.com_port, 115200)
 
@@ -113,7 +116,6 @@ class FisnarController:
         # set the fisnar commands to be uploaded
         self.fisnar_commands = command_list
 
-
     def runCommands(self):
         # run the previously uploaded fisnar commands to the fisnar
         def setSuccessfulPrint(tf):
@@ -131,7 +133,7 @@ class FisnarController:
         # for testing
         if self.fisnar_machine is None:
             setSuccessfulPrint(False)
-            self.setInformation("no Fisnar COM port selected.")
+            self.setInformation("invalid Fisnar COM port selection.")
             return
 
         # ensuring serial port is/can be opened

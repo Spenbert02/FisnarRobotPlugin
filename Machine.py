@@ -43,7 +43,6 @@ class Machine(ABC):
 
         # actual serial port object
         self.serial_port = None
-        self.initializeSerialPort()  # try to initialize
 
     @abstractmethod
     def sendCommand(self, command_bytes):
@@ -72,7 +71,7 @@ class Machine(ABC):
             self.information = str(info)
 
     def initializeSerialPort(self):
-        # try to initialize the serial port - return bool indicating successfulness
+        # try to initialize the serial port
         try:
             self.serial_port = serial.Serial(
                 self.port_name,

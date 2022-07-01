@@ -206,7 +206,10 @@ class FisnarRobotExtension(QObject, Extension):
         if pref_dict.get("extruder_outputs", None) is not None:
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) is not -1:
-            self.com_port = pref_dict["com_port"]
+            if pref_dict["com_port"] is None or pref_dict["com_port"] == "None":
+                self.com_port = None
+            else:
+                self.com_port = pref_dict["com_port"]
             self.fisnar_controller.setComPort(self.com_port)
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
