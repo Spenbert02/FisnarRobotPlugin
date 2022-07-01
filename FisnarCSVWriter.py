@@ -10,11 +10,26 @@ catalog = i18nCatalog("cura")
 
 
 class FisnarCSVWriter(MeshWriter):
+
+    # for factory method setup
+    _instance = None
+
     def __init__(self):
         super().__init__(add_to_recent_files = False)  # don't want the spreadsheets to appear in recent files
+
+        if FisnarCSVWriter._instance is not None:  # already been created - should never happen
+            Logger.log("e", "FisnarCSVWriter instantiated more than once")
+        else:
+            FisnarCSVWriter._instance = self
+
         self._application = Application.getInstance()  # I dont need this. might be needed internally, so gonna leave it.
         self.converter = Converter()
 
+    @classmethod
+    def getInstance(cls):
+        # get the singleton instance of the FisnarCSVWriter class
+        Logger.log("d", "instance retrieved")
+        return cls._instance
 
     def getEnteredParameters(self):
         # get the user entered parameters in the Extension part of this plugin
