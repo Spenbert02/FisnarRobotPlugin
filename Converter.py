@@ -476,3 +476,38 @@ class Converter:
                     ret_string += ","
 
         return ret_string
+
+    @staticmethod
+    def readFisnarCommandsFromCSV(csv_string):
+        """
+        given a string in CSV format, return a 2d array of fisnar commands
+        """
+
+        # get the csv cells into a 2D array (again, no error checking)
+        commands = [line.split(",") for line in csv_string.split("\n")]
+
+        # converting all 2D array entries into proper types
+        i = 0
+        while i < len(commands):
+            if commands[i][0] == "Output":
+                for j in range(1, 3):
+                    commands[i][j] = int(commands[i][j])
+            elif commands[i][0] == "Dummy Point":
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            elif commands[i][0] == "Line Speed":
+                commands[i][1] = float(commands[i][1])
+            elif commands[i][0] == "Z Clearance":
+                commands[i][1] = int(commands[i][1])
+            elif commands[i][0] == "End Program":
+                pass
+            elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            else:
+                print("Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
+                commands.pop(i)
+                i -= 1
+            i += 1
+
+        return copy.deepcopy(commands)
