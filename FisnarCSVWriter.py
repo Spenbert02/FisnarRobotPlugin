@@ -11,9 +11,6 @@ catalog = i18nCatalog("cura")
 
 class FisnarCSVWriter(MeshWriter):
 
-    # for factory method setup
-    _instance = None
-
     def __init__(self):
         super().__init__(add_to_recent_files = False)  # don't want the spreadsheets to appear in recent files
 
@@ -24,12 +21,6 @@ class FisnarCSVWriter(MeshWriter):
 
         self._application = Application.getInstance()  # I dont need this. might be needed internally, so gonna leave it.
         self.converter = Converter()
-
-    @classmethod
-    def getInstance(cls):
-        # get the singleton instance of the FisnarCSVWriter class
-        Logger.log("d", "instance retrieved")
-        return cls._instance
 
     def getEnteredParameters(self):
         # get the user entered parameters in the Extension part of this plugin
@@ -90,3 +81,10 @@ class FisnarCSVWriter(MeshWriter):
         else:  # gcode list not found, log error
             self.setInformation(catalog.i18nc("@warning:status", "Gcode must be prepared before exporting Fisnar CSV"))
             return False  # error
+
+    _instance = None
+
+    @classmethod
+    def getInstance(cls):
+        # get the singleton instance of the FisnarCSVWriter class
+        return cls._instance

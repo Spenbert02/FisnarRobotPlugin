@@ -35,10 +35,6 @@ catalog = i18nCatalog("cura")
 
 class FisnarRobotExtension(QObject, Extension):
 
-    # for factory methods. This will be set to the instance of this class once initialized.
-    # this class is only instantiated once, when Cura first opens.
-    _instance = None
-
     def __init__(self, parent=None):
         # calling necessary super methods.
         QObject.__init__(self, parent)
@@ -131,11 +127,6 @@ class FisnarRobotExtension(QObject, Extension):
         # setting setting values to values stored in preferences, and updating build area view
         self.startResetDisAreasTimer()
         self.updateFromPreferencedValues()
-
-    @classmethod
-    def getInstance(cls):
-        # factory method
-        return cls._instance
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
@@ -623,3 +614,10 @@ class FisnarRobotExtension(QObject, Extension):
                     linearly_coincident_y_coords = False  # unequal y's, so area isn't 0 area
 
             return (linearly_coincident_x_coords or linearly_coincident_y_coords)
+
+    _instance = None
+
+    @classmethod
+    def getInstance(cls):
+        # factory method
+        return cls._instance
