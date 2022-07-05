@@ -54,14 +54,6 @@ Component
                   }
 
                   Button {
-                    text: "Start"
-                    onClicked:
-                    {
-                      OutputDevice.startPrint()
-                    }
-                  }
-
-                  Button {
                     text: "Pause/Resume"
                     onClicked:
                     {

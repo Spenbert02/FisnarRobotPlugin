@@ -1,5 +1,7 @@
 import os
 import os.path
+import threading
+import time
 
 from cura.CuraApplication import CuraApplication
 from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice, ConnectionType, ConnectionState
@@ -15,10 +17,6 @@ from .FisnarRobotExtension import FisnarRobotExtension
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
-
-# testing imports
-from cura.Settings.MachineManager import MachineManager
-from typing import cast
 
 class FisnarOutputDevice(PrinterOutputDevice):
 
@@ -54,7 +52,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._update_thread = threading.Thread(target=self._update)
 
         # fisnar robot extension instance
-        self._fre = FisnarRobotExtension.getInstance()
+        self._fre_instance = FisnarRobotExtension.getInstance()
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
@@ -119,9 +117,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
         Logger.log("i", "Attempting to connect to Fisnar")
 
         if self._serial is None:
-            self._serial_port_name = str(self.fre.getComPortName())
+            self._serial_port_name = str(self._fre_instance.getComPortName())
             try:
-                self._serial = serial.Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
+                self._serial = Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
                 Logger.log("i", f"Established Fisnar serial connection to {self._serial_port_name}")
             except SerialException:  # exception thrown - probably not plugged in
                 Logger.log("w", "Exception occured when trying to create serial connection")
@@ -172,7 +170,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     # IN PROG
     @pyqtSlot()
     def pauseOrResumePrint(self):
-        Logger.log("i", "Fisnar serial print has been " + str(self._is_paused ? "resumed" : "paused") + ".")
+        Logger.log("i", "Fisnar serial print has been " + ("resumed" if self._is_paused else "paused") + ".")
         self._is_paused = not self._is_paused  # flips whether print is paused or not
         if not self._is_paused:
             pass
