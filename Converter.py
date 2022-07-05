@@ -505,9 +505,9 @@ class Converter:
                 for j in range(1, 4):
                     commands[i][j] = float(commands[i][j])
             else:
-                print("Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
+                Logger.log("d", "Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
                 commands.pop(i)
-                i -= 1
+                i -= 1  # to be immediately cancelled out by the following line - stay at the same index
             i += 1
 
         return copy.deepcopy(commands)

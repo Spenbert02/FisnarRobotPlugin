@@ -88,13 +88,17 @@ class FisnarOutputDevice(PrinterOutputDevice):
         fisnar_csv_writer = FisnarCSVWriter.getInstance()
         fisnar_command_csv_io = StringIO()
         success = fisnar_csv_writer.write(fisnar_command_csv_io, None)  # writing scene to fisnar_command_csv_io
-        if not success:
-            Logger.log("e", "FisnarCSVWriter failed in requestWrite()")
+        if not success:  # conversion failed - log error and show user error message
+            Logger.log("e", f"FisnarCSVWriter failed in requestWrite(): {str(fisnar_csv_writer.getInformation())}")
+            err_msg = Message(text = catalog.i18nc("@message", f"An error occured while preparing print: {str(fisnar_csv_writer.getInformation())}"),
+                              title = catalog.i18nc("@message", "Error Preparing Print"))
+            err_msg.show()
             return
 
         self.connect()  # attempting to connect
 
-        self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
+        if self._serial is not None:  # if successfully connected
+            self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
 
     # IN PROG
     def _printFisnarCommands(self, fisnar_command_csv):
@@ -138,15 +142,21 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._update_thread.start()
 
     def close(self):
-        Logger.log("d", f"serial port was {self._serial}, now closing")
+        Logger.log("d", f"serial port was {str(self._serial)}, now closing")
         super().close()
         if self._serial is not None:
             self._serial.close()
 
+    # IN PROG
     def _update(self):
-        while True:
-            Logger.log("d", "********* _update() called")
-            time.sleep(5)
+        while self._connection_state == ConnectionState.Connected and self._serial is not None:
+            pass
+
+    def _initialize(self):
+        pass
+
+    def _finalize(self):
+        pass
 
     def sendCommand(self):
         pass
