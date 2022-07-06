@@ -90,11 +90,11 @@ class FisnarRobotExtension(QObject, Extension):
         # self.progress_update_timer = QTimer()
         # self.progress_update_timer.setInterval(500)
 
-        # timer for resetting FisnarController internal state
-        self.fisnar_reset_timer = QTimer()
-        self.fisnar_reset_timer.setInterval(5000)
-        self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
-        self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
+        # # timer for resetting FisnarController internal state
+        # self.fisnar_reset_timer = QTimer()
+        # self.fisnar_reset_timer.setInterval(5000)
+        # self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
+        # self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
         # timer for resetting disallowed areas when a file is loaded
         self.reset_dis_areas_timer = QTimer()

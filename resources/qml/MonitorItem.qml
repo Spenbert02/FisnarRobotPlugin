@@ -42,6 +42,7 @@ Component
               clip: true
 
               Column {
+                id: progressMonitor
                 width: parent.width - scrollbar.width
 
                 Row {  // temp, looks horrible but can clean up later
