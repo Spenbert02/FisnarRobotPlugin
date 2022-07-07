@@ -57,8 +57,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # update thread for printing
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
-        # fisnar robot extension instance
-        self._fre_instance = FisnarRobotExtension.getInstance()
+        self.serialPortNameUpdated.connect(self._onSerialPortNameUpdated)
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
@@ -67,7 +66,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # called when user tries to exit app - checks if Fisnar is trying to print
         application = CuraApplication.getInstance()
         if not self._is_printing:  # not printing, so lose serial port and continue with exit checks
-            time.sleep(5)
+            self._stopPrintingAndFinalize()  # print is already stopped but doesn't matter
             self.close()
             application.triggerNextExitCheck()
             return
@@ -78,30 +77,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def _onConfirmExitDialogResult(self, result):
         # triggers when user clicks cancel or confirm on the confirm exit dialog
         if result:
-            self._is_printing = False
-            self.sendCommand(Fisnar.HM())
-            while not self._command_queue.empty():
-                Logger.log("d", "not empty")
-                self._command_received.wait(5)  # wait until commands are done being sent
+            self._stopPrintingAndFinalize()
             self.close()  # ensuring fisnar is finalized and port is closed when exiting app
             CuraApplication.getInstance().triggerNextExitCheck()
-
-    def close(self):
-        Logger.log("d", f"serial port was {str(self._serial)}, now closing")
-
-        # ensuring the fisnar is not still initialized
-        Logger.log("d", f"serial : {str(self._serial)}, connection : {self._connection_state}")
-        if self._serial is not None and self._connection_state == ConnectionState.Connected:
-            Logger.log("i", "sending finalizer ********")
-            self._sendCommand(Fisnar.finalizer())
-
-        super().close()  # sets _connection_state to ConnectionState.Closed
-        if self._serial is not None:
-            self._serial.close()
-        self._serial = None
-
-        # recreate thread so it can be started again? not sure why this is necessary
-        self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
     def requestWrite(self, nodes, file_name=None, limit_mimetypes=False, file_handler=None, filter_by_machine=False, **kwargs):
         # called when 'Print Over RS232' button is pressed - all parameters are ignored.
@@ -165,12 +143,27 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # Logger.log("d", f"serial port: {self._serial}")
         return self._serial is not None
 
-    def connect(self):
+    def _stopPrintingAndFinalize(self):
+        # stop printing and finalize the Fisnar
+        self._is_printing = False  # stop iterating through gcode
+
+        self.sendCommand(Fisnar.HM())
+        self.sendCommand(Fisnar.finalizer())
+
+    serialPortNameUpdated = pyqtSignal(str)
+
+    def _onSerialPortNameUpdated(self, serial_name):
+        # stop the current print, diconnect serial port
+
+        self._stopPrintingAndFinalize()
+        self.close()  # close existing serial port
+        self._serial_port_name = serial_name
+
+    def connect(self, serial_name):
         # try to establish serial connection and store Serial object. called whenever a print is started
         Logger.log("i", "Attempting to connect to Fisnar...")
 
         if self._serial is None:
-            self._serial_port_name = str(self._fre_instance.getComPortName())
             try:
                 self._serial = Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
                 Logger.log("i", f"Established Fisnar serial connection to {self._serial_port_name}")
@@ -190,12 +183,31 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setConnectionState(ConnectionState.Connected)
         self._update_thread.start()
 
+    def close(self):
+        # closes the serial port and resets _serial member variable to None
+        # MAKE SURE FISNAR IS FINALIZED BEFORE CLOSING
+        Logger.log("d", f"serial port was {str(self._serial)}, now closing")
+
+        super().close()  # sets _connection_state to ConnectionState.Closed
+        if self._serial is not None:
+            self._serial.close()
+        self._serial = None
+
+        self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
+
     # IN PROG
     def _update(self):
         # this continually runs while connected to device, reading lines and
         # sending fisnar commands if necessary
         while self._connection_state == ConnectionState.Connected and self._serial is not None:
             Logger.log("d", "groovy*****")
+            stage = CuraApplication.getInstance().getController().getActiveStage()
+            if stage is None or stage.stageId != "MonitorStage":
+                time.sleep(1)
+                Logger.log("d", "MonitorStage not active")
+            else:
+                Logger.log("d", "MonitorStage active")
+
             try:
                 curr_line = self._serial.readline()
             except:
@@ -223,7 +235,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def sendCommand(self, command):
         # command: fisnar command as bytes
         # send a fisar command (or put into command queue if waiting for Fisnar command confirmation)
-        if not self._command_received.is_set():  # if waiting for confirmation
+        if not self._command_received.is_set():  # if waiting for confirmation (ok! hasn't been received yet)
             self._command_queue.put(command)
         else:
             self._sendCommand(command)
@@ -263,6 +275,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         except IndexError:  # done printing!
             Logger.log("i", "Fisnar done with print.")
             self._is_printing = False
+            self._is_paused = False
+            self._resetInternalState()  # clear out commands/current index to prepare for another print
             return
 
         self._sendCommand(command_bytes)  # send bytes
@@ -270,6 +284,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._current_index += 1  # update current index
         self.printProgressUpdated.emit()  # recalculate progress and update QML
 
+    def _resetInternalState(self):
+        # resets internal state - called after user terminates print
+        # or after print is finished. Assumes self._is_printing has already
+        # been set to false
+        self._fisnar_commands.clear()
+        self._current_index = 0
+        self.printProgressUpdated.emit()  # reset UI
 
     def _getPrintingProgress(self):
         try:
@@ -290,20 +311,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     @pyqtSlot()
     def terminatePrint(self):
-        # called when the user presses the 'Terminate' button. this finalizes
-        # the fisnar and resets all internal states
+        # called when the user presses the 'Terminate' button. this stops
+        # sending commands and homes the Fisnar
         Logger.log("i", "Fisnar serial print has been terminated.")
-
-        # resetting fisnar commands
-        self._fisnar_commands.clear()
-        self._current_index = 0
 
         # this combination of states signals that no print has started or a print has been terminated
         self._is_printing = False
         self._is_paused = False
 
+        self._resetInternalState()  # resets fisnar commands, current command index
+
         # homing fisnar
-        self._sendCommand(Fisnar.HM())
+        self.sendCommand(Fisnar.HM())
 
     printProgressUpdated = pyqtSignal()  # signal to update printing progress
 

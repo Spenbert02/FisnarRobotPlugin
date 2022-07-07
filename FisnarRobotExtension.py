@@ -76,25 +76,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         # 'lazy loading' windows, so can be called later.
         self.define_setup_window = None
-        # self.fisnar_control_window = None
-        # self.fisnar_error_window = None
-        # self.fisnar_progress_window = None
-
-        # for passing to serial uploader object
-        # self.most_recent_fisnar_commands = None
-
-        # initializing FisnarController
-        # self.fisnar_controller = FisnarController()
-
-        # timer for updating progress
-        # self.progress_update_timer = QTimer()
-        # self.progress_update_timer.setInterval(500)
-
-        # # timer for resetting FisnarController internal state
-        # self.fisnar_reset_timer = QTimer()
-        # self.fisnar_reset_timer.setInterval(5000)
-        # self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
-        # self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
         # timer for resetting disallowed areas when a file is loaded
         self.reset_dis_areas_timer = QTimer()
@@ -372,6 +353,8 @@ class FisnarRobotExtension(QObject, Extension):
     # signal for updating extruder values
     extruderOutputsChanged = pyqtSignal()
 
+    # ==================== Extruder 1 setter/getter system ===================
+
     def setExt1Out(self, output):
         # extruder 1 output setter
         if output == "None" or output == None or output == 0:
@@ -389,6 +372,8 @@ class FisnarRobotExtension(QObject, Extension):
             return output
 
     ext_1_output_ind = pyqtProperty(int, fset=setExt1Out, fget=getExt1OutInd, notify=extruderOutputsChanged)
+
+    # ==================== Extruder 2 setter/getter system ===================
 
     def setExt2Out(self, output):
         # extruder 2 output setter
@@ -408,6 +393,8 @@ class FisnarRobotExtension(QObject, Extension):
 
     ext_2_output_ind = pyqtProperty(int, fset=setExt2Out, fget=getExt2OutInd, notify=extruderOutputsChanged)
 
+    # ==================== Extruder 3 setter/getter system ===================
+
     def setExt3Out(self, output):
         # extruder 2 output setter
         if output == None or output == "None" or output == 0:
@@ -425,6 +412,8 @@ class FisnarRobotExtension(QObject, Extension):
             return output
 
     ext_3_output_ind = pyqtProperty(int, fset=setExt3Out, fget=getExt3OutInd, notify=extruderOutputsChanged)
+
+    # ==================== Extruder 4 setter/getter system ===================
 
     def setExt4Out(self, output):
         # extruder 2 output setter
@@ -461,6 +450,8 @@ class FisnarRobotExtension(QObject, Extension):
             return
         self.updatePreferencedValues()
 
+    # ==================== COM port name setter/getter system ===================
+
     comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
 
     def setComPortName(self, new_com_port):
@@ -481,108 +472,14 @@ class FisnarRobotExtension(QObject, Extension):
         # set the com port value connected to the Fisnar
         Logger.log("d", f"com port set to: '{com_port}'")
         self.setComPortName(com_port)
-        # self.fisnar_controller.setComPort(self.com_port)
         self.updatePreferencedValues()
-
-    # @pyqtProperty(str, constant=True)
-    # def fisnar_control_text(self):
-    #     # text for fisnar control initial window
-    #     return "The most recently saved Fisnar CSV will be uploaded to the Fisnar. To go back, press 'Cancel'. To begin the uploading process, press 'Begin'. Once the process begins, a 'terminate' button will appear that can be used to kill the process."
-
-    # updatePrintingProgress = pyqtSignal()
-    # @pyqtProperty(str, notify=updatePrintingProgress)
-    # def printing_progress(self):
-    #     # called by qml to get a string representing the printing progress
-    #     # Logger.log("i", "getPrintingProgress() called")
-    #     progress = self.fisnar_controller.getPrintingProgress()
-    #     if progress is None:
-    #         return "--%"
-    #     else:
-    #         return str(round(float(progress) * 100, 2)) + "%"
-
-    # updateFisnarControlErrorMsg = pyqtSignal()
-    # @pyqtProperty(str, notify=updateFisnarControlErrorMsg)
-    # def fisnar_control_error_msg(self):
-    #     # QML property for fisnar control error message
-    #     return "Error occured while uploading commands: " + self.fisnar_controller.getInformation()
-
-    # @pyqtSlot()
-    # def cancelFisnarControl(self):
-    #     # called when the user presses cancel on the fisnar control initial window
-    #     Logger.log("i", "Fisnar control cancelled")
-
-    # @pyqtSlot()
-    # def terminateFisnarControl(self):
-    #     # called by qml when 'terminate' button is pressed during fisnar printing
-    #     # Logger.log("d", "terminateFisnarControl() called")  # test
-    #     self.fisnar_controller.setTerminateRunning(True)
-
-    # def trackUploadProgress(self):
-    #     # check if the print is done or has been terminated or has thrown an error
-    #     # and update ui. Update progress if print is still going.
-    #
-    #     if (self.fisnar_controller.successful_print is not None) or self.fisnar_controller.getTerminateRunning():  # print either failed or finished or terminated
-    #         self.progress_update_timer.stop()  # stopping timer because print is done
-    #         self.fisnar_progress_window.close()  # closing the progress window
-    #
-    #         if self.fisnar_controller.getTerminateRunning():  # print was terminated
-    #             Logger.log("i", "print terminated.")
-    #         elif self.fisnar_controller.successful_print:  # print finished succesfully
-    #             Logger.log("i", "Successful fisnar print!")
-    #         else:  # error occured while uploading
-    #             self.showFisnarErrorWindow()
-    #             Logger.log("i", "Fisnar print failed...")
-    #
-    #         # resetting FisnarController internal state
-    #         self.fisnar_reset_timer.start()
-
-    # @pyqtSlot()
-    # def beginFisnarControl(self):
-    #     # called when the user presses begin on the fisnar control initial window
-    #     Logger.log("i", "Attempting to control Fisnar")
-    #
-    #     # showing progress window
-    #     self.showFisnarProgressWindow()
-    #
-    #     # setting commands
-    #     self.fisnar_controller.setCommands(self.most_recent_fisnar_commands)
-    #
-    #     # starting upload thread
-    #     upload_thread = threading.Thread(target=self.fisnar_controller.runCommands)
-    #     upload_thread.start()
-    #
-    #     # starting update progress timer, which will update the progress window
-    #     self.progress_update_timer.start()
+        self.comPortNameUpdated.emit()
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
         if not self.define_setup_window:
             self.define_setup_window = self._createDialogue("define_setup_window.qml")
         self.define_setup_window.show()
-
-    # def showFisnarControlWindow(self):
-    #     # Logger.log("i", "Fisnar control window called")  # test
-    #     if not self.fisnar_control_window:
-    #         self.fisnar_control_window = self._createDialogue("fisnar_control_window.qml")
-    #     self.fisnar_control_window.show()
-
-    # def showFisnarErrorWindow(self):
-    #     # Logger.log("i", "Fisnar error msg window called")  # test
-    #     if not self.fisnar_error_window:
-    #         self.fisnar_error_window = self._createDialogue("fisnar_control_error.qml")
-    #     self.fisnar_error_window.show()
-
-    # def showFisnarProgressWindow(self):
-    #     # Logger.log("i", "Fisnar progress window called")  # test
-    #
-    #     # displaying window
-    #     if not self.fisnar_progress_window:
-    #         self.fisnar_progress_window = self._createDialogue("fisnar_control_prog.qml")
-    #     self.fisnar_progress_window.show()
-    #
-    #     # connecting timer
-    #     self.progress_update_timer.timeout.connect(self.fisnar_progress_window.updateProgress)
-    #     self.progress_update_timer.timeout.connect(self.trackUploadProgress)
 
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
