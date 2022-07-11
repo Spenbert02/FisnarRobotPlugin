@@ -152,32 +152,14 @@ up the file-saving interface. In the file-saving interface, the 'Fisnar Command 
 ![file saving interface showing 'Fisnar Command CSV' format option](docs/doc_pics/file_saving_ui.png)
 
 ### Printing Over RS232 Port
-After a set of commands is saved as a Fisnar .csv file, the Fisnar can print them over RS232 by pressing the 'Print' sub-menu under the 'Fisnar Actions' tab.
-After pressing 'Print', a message box will appear that explains what will happen
-while the Fisnar is printing over RS232. From here, pressing 'Begin' will immediately begin the printing process, and pressing 'Cancel' will exit out of the menu.
-
-![pre-print message that appears before starting the RS232 print procedure](docs/doc_pics/printing_init_msg.png)
-
-After pressing 'Begin', the Fisnar will start printing. While it is printing,
-a progress window will show how far along the print is. Also in this progress
-window is a 'Terminate' button. If anything goes wrong while printing, pressing
-the terminate button will kill the whole process.
-
-![progress window with progress percentage and terminate button](docs/doc_pics/printing_prog.png)
-
-If an error occurs during or before the printing process, printing will halt and an error message like the one below will be shown.
-
-![error message pop-up](docs/doc_pics/init_fail_msg.png)
-
-__Important:__ the commands that will be printed are whatever commands were in the
-last saved Fisnar .csv file. Simply slicing the model does not queue the commands
-to be printed the next time the 'Print' button is pressed. This is because the commands aren't actually generated until the slicer output is saved as a Fisnar .csv.
+\< _coming soon_ \>
 
 ## Technical Details
+\< _coming soon_ \>
 
 ### Fisnar CSV Format
 
-\< _coming soon_ \>
+### Fisnar RS232 Command Format
 
 ## Contact
 To report bugs/issues or make suggestions, email me at [spenbert02@gmail.com](mailto:spenbert02@gmail.com), or use one of the GitHub

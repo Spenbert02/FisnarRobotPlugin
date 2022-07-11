@@ -319,6 +319,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._is_printing = False
         self._is_paused = False
 
+        # ensure all outputs are off
+        for i in range(1, 5):
+            self.sendCommand(Fisnar.OU(i, 0))
+
         self._resetInternalState()  # resets fisnar commands, current command index
 
         # homing fisnar
