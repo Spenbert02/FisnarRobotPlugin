@@ -1,4 +1,17 @@
-from Machine import Machine
+from .Machine import Machine
+
+class PressureUnits:  # enumeration class for pressure units
+    # vacuum units
+    V_KPA = 0
+    INH20 = 1
+    INHG = 2
+    MMHG = 3
+    TORR = 4
+
+    # pressure units
+    PSI = 5
+    BAR = 6
+    P_KPA = 7
 
 class UltimusV(Machine):
     # class representing the machine instance for the UltimusV fluid

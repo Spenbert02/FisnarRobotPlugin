@@ -16,6 +16,7 @@ from .Converter import Converter
 from .Fisnar import Fisnar
 from .FisnarCSVWriter import FisnarCSVWriter
 from .FisnarRobotExtension import FisnarRobotExtension
+from .UltimusV import PressureUnits
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
@@ -137,7 +138,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._current_index = 0  # resetting command index
 
         # print status stuff
-        self._is_printing = True
+        self.setPrintingState(True)
         self._is_paused = False
 
         self._sendNextFisnarLine()  # push the first command to start the 'ok!' loop
@@ -150,7 +151,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     def _stopPrintingAndFinalize(self):
         # stop printing and finalize the Fisnar
-        self._is_printing = False  # stop iterating through gcode
+        self.setPrintingState(False)  # stop iterating through gcode
 
         self.sendCommand(Fisnar.HM())
         self.sendCommand(Fisnar.finalizer())
@@ -276,7 +277,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             command_bytes = self._fisnar_commands[self._current_index]
         except IndexError:  # done printing!
             Logger.log("i", "Fisnar done with print.")
-            self._is_printing = False
+            self.setPrintingState(False)
             self._is_paused = False
             self._resetInternalState()  # clear out commands/current index to prepare for another print
             return
@@ -285,6 +286,11 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._current_index += 1  # update current index
         self.printProgressUpdated.emit()  # recalculate progress and update QML
+
+    def setPrintingState(self, printing_state):
+        if printing_state != self._is_printing:
+            self._is_printing = not self._is_printing
+            self.printingStatusUpdated.emit()
 
     def _resetInternalState(self):
         # resets internal state - called after user terminates print
@@ -318,7 +324,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         Logger.log("i", "Fisnar serial print has been terminated.")
 
         # this combination of states signals that no print has started or a print has been terminated
-        self._is_printing = False
+        self.setPrintingState(False)
         self._is_paused = False
 
         # ensure all outputs are off
@@ -396,6 +402,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.vacuum_pressure = float(pressure)
         self._fre_instance.updatePreferencedValues()
 
+# ------------------ vacuum units property setup ----------------------------
+    # 'int' represents enumeration in UltimusV.PressureUnits (vacuum units section)
+    vacuumUnitsUpdated = pyqtSignal()
+    @pyqtProperty(int, notify=vacuumUnitsUpdated)
+    def vacuum_units(self):
+        return int(self._fre_instance.vacuum_units)
+
+    @pyqtSlot(int)
+    def setVacuumUnits(self, units):
+        self._fre_instance.vacuum_units = int(units)
+        self._fre_instance.updatePreferencedValues()
+
 # --------------------- x/y speed property setup ----------------------------
     xySpeedUpdated = pyqtSignal()
     @pyqtProperty(str, notify=xySpeedUpdated)
@@ -417,8 +435,12 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def setZSpeed(self, speed):
         self._fre_instance.z_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
-
 # ----------------------------------------------------------------------------
+
+    printingStatusUpdated = pyqtSignal()
+    @pyqtProperty(bool, notify=printingStatusUpdated)
+    def printing_status(self):
+        return self._is_printing
 
     printProgressUpdated = pyqtSignal()  # signal to update printing progress
     @pyqtProperty(str, notify=printProgressUpdated)
@@ -428,3 +450,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return "n/a"
         else:
             return str(round(printing_prog * 100, 2))
+
+    # # TEST - for testing UI under different conditions --------
+    # @pyqtSlot()
+    # def flipPrintingState(self):
+    #     if self._is_printing:
+    #         self.setPrintingState(False)
+    #     else:
+    #         self.setPrintingState(True)
+    # @pyqtSlot()
+    # def flipConnectionState(self):
+    #     if self._connection_state == ConnectionState.Closed:
+    #         self.setConnectionState(ConnectionState.Connected)
+    #     else:
+    #         self.setConnectionState(ConnectionState.Closed)
+    # # ----------------------------------------------------------

@@ -24,6 +24,10 @@ Component
         id: base
         property bool debug: false  // set to true to see 'colors' of different UI components, false for actual display
         property var _buttonSize: UM.Theme.getSize("setting_control").height + UM.Theme.getSize("thin_margin").height  // taken from Cura's ManualPrinterControl.qml
+        // property bool isConnected: OutputDevice.connectionState == 2
+        property bool isConnected: true
+        // property bool isPrinting: OutputDevice.printing_status
+        property bool isPrinting: false
 
         Rectangle
         {
@@ -66,6 +70,7 @@ Component
                   id: printMonitor
                   width: parent.width - scrollbar.width
                   property var scrollbarwidth: scrollbar.width
+                  enabled: base.isConnected && !base.isPrinting
 
                   Rectangle {  // top stuff - fisnar name and serial port connected to
                     id: outputDeviceHeader
@@ -799,15 +804,17 @@ Component
 
                           ComboBox {
                             id: vacuumPressureUnitsDropdown
-                            width: 50 * screenScaleFactor
+                            textRole: "text"
+                            width: 75 * screenScaleFactor
                             height: UM.Theme.getSize("setting_control").height
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            currentIndex: 0  // TODO: should update from plugin
-                            enabled: true  // TODO
+                            currentIndex: OutputDevice.vacuum_units
                             editable: false
                             model: pressureUnitsModel
-                            onCurrentIndexChanged: {}  // TODO
+                            onCurrentIndexChanged: {
+                              OutputDevice.setVacuumUnits(currentIndex)
+                            }
                           }
                         }
 
@@ -918,10 +925,13 @@ Component
                 ListElement {label: "10"; value: 10}
                 ListElement {label: "100"; value: 100}
               }
-              ListModel {  // TODO: get actual units here
+              ListModel {
                 id: pressureUnitsModel
-                ListElement{text: "kPa"}
-                ListElement{text: "psi"}
+                ListElement{text: "kPa"; value: 0}
+                ListElement{text: "in H20"; value: 1}
+                ListElement{text: "in Hg"; value: 2}
+                ListElement{text: "mm Hg"; value: 3}
+                ListElement{text: "Torr"; value: 4}
               }
               ButtonGroup {
                 id: distanceGroup
@@ -938,12 +948,14 @@ Component
             }
 
             Item {  // start of "MonitorButton"
-              // TODO: should all be greyed out if the Fisnar isn't currently printing
               id: monitorFooter
               height: childrenRect.height + UM.Theme.getSize("thick_margin").height
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               anchors.right: parent.right
+
+              enabled: base.isPrinting
+              visible: base.isPrinting
 
               UM.Label {  // Progress label
                 id: progressTextLabel

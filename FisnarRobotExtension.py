@@ -64,7 +64,7 @@ class FisnarRobotExtension(QObject, Extension):
             "pick_location": (0.0, 0.0, 0.0),
             "place_location": (0.0, 0.0, 0.0),
             "vacuum_pressure": 0.0,
-            "vacuum_units": None,
+            "vacuum_units": 0,  # uses enumeration in UltimusV.PressureUnits
             "xy_speed": 0.0,
             "z_speed": 0.0
         }
@@ -203,7 +203,7 @@ class FisnarRobotExtension(QObject, Extension):
             self.place_location = pref_dict["place_location"]
         if pref_dict.get("vacuum_pressure", None) is not None:
             self.vacuum_pressure = pref_dict["vacuum_pressure"]
-        if pref_dict.get("vacuum_units", -1) is not -1:
+        if pref_dict.get("vacuum_units", None) is not None:
             self.vacuum_units = pref_dict["vacuum_units"]
         if pref_dict.get("xy_speed", None) is not None:
             self.xy_speed = pref_dict["xy_speed"]
