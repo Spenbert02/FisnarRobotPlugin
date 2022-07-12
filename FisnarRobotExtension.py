@@ -59,15 +59,31 @@ class FisnarRobotExtension(QObject, Extension):
         default_preferences = {
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
             "extruder_outputs": [None, None, None, None],
-            "com_port": None
+            "com_port": None,
+            "dispenser_com_port": None,
+            "pick_location": (0.0, 0.0, 0.0),
+            "place_location": (0.0, 0.0, 0.0),
+            "vacuum_pressure": 0.0,
+            "vacuum_units": None,
+            "xy_speed": 0.0,
+            "z_speed": 0.0
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
-        # internal preference values
+        # internal printing preference values
         self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
         self.num_active_extruders = None
         self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
         self.com_port = None
+
+        # internal pick and place preference values
+        self.dispenser_com_port = None
+        self.pick_location = (0.0, 0.0, 0.0)
+        self.place_location = (0.0, 0.0, 0.0)
+        self.vacuum_pressure = 0.0
+        self.vacuum_units = None
+        self.xy_speed = 0.0
+        self.z_speed = 0.0
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -171,15 +187,28 @@ class FisnarRobotExtension(QObject, Extension):
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
         # Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
-
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
+
         if pref_dict.get("print_surface", None) is not None:
             self.print_surface.updateFromTuple(pref_dict["print_surface"])
         if pref_dict.get("extruder_outputs", None) is not None:
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
-        if pref_dict.get("com_port", -1) is not -1:
+        if pref_dict.get("com_port", -1) != -1:
             self.com_port = pref_dict["com_port"]
-            # self.fisnar_controller.setComPort(self.com_port)
+        if pref_dict.get("dispenser_com_port", -1) != -1:
+            self.dispenser_com_port = pref_dict["dispenser_com_port"]
+        if pref_dict.get("pick_location", None) is not None:
+            self.pick_location = pref_dict["pick_location"]
+        if pref_dict.get("place_location", None) is not None:
+            self.place_location = pref_dict["place_location"]
+        if pref_dict.get("vacuum_pressure", None) is not None:
+            self.vacuum_pressure = pref_dict["vacuum_pressure"]
+        if pref_dict.get("vacuum_units", -1) is not -1:
+            self.vacuum_units = pref_dict["vacuum_units"]
+        if pref_dict.get("xy_speed", None) is not None:
+            self.xy_speed = pref_dict["xy_speed"]
+        if pref_dict.get("z_speed", None) is not None:
+            self.z_speed = pref_dict["z_speed"]
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
@@ -188,7 +217,14 @@ class FisnarRobotExtension(QObject, Extension):
         new_pref_dict = {
             "print_surface": self.print_surface.getAsTuple(),
             "extruder_outputs": self.extruder_outputs.getAsTuple(),
-            "com_port": self.com_port
+            "com_port": self.com_port,
+            "dispenser_com_port": self.dispenser_com_port,
+            "pick_location": self.pick_location,
+            "place_location": self.place_location,
+            "vacuum_pressure": self.vacuum_pressure,
+            "vacuum_units": self.vacuum_units,
+            "xy_speed": self.xy_speed,
+            "z_speed": self.z_speed
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -244,10 +280,6 @@ class FisnarRobotExtension(QObject, Extension):
                 # Logger.log("i", "****** build volume disallowed areas have been reset")
                 # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
                 # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
-    #
-    # def resetFisnarState(self):
-    #     # reset the internal state of the FisnarController object
-    #     self.fisnar_controller.resetInternalState()
 
     def logMessage(self):
         # logging message when one of the windows is opened
@@ -255,6 +287,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     printSurfaceChanged = pyqtSignal() # signal to notify print surface properties
 
+# ==================== x min property setup =================
     def setXMin(self, x_min):
         # x min setter
         self.print_surface.setXMin(float(x_min))
@@ -265,6 +298,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     x_min = pyqtProperty(str, fset=setXMin, fget=getXMin, notify=printSurfaceChanged)
 
+# ======================== x max property setup ======================
     def setXMax(self, x_max):
         # x max setter
         self.print_surface.setXMax(float(x_max))
@@ -275,6 +309,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     x_max = pyqtProperty(str, fset=setXMax, fget=getXMax, notify=printSurfaceChanged)
 
+# ================== y min property setup ============================
     def setYMin(self, y_min):
         # y min setter
         self.print_surface.setYMin(float(y_min))
@@ -285,6 +320,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     y_min = pyqtProperty(str, fset=setYMin, fget=getYMin, notify=printSurfaceChanged)
 
+# ==================== y max property setup ===========================
     def setYMax(self, y_max):
         # y max setter
         self.print_surface.setYMax(float(y_max))
@@ -295,6 +331,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     y_max = pyqtProperty(str, fset=setYMax, fget=getYMax, notify=printSurfaceChanged)
 
+# ======================== z max property setup =======================
     def setZMax(self, z_max):
         # z max setter
         Logger.log("d", f"***** z max set: {z_max}")
@@ -306,6 +343,7 @@ class FisnarRobotExtension(QObject, Extension):
         return(str(self.print_surface.getZMax()))
 
     z_max = pyqtProperty(str, fset=setZMax, fget=getZMax, notify=printSurfaceChanged)
+# =========================================================================
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
@@ -353,8 +391,7 @@ class FisnarRobotExtension(QObject, Extension):
     # signal for updating extruder values
     extruderOutputsChanged = pyqtSignal()
 
-    # ==================== Extruder 1 setter/getter system ===================
-
+# ==================== Extruder 1 setter/getter system ===================
     def setExt1Out(self, output):
         # extruder 1 output setter
         if output == "None" or output == None or output == 0:
@@ -373,8 +410,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     ext_1_output_ind = pyqtProperty(int, fset=setExt1Out, fget=getExt1OutInd, notify=extruderOutputsChanged)
 
-    # ==================== Extruder 2 setter/getter system ===================
-
+# ==================== Extruder 2 setter/getter system ===================
     def setExt2Out(self, output):
         # extruder 2 output setter
         if output == None or output == "None" or output == 0:
@@ -393,8 +429,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     ext_2_output_ind = pyqtProperty(int, fset=setExt2Out, fget=getExt2OutInd, notify=extruderOutputsChanged)
 
-    # ==================== Extruder 3 setter/getter system ===================
-
+# ==================== Extruder 3 setter/getter system ===================
     def setExt3Out(self, output):
         # extruder 2 output setter
         if output == None or output == "None" or output == 0:
@@ -413,8 +448,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     ext_3_output_ind = pyqtProperty(int, fset=setExt3Out, fget=getExt3OutInd, notify=extruderOutputsChanged)
 
-    # ==================== Extruder 4 setter/getter system ===================
-
+# ==================== Extruder 4 setter/getter system ===================
     def setExt4Out(self, output):
         # extruder 2 output setter
         if output == None or output == "None" or output == 0:
@@ -432,6 +466,7 @@ class FisnarRobotExtension(QObject, Extension):
             return output
 
     ext_4_output_ind = pyqtProperty(int, fset=setExt4Out, fget=getExt4OutInd, notify=extruderOutputsChanged)
+# ============================================================================
 
     @pyqtSlot(str, str)
     def setExtruderOutput(self, extruder_num, output_val):

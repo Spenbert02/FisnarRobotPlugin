@@ -50,12 +50,17 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._timeout = 10
         self._baud_rate = 115200
 
+        # for pick and place maneuvers
+        self._pick_and_place_parameters = None  # type: dict
+
         # for showing monitor while printing
         self._plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
         self._monitor_view_qml_path = os.path.join(self._plugin_path, "resources", "qml", "MonitorItem.qml")
 
         # update thread for printing
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
+
+        self._fre_instance = FisnarRobotExtension.getInstance()
 
         self.serialPortNameUpdated.connect(self._onSerialPortNameUpdated)
 
@@ -151,10 +156,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.sendCommand(Fisnar.finalizer())
 
     serialPortNameUpdated = pyqtSignal(str)
-
     def _onSerialPortNameUpdated(self, serial_name):
-        # stop the current print, diconnect serial port
-
+        # stop the current print, diconnect serial port if the name is changed
         self._stopPrintingAndFinalize()
         self.close()  # close existing serial port
         self._serial_port_name = serial_name
@@ -195,7 +198,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
-    # IN PROG
     def _update(self):
         # this continually runs while connected to device, reading lines and
         # sending fisnar commands if necessary
@@ -296,7 +298,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         try:
             return self._current_index / len(self._fisnar_commands)
         except ZeroDivisionError:
-            return None  # signals print hasn't started yet
+            return None  # print hasn't started yet
 
     ################################
     # QML Stuff
@@ -328,8 +330,97 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # homing fisnar
         self.sendCommand(Fisnar.HM())
 
-    printProgressUpdated = pyqtSignal()  # signal to update printing progress
+# ------------------- dispenser serial port property setup -------------------------
+    dispenserSerialPortUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
+    def dispenser_serial_port(self):
+        return str(self._fre_instance.dispenser_com_port)
 
+    @pyqtSlot(str)
+    def setDispenserSerialPort(self, serial_port_name):
+        self._fre_instance.dispenser_com_port = str(serial_port_name)
+        self._fre_instance.updatePreferencedValues()
+
+# ----------------- pick location property setup -----------------------------
+    pickXUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickXUpdated)
+    def pick_x(self):
+        return str(self._fre_instance.pick_location[0])
+
+    pickYUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickYUpdated)
+    def pick_y(self):
+        return str(self._fre_instance.pick_location[1])
+
+    pickZUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickZUpdated)
+    def pick_z(self):
+        return str(self._fre_instance.pick_location[2])
+
+    @pyqtSlot(str, str, str)
+    def setPickLocation(self, x, y, z):
+        new_val = (float(x), float(y), float(z))
+        self._fre_instance.pick_location = new_val
+        self._fre_instance.updatePreferencedValues()
+
+# -------------------- place location property setup ------------------------
+    placeXUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=placeXUpdated)
+    def place_x(self):
+        return str(self._fre_instance.place_location[0])
+
+    placeYUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=placeYUpdated)
+    def place_y(self):
+        return str(self._fre_instance.place_location[1])
+
+    placeZUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=placeZUpdated)
+    def place_z(self):
+        return str(self._fre_instance.place_location[2])
+
+    @pyqtSlot(str, str, str)
+    def setPlaceLocation(self, x, y, z):
+        new_val = (float(x), float(y), float(z))
+        self._fre_instance.place_location = new_val
+        self._fre_instance.updatePreferencedValues()
+
+# -------------------- vacuum pressure property setup -----------------------
+    vacuumPressureUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=vacuumPressureUpdated)
+    def vacuum_pressure(self):
+        return str(self._fre_instance.vacuum_pressure)
+
+    @pyqtSlot(str)
+    def setVacuumPressure(self, pressure):
+        self._fre_instance.vacuum_pressure = float(pressure)
+        self._fre_instance.updatePreferencedValues()
+
+# --------------------- x/y speed property setup ----------------------------
+    xySpeedUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=xySpeedUpdated)
+    def xy_speed(self):
+        return str(self._fre_instance.xy_speed)
+
+    @pyqtSlot(str)
+    def setXYSpeed(self, speed):
+        self._fre_instance.xy_speed = float(speed)
+        self._fre_instance.updatePreferencedValues()
+
+# ---------------------- z speed property setup -----------------------------
+    zSpeedUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=zSpeedUpdated)
+    def z_speed(self):
+        return str(self._fre_instance.z_speed)
+
+    @pyqtSlot(str)
+    def setZSpeed(self, speed):
+        self._fre_instance.z_speed = float(speed)
+        self._fre_instance.updatePreferencedValues()
+
+# ----------------------------------------------------------------------------
+
+    printProgressUpdated = pyqtSignal()  # signal to update printing progress
     @pyqtProperty(str, notify=printProgressUpdated)
     def print_progress(self):
         printing_prog = self._getPrintingProgress()
