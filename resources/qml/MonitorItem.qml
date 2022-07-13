@@ -24,10 +24,8 @@ Component
         id: base
         property bool debug: false  // set to true to see 'colors' of different UI components, false for actual display
         property var _buttonSize: UM.Theme.getSize("setting_control").height + UM.Theme.getSize("thin_margin").height  // taken from Cura's ManualPrinterControl.qml
-        // property bool isConnected: OutputDevice.connectionState == 2
-        property bool isConnected: true
-        // property bool isPrinting: OutputDevice.printing_status
-        property bool isPrinting: false
+        property bool isConnected: OutputDevice.connectionState == 2
+        property bool isPrinting: OutputDevice.printing_status
 
         Rectangle
         {
@@ -159,7 +157,7 @@ Component
                         }
 
                         UM.Label {
-                          text: "xxx.xxx"  // TODO: should be dynamically updating while being manually controlled
+                          text: enabled ? OutputDevice.x_pos : "--"  // TODO: should be dynamically updating while being manually controlled
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -174,7 +172,7 @@ Component
                         }
 
                         UM.Label {
-                          text: "yyy.yyy"  // TODO: should be updatable when under manual control
+                          text: enabled ? OutputDevice.y_pos : "--"  // TODO: should be updatable when under manual control
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -189,7 +187,7 @@ Component
                         }
 
                         UM.Label {
-                          text: "zzz.zzz"  // TODO: should be updatable when under manual control
+                          text: enabled ? OutputDevice.z_pos : "--"  // TODO: should be updatable when under manual control
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -955,13 +953,13 @@ Component
               anchors.right: parent.right
 
               enabled: base.isPrinting
-              visible: base.isPrinting
 
               UM.Label {  // Progress label
                 id: progressTextLabel
+                visible: base.isPrinting
                 text: "Progress:"
                 font: UM.Theme.getFont("large_bold")
-                color: UM.Theme.getColor("text")  // TODO: should be dynamic, 'status_stopped' when not printing, 'text' when printing
+                color: UM.Theme.getColor("text")
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.leftMargin: UM.Theme.getSize("thick_margin").width
@@ -969,7 +967,8 @@ Component
 
               UM.Label {  // Progress percentage label
                 id: progressPercentageLabel
-                text: OutputDevice.print_progress
+                visible: base.isPrinting
+                text: OutputDevice.print_progress + "%"
                 font: UM.Theme.getFont("large_bold")
                 anchors.top: parent.top
                 anchors.left: progressTextLabel.right
@@ -986,19 +985,27 @@ Component
                 spacing: UM.Theme.getSize("default_margin").width
 
                 Cura.SecondaryButton {  // pause/resume button
-                  // TODO: this should be set to 'Pause' whenever a print starts, and then back to pause whenever a print stops (should also be grey if nothing is printing)
                   id: pauseResumeButton
                   height: UM.Theme.getSize("save_button_save_to_button").height
-                  text: "Pause/Resume"  // TODO: should be dynamic, 'Pause' if the print is not paused, 'Resume' if the print is paused
-                  onClicked: {}  // TODO: should update the FisnarOutputDevice _is_paused attribute and update the text of the button
+                  text: "Pause"
+                  onClicked: {
+                    if (text == "Pause") {
+                      text = "Resume"
+                    } else {
+                      text = "Pause"
+                    }
+                    OutputDevice.pauseOrResumePrint()
+                  }
                 }
 
                 Cura.SecondaryButton {  // Terminate button
                   id: terminateButton
                   height: UM.Theme.getSize("save_button_save_to_button").height
                   text: "Terminate"
-                  onClicked: {}  // TODO: short term, this should immediately terminate the print
-                  // onClicked: confirmationDialog.open()
+                  onClicked: {
+                    OutputDevice.terminatePrint()
+                    pauseResumeButton.text = "Pause"  // resetting this to prep for the next print
+                  }
                 }
 
                 // Cura.MessageDialog {  // TODO: long term, figure out how to use this

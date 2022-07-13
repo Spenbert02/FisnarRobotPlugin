@@ -110,6 +110,17 @@ class Fisnar(Machine):
         return bytes("ID\r", "ascii")
 
     @staticmethod
+    def isFeedback(byte_array):
+        # determine if a given byte array recieved from the fisnar is a
+        # feedback command
+        if len(byte_array) <= 2:
+            return False
+        for char in byte_array[:-2]:
+            if char < 48 or char > 57:
+                return False
+        return True
+
+    @staticmethod
     def expectedReturn(byte_array):
         # get the expected bytes from the fisnar after sending the given bytes.
         # for feedback commands, the feedback value line is excluded

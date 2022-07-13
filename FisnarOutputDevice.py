@@ -5,7 +5,7 @@ import time
 from cura.CuraApplication import CuraApplication
 from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice, ConnectionType, ConnectionState
 from io import StringIO
-from PyQt6.QtCore import pyqtProperty, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import pyqtProperty, pyqtSignal, pyqtSlot, QTimer
 from queue import Queue
 from serial import Serial, SerialException, SerialTimeoutException
 from threading import Event, Thread
@@ -51,6 +51,14 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._timeout = 10
         self._baud_rate = 115200
 
+        # for updating position when not printing
+        self._most_recent_position = [0.0, 0.0, 0.0]
+        self._last_updated_position = Fisnar.PZ()
+        self._coord_val_sent = Event()
+        self._x_feedback_received = Event()
+        self._y_feedback_received = Event()
+        self._z_feedback_received = Event()
+
         # for pick and place maneuvers
         self._pick_and_place_parameters = None  # type: dict
 
@@ -63,16 +71,20 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._fre_instance = FisnarRobotExtension.getInstance()
 
-        self.serialPortNameUpdated.connect(self._onSerialPortNameUpdated)
-
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
+
+    def portName(self):
+        if self._serial is None:
+            return -1  # indicates not connected
+        else:
+            return self._serial.port
 
     def _checkActivePritingOnAppExit(self):
         # called when user tries to exit app - checks if Fisnar is trying to print
         application = CuraApplication.getInstance()
         if not self._is_printing:  # not printing, so lose serial port and continue with exit checks
-            self._stopPrintingAndFinalize()  # print is already stopped but doesn't matter
+            self.stopPrintingAndFinalize()  # print is already stopped but doesn't matter
             self.close()
             application.triggerNextExitCheck()
             return
@@ -83,7 +95,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def _onConfirmExitDialogResult(self, result):
         # triggers when user clicks cancel or confirm on the confirm exit dialog
         if result:
-            self._stopPrintingAndFinalize()
+            self.stopPrintingAndFinalize()
             self.close()  # ensuring fisnar is finalized and port is closed when exiting app
             CuraApplication.getInstance().triggerNextExitCheck()
 
@@ -111,7 +123,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         if self._serial is not None:  # if successfully connected
-            Logger.log("d", "Serial port created, _printFisnarCommands() called")
+            # Logger.log("d", "Serial port created, _printFisnarCommands() called")
             self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
 
     # IN PROG
@@ -121,7 +133,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # updating fisnar command bytes from fisnar_command_csv
         commands = Converter.readFisnarCommandsFromCSV(fisnar_command_csv)
         self._fisnar_commands.clear()
-        self._fisnar_commands.append(Fisnar.initializer())  # initial command
+
+        if not self._fisnar_initialized.is_set():  # will need to initialize if not already
+            self._fisnar_commands.append(Fisnar.initializer())
+
         for command in commands:
             if command[0] == "Dummy Point":
                 self._fisnar_commands.append(Fisnar.VA(command[1], command[2], command[3]))
@@ -141,31 +156,24 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setPrintingState(True)
         self._is_paused = False
 
-        self._sendNextFisnarLine()  # push the first command to start the 'ok!' loop
+        self._sendNextFisnarLine()  # push the first command to start the ok loop
 
-        Logger.log("d", "end of _printFisnarCommands")  # test
+        # Logger.log("d", "end of _printFisnarCommands")  # test
 
-    def isConnected(self):
-        # Logger.log("d", f"serial port: {self._serial}")
-        return self._serial is not None
-
-    def _stopPrintingAndFinalize(self):
+    def stopPrintingAndFinalize(self):
         # stop printing and finalize the Fisnar
         self.setPrintingState(False)  # stop iterating through gcode
 
         self.sendCommand(Fisnar.HM())
         self.sendCommand(Fisnar.finalizer())
 
-    serialPortNameUpdated = pyqtSignal(str)
-    def _onSerialPortNameUpdated(self, serial_name):
-        # stop the current print, diconnect serial port if the name is changed
-        self._stopPrintingAndFinalize()
-        self.close()  # close existing serial port
-        self._serial_port_name = serial_name
+        while not self._command_queue.empty():
+            time.sleep(1)
 
     def connect(self, serial_name):
         # try to establish serial connection and store Serial object. called whenever a print is started
         Logger.log("i", "Attempting to connect to Fisnar...")
+        self._serial_port_name = serial_name
 
         if self._serial is None:
             try:
@@ -186,11 +194,12 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self.setConnectionState(ConnectionState.Connected)
         self._update_thread.start()
+        self.setCoordTracking(True)  # start tracking coordinates (_is_printing should be necessarily True at this point - ensure this is the case)
 
     def close(self):
         # closes the serial port and resets _serial member variable to None
         # MAKE SURE FISNAR IS FINALIZED BEFORE CLOSING
-        Logger.log("d", f"serial port was {str(self._serial)}, now closing")
+        # Logger.log("d", f"serial port was {str(self._serial)}, now closing")
 
         super().close()  # sets _connection_state to ConnectionState.Closed
         if self._serial is not None:
@@ -203,21 +212,16 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # this continually runs while connected to device, reading lines and
         # sending fisnar commands if necessary
         while self._connection_state == ConnectionState.Connected and self._serial is not None:
-            Logger.log("d", "groovy*****")
+            # Logger.log("d", "groovy*****")
+
             stage = CuraApplication.getInstance().getController().getActiveStage()
             if stage is None or stage.stageId != "MonitorStage":
                 time.sleep(1)
-                Logger.log("d", "MonitorStage not active")
-            else:
-                Logger.log("d", "MonitorStage active")
 
             try:
                 curr_line = self._serial.readline()
             except:
                 continue  # nothing to read
-
-            # need to check for feedback response commands here (PX, PY, PZ response values)
-            # will probably have to indicate in a member Event() what value is currently expected
 
             # check if fisnar has been initialized and update internal state (finalization check occurs in _sendCommand())
             if curr_line.startswith(Fisnar.expectedReturn(Fisnar.initializer())):
@@ -229,11 +233,15 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
             # can send next command
             if curr_line.startswith(b"ok!") or curr_line.startswith(Fisnar.expectedReturn(Fisnar.initializer())):
+                # Logger.log("d", "x feedback received set: " + str(self._x_feedback_received.is_set()) + "\ny feedback received set: " + str(self._y_feedback_received.is_set()) + "\nz feedback received set: " + str(self._z_feedback_received.is_set()))
                 if not self._command_queue.empty():
                     self._sendCommand(self._command_queue.get())
                 elif self._is_printing:  # still printing but queue is empty
                     if not self._is_paused:
                         self._sendNextFisnarLine()
+
+        if self._is_printing:
+            self.terminatePrint()
 
     def sendCommand(self, command):
         # command: fisnar command as bytes
@@ -248,6 +256,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # this function doesn't check for anything besides Serial Exceptions.
         # this functio also clears the command recieved event, so this should
         # only be called if there are no expected confirmation responses
+
+        Logger.log("d", "*****command: " + str(command) + ", sent: " + str(not (self._serial is None or self._connection_state != ConnectionState.Connected)))
+
         if self._serial is None or self._connection_state != ConnectionState.Connected:
             return
 
@@ -262,9 +273,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         # actually sending bytes
         try:
-            self._command_received.clear()
+            if command != Fisnar.finalizer():  # finalizer has no response, so don't set flag to wait for one
+                self._command_received.clear()
             self._serial.write(command)
-            Logger.log("d", f"bytes written: {command}")
+            # Logger.log("d", f"bytes written: {command}")
         except SerialTimeoutException:
             self._command_received.set()
             Logger.log("w", "Fisnar serial connection timed out when sending bytes: " + str(command))
@@ -277,9 +289,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
             command_bytes = self._fisnar_commands[self._current_index]
         except IndexError:  # done printing!
             Logger.log("i", "Fisnar done with print.")
+
+            # stop printing
             self.setPrintingState(False)
             self._is_paused = False
-            self._resetInternalState()  # clear out commands/current index to prepare for another print
+
+            # clean things up
+            for i in range(1, 5):
+                self.sendCommand(Fisnar.OU(i, 0))
+            self.sendCommand(Fisnar.HM())
+
+            # reset to prep for another print
+            self._resetInternalState()
             return
 
         self._sendCommand(command_bytes)  # send bytes
@@ -291,6 +312,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if printing_state != self._is_printing:
             self._is_printing = not self._is_printing
             self.printingStatusUpdated.emit()
+
+            self.setCoordTracking(not self._is_printing)
 
     def _resetInternalState(self):
         # resets internal state - called after user terminates print
@@ -314,7 +337,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def pauseOrResumePrint(self):
         Logger.log("i", "Fisnar serial print has been " + ("resumed" if self._is_paused else "paused") + ".")
         self._is_paused = not self._is_paused  # flips whether print is paused or not
-        if not self._is_paused:
+        if not self._is_paused:  # if being resumed, send the next command to restart the ok! loop
             self._sendNextFisnarLine()
 
     @pyqtSlot()
@@ -327,14 +350,12 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setPrintingState(False)
         self._is_paused = False
 
-        # ensure all outputs are off
+        # ensure all outputs are off, then home
         for i in range(1, 5):
             self.sendCommand(Fisnar.OU(i, 0))
+        self.sendCommand(Fisnar.HM())
 
         self._resetInternalState()  # resets fisnar commands, current command index
-
-        # homing fisnar
-        self.sendCommand(Fisnar.HM())
 
 # ------------------- dispenser serial port property setup -------------------------
     dispenserSerialPortUpdated = pyqtSignal()
@@ -436,6 +457,20 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.z_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
 # ----------------------------------------------------------------------------
+    xPosUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=xPosUpdated)
+    def x_pos(self):
+        return str(round(self._most_recent_position[0], 3))
+
+    yPosUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=yPosUpdated)
+    def y_pos(self):
+        return str(round(self._most_recent_position[1], 3))
+
+    zPosUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=zPosUpdated)
+    def z_pos(self):
+        return str(round(self._most_recent_position[2], 3))
 
     printingStatusUpdated = pyqtSignal()
     @pyqtProperty(bool, notify=printingStatusUpdated)

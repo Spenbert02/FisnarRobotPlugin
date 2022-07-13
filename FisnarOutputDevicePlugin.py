@@ -30,9 +30,6 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
 
         self._application = CuraApplication.getInstance()
 
-    def _onUpdatedSerialPort(self):
-        self._serial_port_name = str(FisnarRobotExtension.getInstance().getComPortName())
-        self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").serialPortNameUpdated.emit(self._serial_port_name)
 
     def start(self):
         Logger.log("i", "OutputDevicePlugin.start() called")
@@ -40,8 +37,8 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
         # creating FisnarOutputDevice
         self.getOutputDeviceManager().addOutputDevice(FisnarOutputDevice())
 
-        # signal to update internal com_port storage
-        FisnarRobotExtension.getInstance().comPortNameUpdated.connect(self._onUpdatedSerialPort)
+        # initializing com port name
+        self._serial_port_name = FisnarRobotExtension.getInstance().com_port
 
         # start update thread to find open serial ports
         self._check_updates = True
@@ -58,13 +55,16 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
     def _updateThread(self):
         # try to connect to serial port every 5 seconds, unless port is
         # already connected to
+        # TEMP - right now this ignores any updates in com port while the app is running. eventually, some sort of behavior should be implemented
         while self._check_updates:
-            if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").isConnected() or self._serial_port_name in (None, "None"):
-                pass
-            else:  # not connected, so try
-                Logger.log("d", "serial_port_name: " + str(self._serial_port_name))
-                self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").connect(self._serial_port_name)
             time.sleep(5)
+            self._serial_port_name = FisnarRobotExtension.getInstance().com_port
+
+            # Logger.log("d", "current serial port: " + str(self._serial_port_name))
+
+            if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").isConnected():
+                if self._serial_port_name not in (None, "None"):
+                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").connect(self._serial_port_name)
 
     _instance = None
 

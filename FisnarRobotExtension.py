@@ -81,7 +81,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.pick_location = (0.0, 0.0, 0.0)
         self.place_location = (0.0, 0.0, 0.0)
         self.vacuum_pressure = 0.0
-        self.vacuum_units = None
+        self.vacuum_units = 0
         self.xy_speed = 0.0
         self.z_speed = 0.0
 
@@ -194,7 +194,8 @@ class FisnarRobotExtension(QObject, Extension):
         if pref_dict.get("extruder_outputs", None) is not None:
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) != -1:
-            self.com_port = pref_dict["com_port"]
+            # self.com_port = pref_dict["com_port"]
+            self.updateComPort(pref_dict["com_port"])
         if pref_dict.get("dispenser_com_port", -1) != -1:
             self.dispenser_com_port = pref_dict["dispenser_com_port"]
         if pref_dict.get("pick_location", None) is not None:
@@ -485,30 +486,29 @@ class FisnarRobotExtension(QObject, Extension):
             return
         self.updatePreferencedValues()
 
-    # ==================== COM port name setter/getter system ===================
+# ==================== COM port name setter/getter system ===================
+    # def setComPortName(self, name):
+    #     # for updating from python via function call
+    #     if name != self.com_port:
+    #         self.com_port = name
+    #         self.comPortNameUpdated.emit()
 
     comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
-
-    def setComPortName(self, new_com_port):
-        # com port name setter
-        if new_com_port == "None" or new_com_port == None:
-            self.com_port = None
-        else:
-            self.com_port = str(new_com_port)
-
-    def getComPortName(self):
-        # com port name getter
+    @pyqtProperty(str, notify=comPortNameUpdated)
+    def com_port_name(self):
         return str(self.com_port)
-
-    com_port_name = pyqtProperty(str, fset=setComPortName, fget=getComPortName, notify=comPortNameUpdated)
 
     @pyqtSlot(str)
     def updateComPort(self, com_port):
-        # set the com port value connected to the Fisnar
+        # for qml updating (user entered new value)
         Logger.log("d", f"com port set to: '{com_port}'")
-        self.setComPortName(com_port)
-        self.updatePreferencedValues()
+        if com_port == "None":
+            self.com_port = None
+        else:
+            self.com_port = com_port
         self.comPortNameUpdated.emit()
+        self.updatePreferencedValues()
+# ===========================================================================
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
