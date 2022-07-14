@@ -90,6 +90,18 @@ class Fisnar(Machine):
         return bytes("VZ " + str(round(float(z), 3)) + "\r", "ascii")
 
     @staticmethod
+    def MXR(x):
+        return bytes("MXR (0" + str(round(float(x), 3)) + ")\r", "ascii")
+
+    @staticmethod
+    def MYR(y):
+        return bytes("MYR (0" + str(round(float(y), 3)) + ")\r", "ascii")
+
+    @staticmethod
+    def MZR(z):
+        return bytes("MZR (0" + str(round(float(z), 3)) + ")\r", "ascii")
+
+    @staticmethod
     def HM():
         return bytes("HM\r", "ascii")
 
@@ -115,9 +127,12 @@ class Fisnar(Machine):
         # feedback command
         if len(byte_array) <= 2:
             return False
-        for char in byte_array[:-2]:
-            if char < 48 or char > 57:
-                return False
+
+        try:
+            temp = float(byte_array[:-2])
+        except:
+            return False
+
         return True
 
     @staticmethod
@@ -133,4 +148,4 @@ class Fisnar(Machine):
 
     @staticmethod
     def feedbackCommands():
-        return (self.PX(), self.PY(), self.PZ())
+        return (Fisnar.PX(), Fisnar.PY(), Fisnar.PZ())

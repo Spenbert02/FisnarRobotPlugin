@@ -242,54 +242,64 @@ Component
                         Layout.preferredHeight: height
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'up'
+                      Cura.SecondaryButton {  // X/Y 'up' (negative y)
                         Layout.row: 1
                         Layout.column: 1
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleUp")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(0, -jogRow.selectedDistance, 0)
+                        }
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'left'
+                      Cura.SecondaryButton {  // X/Y 'left' (positive x)
                         Layout.row: 2
                         Layout.column: 0
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleLeft")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(jogRow.selectedDistance, 0, 0)
+                        }
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'right'
+                      Cura.SecondaryButton {  // X/Y 'right' (negative x)
                         Layout.row: 2
                         Layout.column: 2
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleRight")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(-jogRow.selectedDistance, 0, 0)
+                        }
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'down'
+                      Cura.SecondaryButton {  // X/Y 'down' (positive y)
                         Layout.row: 3
                         Layout.column: 1
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleDown")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(0, jogRow.selectedDistance, 0)
+                        }
                       }
 
-                      Cura.SecondaryButton {
+                      Cura.SecondaryButton {  // home x/y axes
                         Layout.row: 2
                         Layout.column: 1
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("House")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this home the x/y axes
+                        onClicked: {
+                          OutputDevice.homeXY()
+                        }
                       }
                     }
 
@@ -319,14 +329,16 @@ Component
                         Layout.preferredHeight: height
                       }
 
-                      Cura.SecondaryButton {
+                      Cura.SecondaryButton {  // z up
                         Layout.row: 1
                         Layout.column: 0
                         Layout.preferredWidth: base._buttonSize
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleUp")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(0, 0, -jogRow.selectedDistance)
+                        }
                       }
 
                       Cura.SecondaryButton {
@@ -336,7 +348,9 @@ Component
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("House")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this home the x axis
+                        onClicked: {
+                          OutputDevice.homeZ()
+                        }
                       }
 
                       Cura.SecondaryButton {
@@ -346,7 +360,9 @@ Component
                         Layout.preferredHeight: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleDown")
                         leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {}  // TODO: make this move the printer
+                        onClicked: {
+                          OutputDevice.moveHead(0, 0, jogRow.selectedDistance)
+                        }
                       }
                     }
                   }
@@ -378,7 +394,9 @@ Component
                           color: jogRow.selectedDistance == model.value ? UM.Theme.getColor("primary_button") : UM.Theme.getColor("secondary_button")
                           textColor: jogRow.selectedDistance == model.value ? UM.Theme.getColor("primary_button_text") : UM.Theme.getColor("secondary_button_text")
                           hoverColor: jogRow.selectedDistance == model.value ? UM.Theme.getColor("primary_button_hover") : UM.Theme.getColor("secondary_button_hover")
-                          onClicked: jogRow.selectedDistance = model.value
+                          onClicked: {
+                            jogRow.selectedDistance = model.value
+                          }
                         }
                       }
                     }
@@ -919,9 +937,8 @@ Component
                 ListElement {label: "0.001"; value: 0.001}
                 ListElement {label: "0.01"; value: 0.01}
                 ListElement {label: "0.1"; value: 0.1}
-                ListElement {label: "1"; value: 1}
-                ListElement {label: "10"; value: 10}
-                ListElement {label: "100"; value: 100}
+                ListElement {label: "1"; value: 1.0}
+                ListElement {label: "10"; value: 10.0}
               }
               ListModel {
                 id: pressureUnitsModel

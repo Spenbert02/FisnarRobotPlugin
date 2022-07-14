@@ -48,13 +48,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # for connecting to serial port
         self._serial = None
         self._serial_port_name = None
-        self._timeout = 10
+        self._timeout = 3
         self._baud_rate = 115200
 
         # for updating position when not printing
         self._most_recent_position = [0.0, 0.0, 0.0]
-        self._last_updated_position = Fisnar.PZ()
-        self._coord_val_sent = Event()
+        self._button_move_confirm_received = Event()
+        self._button_move_confirms_received = 0
         self._x_feedback_received = Event()
         self._y_feedback_received = Event()
         self._z_feedback_received = Event()
@@ -156,13 +156,14 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setPrintingState(True)
         self._is_paused = False
 
-        self._sendNextFisnarLine()  # push the first command to start the ok loop
+        for i in range(2):
+            self._sendNextFisnarLine()  # push the first command to start the ok loop
 
         # Logger.log("d", "end of _printFisnarCommands")  # test
 
     def stopPrintingAndFinalize(self):
         # stop printing and finalize the Fisnar
-        self.setPrintingState(False)  # stop iterating through gcode
+        self.setPrintingState(False)  # stop iterating through gcode if it is
 
         self.sendCommand(Fisnar.HM())
         self.sendCommand(Fisnar.finalizer())
@@ -194,7 +195,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self.setConnectionState(ConnectionState.Connected)
         self._update_thread.start()
-        self.setCoordTracking(True)  # start tracking coordinates (_is_printing should be necessarily True at this point - ensure this is the case)
+        self._sendCommand(Fisnar.initializer())
 
     def close(self):
         # closes the serial port and resets _serial member variable to None
@@ -223,17 +224,47 @@ class FisnarOutputDevice(PrinterOutputDevice):
             except:
                 continue  # nothing to read
 
+            Logger.log("d", "curr_line: " + str(curr_line))
+
             # check if fisnar has been initialized and update internal state (finalization check occurs in _sendCommand())
             if curr_line.startswith(Fisnar.expectedReturn(Fisnar.initializer())):
                 Logger.log("i", "Fisnar successfully initialized")
                 self._fisnar_initialized.set()
-
-            if curr_line.startswith(b"ok!"):  # confirmation received
+            elif curr_line.startswith(b"ok!"):  # confirmation received
                 self._command_received.set()
+            elif Fisnar.isFeedback(curr_line):  # check if value was received
+                # Logger.log("d", str(curr_line))
+                if not self._x_feedback_received.is_set():  # value is x position
+                    self._most_recent_position[0] = float(curr_line[:-2])
+                    Logger.log("d", "new x: " + str(self._most_recent_position[0]))
+                    self._x_feedback_received.set()
+                    self.xPosUpdated.emit()
+                    self._y_feedback_received.clear()
+                    self.sendCommand(Fisnar.PY())
+                elif not self._y_feedback_received.is_set():  # value is y position
+                    self._most_recent_position[1] = float(curr_line[:-2])
+                    Logger.log("d", "new y: " + str(self._most_recent_position[1]))
+                    self._y_feedback_received.set()
+                    self.yPosUpdated.emit()
+                    self._z_feedback_received.clear()
+                    self.sendCommand(Fisnar.PZ())
+                elif not self._z_feedback_received.is_set():  # value is z position
+                    self._most_recent_position[2] = float(curr_line[:-2])
+                    Logger.log("d", "new z: " + str(self._most_recent_position[2]))
+                    self._z_feedback_received.set()
+                    self.zPosUpdated.emit()
 
             # can send next command
             if curr_line.startswith(b"ok!") or curr_line.startswith(Fisnar.expectedReturn(Fisnar.initializer())):
                 # Logger.log("d", "x feedback received set: " + str(self._x_feedback_received.is_set()) + "\ny feedback received set: " + str(self._y_feedback_received.is_set()) + "\nz feedback received set: " + str(self._z_feedback_received.is_set()))
+                if not self._button_move_confirm_received.is_set():  # need to update position
+                    self._button_move_confirms_received += 1
+                    Logger.log("d", "confirms received: " + str(self._button_move_confirms_received))
+                    if self._button_move_confirms_received == 2:
+                        self._button_move_confirms_received = 0
+                        self._button_move_confirm_received.set()
+                        self._x_feedback_received.clear()  # this will trigger the PX->PY->PZ 'cascade'
+                        self.sendCommand(Fisnar.PX())
                 if not self._command_queue.empty():
                     self._sendCommand(self._command_queue.get())
                 elif self._is_printing:  # still printing but queue is empty
@@ -270,6 +301,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if self._fisnar_initialized.is_set():  # don't initialize if already initialized
                 Logger.log("i", "Fisnar already initialized")
                 return
+            else:
+                self._fisnar_initialized.set()
 
         # actually sending bytes
         try:
@@ -313,8 +346,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._is_printing = not self._is_printing
             self.printingStatusUpdated.emit()
 
-            self.setCoordTracking(not self._is_printing)
-
     def _resetInternalState(self):
         # resets internal state - called after user terminates print
         # or after print is finished. Assumes self._is_printing has already
@@ -328,6 +359,43 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return self._current_index / len(self._fisnar_commands)
         except ZeroDivisionError:
             return None  # print hasn't started yet
+
+    @pyqtSlot(float, float, float)
+    def moveHead(self, dx, dy, dz):
+        if not (0.0 <= self._most_recent_position[0] + dx <= 200.0):  # checking if move is valid
+            return
+        if not (0.0 <= self._most_recent_position[1] + dy <= 200.0):
+            return
+        if not (0.0 <= self._most_recent_position[2] + dz <= 150.0):
+            return
+
+        self._button_move_confirm_received.clear()
+        self._button_move_confirms_received = 0
+        Logger.log("d", f"dx: {dx}, {type(dx)}; dy: {dy}, {type(dy)}, dz: {dz}, {type(dz)}")
+        valid_movement_distances = (-10.0, -1.0, -0.1, -0.01, -0.001, 0.001, 0.01, 0.1, 1.0, 10.0)
+
+        if dx in valid_movement_distances:
+            self._sendCommand(Fisnar.MXR(dx))
+            self._sendCommand(Fisnar.ID())
+        if dy in valid_movement_distances:
+            self._sendCommand(Fisnar.MYR(dy))
+            self._sendCommand(Fisnar.ID())
+        if dz in valid_movement_distances:
+            self._sendCommand(Fisnar.MZR(dz))
+            self._sendCommand(Fisnar.ID())
+
+    @pyqtSlot()
+    def homeXY(self):
+        self._button_move_confirm_received.clear()
+        self._button_move_confirms_received = 0  # still needs two confirms - one for each hm command
+        self._sendCommand(Fisnar.HX())
+        self.sendCommand(Fisnar.HY())
+
+    @pyqtSlot()
+    def homeZ(self):
+        self._button_move_confirm_received.clear()
+        self._button_move_confirms_received = 1  # kind of hacky but it works - this makes the _update loop only need to look for one more ok! confirm before sending coord feedback commands
+        self._sendCommand(Fisnar.HZ())
 
     ################################
     # QML Stuff
