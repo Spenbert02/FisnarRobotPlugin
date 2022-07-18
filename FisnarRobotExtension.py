@@ -469,10 +469,9 @@ class FisnarRobotExtension(QObject, Extension):
     ext_4_output_ind = pyqtProperty(int, fset=setExt4Out, fget=getExt4OutInd, notify=extruderOutputsChanged)
 # ============================================================================
 
-    @pyqtSlot(str, str)
+    @pyqtSlot(int, int)
     def setExtruderOutput(self, extruder_num, output_val):
         # slot for qml to set the output associated with one of the extruders
-        extruder_num = int(extruder_num)
         if extruder_num == 1:
             self.setExt1Out(output_val)
         elif extruder_num == 2:
@@ -508,7 +507,20 @@ class FisnarRobotExtension(QObject, Extension):
             self.com_port = com_port
         self.comPortNameUpdated.emit()
         self.updatePreferencedValues()
-# ===========================================================================
+
+# =========== dispenser serial port ('shared' property with FisnarOutputDevice) ============
+    dispenserSerialPortUpdated = pyqtSignal()
+
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
+    def dispenser_serial_port(self):
+        return str(self.dispenser_com_port)
+
+    @pyqtSlot(str)
+    def updateDispenserSerialPort(self, name):
+        self.dispenser_com_port = name
+        Logger.log("d", "***** emitted: " + str(name) + ", " + str(type(name)))
+        self.dispenserSerialPortUpdated.emit()
+# ==========================================================================
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test

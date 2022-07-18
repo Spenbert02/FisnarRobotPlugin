@@ -1,7 +1,11 @@
+import QtQuick 2.10
+import QtQuick.Layouts 1.1
+import QtQuick.Controls 2.15
+
 import UM 1.5 as UM
-import QtQuick 2.15
-import QtQuick.Controls 2.1
-import Cura 1.1 as Cura
+import Cura 1.0 as Cura
+
+import "."
 
 UM.Dialog {
     id: base
@@ -11,44 +15,69 @@ UM.Dialog {
 
     width: minimumWidth
     height: minimumHeight
-    minimumWidth: 645 * screenScaleFactor
-    minimumHeight: 235 * screenScaleFactor
+    minimumWidth: 1000 * screenScaleFactor
+    minimumHeight: 350 * screenScaleFactor
 
     onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
       numExtruders = main.num_extruders
     }
 
+    // PrintSetupTooltip {  // eventually tooltips will be added
+    //   id: tooltip
+    // }
+
+    // Rectangle {  // test
+    //   color: "red"
+    //   anchors.fill: sectionRow
+    // }
+
     Row {
+      id: sectionRow
+      height: parent.height - (2 * UM.Theme.getSize("default_margin").height)
+      width: parent.width - (2 * UM.Theme.getSize("default_margin").width)
       anchors.top: parent.top
+      anchors.topMargin: UM.Theme.getSize("default_margin").height
       anchors.left: parent.left
-      height: parent.height
-      width: parent.width
-      spacing: UM.Theme.getSize("default_margin").width
+      anchors.leftMargin: UM.Theme.getSize("default_margin").width
+      spacing: UM.Theme.getSize("thick_margin").width
 
-      GroupBox {  // print surface box
+      GroupBox {
         title: "Print Surface"
-        width: 200 * screenScaleFactor
-        height: Math.round(parent.height)
+        width: 0.3333 * (parent.width - (2 * parent.spacing))
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
 
-        Grid {  //
-          columns: 2
-          spacing: UM.Theme.getSize("default_margin").height
-          height: parent.height
-          width: parent.width
-          anchors.top: parent.top
-          anchors.horizontalCenter: parent.horizontalCenter
+        Rectangle {
+          anchors.fill: parent
 
-          Label {  // x-min label/text input
-            text: "x-minimum"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+          UM.Label {  // x-range label
+            id: xRangeLabel
+            text: "X Range"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: parent.top
           }
-          TextField {
+
+          UM.Label {  // x min label
+            id: xMinLabel
+            text: "Min"
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: xMinEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+            anchors.top: xRangeLabel.top
+          }
+
+          TextField {  // x-min text input
             id: xMinEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: xRangeLabel.top
             text: main.x_min
             validator: DoubleValidator {
-              decimals: 4
+              decimals: 3
               locale: "en_US"
               bottom: 0
               top: 200
@@ -58,17 +87,31 @@ UM.Dialog {
             }
           }
 
-          Label {  // x-max label/text input
-            text: "x-maximum"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+          UnitLabel {
+            anchors.right: xMinEntry.right
+            anchors.top: xMinEntry.top
           }
-          TextField {
+
+          UM.Label {  // x-max label
+            id: xMaxLabel
+            text: "Max"
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: xMaxEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+            anchors.top: xMinLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
+          }
+
+          TextField {  // x max entry
             id: xMaxEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: xMaxLabel.top
             text: main.x_max
             validator: DoubleValidator {
-              decimals: 4
+              decimals: 3
               locale: "en_US"
               bottom: 0
               top: 200
@@ -78,17 +121,40 @@ UM.Dialog {
             }
           }
 
-          Label {  // y-min label/text input
-            text: "y-minimum"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+          UnitLabel {
+            anchors.top: xMaxEntry.top
+            anchors.right: xMaxEntry.right
           }
-          TextField {
+
+          UM.Label {  // y range label
+            id: yRangeLabel
+            text: "Y Range"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: xMaxLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
+          }
+
+          UM.Label {  // y min label
+            id: yMinLabel
+            text: "Min"
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: yMinEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+            anchors.top: yRangeLabel.top
+          }
+
+          TextField {  // y min entry
             id: yMinEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: yMinLabel.top
             text: main.y_min
             validator: DoubleValidator {
-              decimals: 4
+              decimals: 3
               locale: "en_US"
               bottom: 0
               top: 200
@@ -98,17 +164,31 @@ UM.Dialog {
             }
           }
 
-          Label {  // y-max label/text input
-            text: "y-maximum"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+          UnitLabel {  // y min unit label
+            anchors.top: yMinEntry.top
+            anchors.right: yMinEntry.right
           }
-          TextField {
+
+          UM.Label {  // y max label
+            id: yMaxLabel
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            text: "Max"
+            anchors.right: yMaxEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+            anchors.top: yMinLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
+          }
+
+          TextField {  // y max entry
             id: yMaxEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: yMaxLabel.top
             text: main.y_max
             validator: DoubleValidator {
-              decimals: 4
+              decimals: 3
               locale: "en_US"
               bottom: 0
               top: 200
@@ -118,17 +198,66 @@ UM.Dialog {
             }
           }
 
-          Label {  // z-max label/text input
-            text: "z-maximum"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+          UnitLabel {  // y max entry
+            anchors.top: yMaxEntry.top
+            anchors.right: yMaxEntry.right
           }
-          TextField {
+
+          UM.Label {  // z range label
+            id: zRangeLabel
+            text: "Z Range"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: yMaxLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
+          }
+
+          UM.Label {  // z min label
+            id: zMinLabel
+            text: "Min"
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.top: zRangeLabel.top
+            anchors.right: zMinEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+          }
+
+          TextField {  // z min 'entry' - will always be disabled
+            id: zMinEntry
+            enabled: false
+            text: "0.0"
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: zMinLabel.top
+          }
+
+          UnitLabel {  // z min units
+            anchors.right: zMinEntry.right
+            anchors.top: zMinEntry.top
+          }
+
+          UM.Label {  // z max label
+            id: zMaxLabel
+            text: "Max"
+            font: UM.Theme.getFont("default_bold")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.top: zMinLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
+            anchors.right: zMaxEntry.left
+            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+          }
+
+          TextField {  // z max entry
             id: zMaxEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.top: zMaxLabel.top
+            anchors.right: parent.right
             text: main.z_max
             validator: DoubleValidator {
-              decimals: 4
+              decimals: 3
               locale: "en_US"
               bottom: 0
               top: 200
@@ -137,140 +266,188 @@ UM.Dialog {
               main.setCoord("fisnar_z_max", text)
             }
           }
+
+          UnitLabel {  // z max units
+            anchors.right: zMaxEntry.right
+            anchors.top: zMaxEntry.top
+          }
         }
       }
 
-      GroupBox {  // group box for extruder output correlations
+      GroupBox {  // extruder output correlation group box
         title: "Extruder Outputs"
-        width: 200 * screenScaleFactor
-        height: Math.round(parent.height)
+        width: 0.3333 * (parent.width - (2 * parent.spacing))
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
 
-        Grid {
-          columns: 2
-          spacing: UM.Theme.getSize("default_margin").height
-          height: parent.height
-          width: parent.width
-          anchors.top: parent.top
-          anchors.horizontalCenter: parent.horizontalCenter
+        Rectangle {
+          anchors.fill: parent
 
-          Label {  // extruder 1 output entry
-            enabled: base.numExtruders >= 1
-            text: "Extruder 1: Output"
-            horizontalAlignment: Text.AlignRight
+          ListModel {  // extruder output model
+            id: outputsModel
+            ListElement{label: "None"; value: 0}
+            ListElement{label: "Output 1"; value: 1}
+            ListElement{label: "Output 2"; value: 2}
+            ListElement{label: "Output 3"; value: 3}
+            ListElement{label: "Output 4"; value: 4}
           }
-          ComboBox {
+
+          UM.Label {  // extruder 1 label
+            id: ext1Label
+            enabled: base.numExtruders >= 1
+            text: "Extruder 1"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: parent.top
+          }
+
+          ComboBox {  // extruder 1 dropdown
+            id: ext1Dropdown
+            enabled: base.numExtruders >= 1
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: ext1Label.top
+
+            model: outputsModel
+            textRole: "label"
             currentIndex: main.ext_1_output_ind
-            enabled: base.numExtruders >= 1
-            editable: false
-            width: 70 * screenScaleFactor
-            model: ListModel {
-              id: ext1List
-              ListElement {text: "None"}
-              ListElement {text: "1"}
-              ListElement {text: "2"}
-              ListElement {text: "3"}
-              ListElement {text: "4"}
-            }
             onCurrentIndexChanged: {
-              main.setExtruderOutput("1", ext1List.get(currentIndex).text)
+              main.setExtruderOutput(1, currentIndex)
             }
           }
 
-          Label {  // extruder 2 output entry
+          UM.Label {  // extruder 2 label
+            id: ext2Label
             enabled: base.numExtruders >= 2
-            text: "Extruder 2: Output"
-            horizontalAlignment: Text.AlignRight
+            text: "Extruder 2"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: ext1Label.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
-          ComboBox {
+
+          ComboBox {  // extruder 2 dropdown
+            id: ext2Dropdown
+            enabled: base.numExtruders >= 2
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: ext2Label.top
+
+            model: outputsModel
+            textRole: "label"
             currentIndex: main.ext_2_output_ind
-            enabled: base.numExtruders >= 2
-            editable: false
-            width: 70 * screenScaleFactor
-            model: ListModel {
-              id: ext2List
-              ListElement {text: "None"}
-              ListElement {text: "1"}
-              ListElement {text: "2"}
-              ListElement {text: "3"}
-              ListElement {text: "4"}
-            }
             onCurrentIndexChanged: {
-              main.setExtruderOutput("2", ext2List.get(currentIndex).text)
+              main.setExtruderOutput(2, currentIndex)
             }
           }
 
-          Label {  // extruder 3 output entry
-            enabled: base.numExtruders >= 3
-            text: "Extruder 3: Output"
-            horizontalAlignment: Text.AlignRight
+          UM.Label {  // extruder 3 label
+            id: ext3Label
+            text: "Extruder 3"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: ext2Label.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
-          ComboBox {
+
+          ComboBox {  // extruder 3 dropdown
+            id: ext3Dropdown
+            enabled: base.numExtruders >= 3
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: ext3Label.top
+
+            model: outputsModel
+            textRole: "label"
             currentIndex: main.ext_3_output_ind
-            enabled: base.numExtruders >= 3
-            editable: false
-            width: 70 * screenScaleFactor
-            model: ListModel {
-              id: ext3List
-              ListElement {text: "None"}
-              ListElement {text: "1"}
-              ListElement {text: "2"}
-              ListElement {text: "3"}
-              ListElement {text: "4"}
-            }
             onCurrentIndexChanged: {
-              main.setExtruderOutput("3", ext3List.get(currentIndex).text)
+              main.setExtruderOutput(3, currentIndex)
             }
           }
 
-          Label {  // extruder 4 output entry
-            enabled: base.numExtruders >= 4
-            text: "Extruder 4: Output"
-            horizontalAlignment: Text.AlignRight
+          UM.Label {  // extruder 4 label
+            id: ext4Label
+            text: "Extruder 4"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: ext3Label.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
-          ComboBox {
-            currentIndex: main.ext_4_output_ind
+
+          ComboBox {  // extruder 4 dropdown
+            id: ext4Dropdown
             enabled: base.numExtruders >= 4
-            editable: false
-            width: 70 * screenScaleFactor
-            model: ListModel {
-              id: ext4List
-              ListElement {text: "None"}
-              ListElement {text: "1"}
-              ListElement {text: "2"}
-              ListElement {text: "3"}
-              ListElement {text: "4"}
-            }
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: ext4Label.top
+
+            model: outputsModel
+            textRole: "label"
+            currentIndex: main.ext_4_output_ind
             onCurrentIndexChanged: {
-              main.setExtruderOutput("4", ext4List.get(currentIndex).text)
+              main.setExtruderOutput(4, currentIndex)
             }
           }
         }
       }
 
-      GroupBox {  // groupbox for com port
-        title: "COM Ports"
-        width: 200 * screenScaleFactor
-        height: Math.round(parent.height)
+      GroupBox {
+        title: "Serial Ports"
+        width: 0.3333 * (parent.width - (2 * parent.spacing))
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
 
-        Grid {  // grid for com port entries
-          columns: 2
-          spacing: UM.Theme.getSize("default_margin").height
-          height: parent.height
-          width: parent.width
-          anchors.top: parent.top
-          anchors.horizontalCenter: parent.horizontalCenter
+        Rectangle {
+          anchors.fill: parent
 
-          Label {  // fisnar com port label/input
+          UM.Label {  //
+            id: fisnarComLabel
             text: "Fisnar"
-            horizontalAlignment: Text.AlignRight
-            verticalAlignment: Text.AlignVCenter
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: parent.top
           }
+
           TextField {
             id: fisnarComEntry
-            width: 100
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: fisnarComLabel.top
             text: main.com_port_name
             onEditingFinished: {
               main.updateComPort(text)
+            }
+          }
+
+          UM.Label {  // dispenser com label
+            id: dispenserComLabel
+            text: "Pick and place dispenser"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: fisnarComLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
+          }
+
+          TextField {
+            id: dispenserComEntry
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            anchors.right: parent.right
+            anchors.top: dispenserComLabel.top
+            text: main.dispenser_serial_port
+            onEditingFinished: {
+              main.updateDispenserSerialPort(text)
             }
           }
         }

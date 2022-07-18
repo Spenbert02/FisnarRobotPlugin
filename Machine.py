@@ -13,9 +13,9 @@ class Machine(ABC):
     ACK = bytes.fromhex("06")
 
 
-    def __init__(self, port_name, *args):
+    def __init__(self, *args):
         # default serial port settings
-        self.port_name = port_name
+        self.port_name = None
         self.baud_rate = 9600
         self.num_bits = serial.EIGHTBITS
         self.parity_bits = serial.PARITY_NONE
@@ -26,24 +26,27 @@ class Machine(ABC):
         # assigning any arguments given in args
         for i in range(len(args)):
             if i == 0:
-                self.baud_rate = args[0]
+                self.port_name = args[0]
             elif i == 1:
-                self.num_bits = args[1]
+                self.baud_rate = args[1]
             elif i == 2:
-                self.parity_bits = args[2]
+                self.num_bits = args[2]
             elif i == 3:
-                self.num_stop_bits = args[3]
+                self.parity_bits = args[3]
             elif i == 4:
-                self.read_timeout = args[4]
+                self.num_stop_bits = args[4]
             elif i == 5:
-                self.write_timeout = args[5]
+                self.read_timeout = args[5]
+            elif i == 6:
+                self.write_timeout = args[6]
 
         # information to set for error messages
         self.information = None
 
         # actual serial port object
         self.serial_port = None
-        self.initializeSerialPort()  # try to initialize
+        if self.port_name is not None:
+            self.initializeSerialPort()  # try to initialize
 
     @abstractmethod
     def sendCommand(self, command_bytes):
@@ -73,6 +76,11 @@ class Machine(ABC):
 
     def initializeSerialPort(self):
         # try to initialize the serial port - return bool indicating successfulness
+        if self.port_name is None:
+            self.serial_port = None
+            self.setInformation("serial port name not defined")
+            return
+
         try:
             self.serial_port = serial.Serial(
                 self.port_name,
@@ -122,12 +130,17 @@ class Machine(ABC):
     def updateSerialPort(self):
         # update the SerialPort object with the Machine instance's member variables
         if self.serial_port is not None:
+            self.serial_port.port = self.port_name
             self.serial_port.baudrate = self.baud_rate
             self.serial_port.bytesize = self.num_bits
             self.serial_port.parity = self.parity_bits
             self.serial_port.stopbits = self.num_stop_bits
             self.serial_port.timeout = self.read_timeout
             self.serial_port.write_timeout = self.write_timeout
+
+    def setPortName(self, port):
+        self.port_name = port
+        self.updateSerialPort()
 
     def setBaudrate(self, baud_rate):
         # set baudrate for serial port (updates member attribute as well)

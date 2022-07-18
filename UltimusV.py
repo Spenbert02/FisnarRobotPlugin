@@ -14,20 +14,8 @@ class PressureUnits:  # enumeration class for pressure units
     P_KPA = 7
 
 class UltimusV(Machine):
-    # class representing the machine instance for the UltimusV fluid
+    # class representing the "machine instance" for the UltimusV fluid
     # dispenser
-
-    # pressure units
-    PSI = "PSI"
-    BAR = "BAR"
-    P_KPA = "P_KPA"
-
-    # vacuum units  (kPa is the only unit used for both positive pressure and vacuum)
-    V_KPA = "V_KPA"
-    INH2O = "INH2O"
-    INHG = "INHG"
-    MMHG = "MMHG"
-    TORR = "TORR"
 
     def __init__(self, port_name, *args):
         super().__init__(port_name, *args)
@@ -84,11 +72,11 @@ class UltimusV(Machine):
         # command 2.2.12 in manual
         #
         # set the current pressure units for the dispenser
-        if units == UltimusV.PSI:
+        if units == PressureUnits.PSI:
             return bytes("E6  00", "ascii")
-        elif units == UltimusV.BAR:
+        elif units == PressureUnits.BAR:
             return bytes("E6  01", "ascii")
-        elif units == UltimusV.P_KPA:
+        elif units == PressureUnits.P_KPA:
             return bytes("E6  02", "ascii")
 
     @staticmethod
@@ -96,15 +84,15 @@ class UltimusV(Machine):
         # command 2.2.13 in manual
         #
         # set the vacuum units of the dispenser.
-        if units == UltimusV.V_KPA:
+        if units == PressureUnits.V_KPA:
             return bytes("E7  00", "ascii")
-        elif units == UltimusV.INH2O:
+        elif units == PressureUnits.INH2O:
             return bytes("E7  01", "ascii")
-        elif units == UltimusV.INHG:
+        elif units == PressureUnits.INHG:
             return bytes("E7  02", "ascii")
-        elif units == UltimusV.MMHG:
+        elif units == PressureUnits.MMHG:
             return bytes("E7  03", "ascii")
-        elif units == UltimusV.TORR:
+        elif units == PressureUnits.TORR:
             return bytes("E7  04", "ascii")
 
     @staticmethod
@@ -120,13 +108,13 @@ class UltimusV(Machine):
     def valueBytes(num, units):
         # given a pressure value and pressure units, return the bytes to be
         # sent to the ultimus to get the proper four digit byte representation.
-        if units in (UltimusV.PSI, UltimusV.P_KPA, UltimusV.INH2O, UltimusV.MMHG, UltimusV.TORR):
+        if units in (PressureUnits.PSI, PressureUnits.P_KPA, PressureUnits.INH2O, PressureUnits.MMHG, PressureUnits.TORR):
             val_str = "000" + str(float(num)) + "0"
             return bytes(val_str[val_str.find(".") - 3:val_str.find(".")] + val_str[val_str.find(".") + 1:val_str.find(".") + 2], "ascii")
-        elif units in (UltimusV.V_KPA, UltimusV.INHG):
+        elif units in (PressureUnits.V_KPA, PressureUnits.INHG):
             val_str = "00" + str(float(num)) + "00"
             return bytes(val_str[val_str.find(".") - 2:val_str.find(".")] + val_str[val_str.find(".") + 1:val_str.find(".") + 3], "ascii")
-        elif units in (UltimusV.BAR):
+        elif units in (PressureUnits.BAR):
             val_str = "0" + str(float(num)) + "000"
             return bytes(val_str[val_str.find(".") - 1:val_str.find(".")] + val_str[val_str.find(".") + 1:val_str.find(".") + 4], "ascii")
         else:

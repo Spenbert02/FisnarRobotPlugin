@@ -55,7 +55,8 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
     def _updateThread(self):
         # try to connect to serial port every 5 seconds, unless port is
         # already connected to
-        # TEMP - right now this ignores any updates in com port while the app is running. eventually, some sort of behavior should be implemented
+        # TEMP - right now this ignores any updates in com port after it connects. eventually, some sort of behavior should be implemented
+            # actually - the current behavior might be good. after it connects, then it will stay connected
         while self._check_updates:
             time.sleep(5)
             self._serial_port_name = FisnarRobotExtension.getInstance().com_port

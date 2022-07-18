@@ -818,7 +818,7 @@ Component
                             }
                           }
 
-                          ComboBox {
+                          ComboBox {  // vacuum pressure unit dropdown
                             id: vacuumPressureUnitsDropdown
                             textRole: "text"
                             width: 75 * screenScaleFactor
@@ -943,8 +943,8 @@ Component
               ListModel {
                 id: pressureUnitsModel
                 ListElement{text: "kPa"; value: 0}
-                ListElement{text: "in H20"; value: 1}
-                ListElement{text: "in Hg"; value: 2}
+                ListElement{text: "in. H20"; value: 1}
+                ListElement{text: "in. Hg"; value: 2}
                 ListElement{text: "mm Hg"; value: 3}
                 ListElement{text: "Torr"; value: 4}
               }
