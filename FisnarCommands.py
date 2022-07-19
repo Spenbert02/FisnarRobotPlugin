@@ -104,13 +104,13 @@ class FisnarCommands():
     def expectedReturn(byte_array):
         # get the expected bytes from the fisnar after sending the given bytes.
         # for feedback commands, the feedback value line is excluded
-        if byte_array == Fisnar.initializer():
+        if byte_array == FisnarCommands.initializer():
             return bytes.fromhex("f0") + bytes("<< BASIC BIOS 2.2 >>\r\n", "ascii")
-        elif byte_array == Fisnar.finalizer():
+        elif byte_array == FisnarCommands.finalizer():
             return bytes()
         else:
-            return byte_array + bytes("\n", "ascii") + Fisnar.okConfirmation() + bytes("\n", "ascii")
+            return byte_array + bytes("\n", "ascii") + FisnarCommands.okConfirmation() + bytes("\n", "ascii")
 
     @staticmethod
     def feedbackCommands():
-        return (Fisnar.PX(), Fisnar.PY(), Fisnar.PZ())
+        return (FisnarCommands.PX(), FisnarCommands.PY(), FisnarCommands.PZ())

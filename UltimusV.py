@@ -4,7 +4,7 @@ from .Machine import Machine
 class PressureUnits:  # enumeration class for pressure units
     # vacuum units
     V_KPA = 0
-    INH20 = 1
+    INH2O = 1
     INHG = 2
     MMHG = 3
     TORR = 4

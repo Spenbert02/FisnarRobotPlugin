@@ -3,9 +3,13 @@ import time
 
 from cura.CuraApplication import CuraApplication
 from UM.Logger import Logger
+from UM.Message import Message
 from UM.OutputDevice.OutputDevicePlugin import OutputDevicePlugin
 from .FisnarOutputDevice import FisnarOutputDevice
 from .FisnarRobotExtension import FisnarRobotExtension
+
+from UM.i18n import i18nCatalog
+catalog = i18nCatalog("cura")
 
 
 class FisnarOutputDevicePlugin(OutputDevicePlugin):
@@ -71,11 +75,19 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
             if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").isConnected():  # if fisnar port not connected, try to.
                 if self._fisnar_port_name not in (None, "None"):
                     self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").connect(self._fisnar_port_name)
+                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").isConnected():
+                        fis_msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N successfully connected via: " + str(self._fisnar_port_name)),
+                                          title = catalog.i18nc("@message", "Connection Status Update"))
+                        fis_msg.show()
 
             if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isOpen():  # if ultimus port is None/not connected, try to.
                 if self._dispenser_port_name not in (None, "None"):
                     self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.setPortName(self._dispenser_port_name)
                     self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.initializeSerialPort()
+                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isOpen():
+                        disp_msg = Message(text = catalog.i18nc("@message", "UltimusV dispenser successfully connected via: " + str(self._dispenser_port_name)),
+                                           title = catalog.i18nc("@message", "Connection Status Update"))
+                        disp_msg.show()
 
     _instance = None
 

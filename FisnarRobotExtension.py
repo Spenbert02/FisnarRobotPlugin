@@ -66,7 +66,9 @@ class FisnarRobotExtension(QObject, Extension):
             "vacuum_pressure": 0.0,
             "vacuum_units": 0,  # uses enumeration in UltimusV.PressureUnits
             "xy_speed": 0.0,
-            "z_speed": 0.0
+            "z_speed": 0.0,
+            "pick_dwell": 0.0,
+            "place_dwell": 0.0
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
@@ -84,6 +86,8 @@ class FisnarRobotExtension(QObject, Extension):
         self.vacuum_units = 0
         self.xy_speed = 0.0
         self.z_speed = 0.0
+        self.pick_dwell = 0.0
+        self.place_dwell = 0.0
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -210,6 +214,10 @@ class FisnarRobotExtension(QObject, Extension):
             self.xy_speed = pref_dict["xy_speed"]
         if pref_dict.get("z_speed", None) is not None:
             self.z_speed = pref_dict["z_speed"]
+        if pref_dict.get("pick_dwell", None) is not None:
+            self.pick_dwell = pref_dict["pick_dwell"]
+        if pref_dict.get("place_dwell", None) is not None:
+            self.place_dwell = pref_dict["place_dwell"]
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
@@ -225,7 +233,9 @@ class FisnarRobotExtension(QObject, Extension):
             "vacuum_pressure": self.vacuum_pressure,
             "vacuum_units": self.vacuum_units,
             "xy_speed": self.xy_speed,
-            "z_speed": self.z_speed
+            "z_speed": self.z_speed,
+            "pick_dwell": self.pick_dwell,
+            "place_dwell": self.place_dwell
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -520,6 +530,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.dispenser_com_port = name
         Logger.log("d", "***** emitted: " + str(name) + ", " + str(type(name)))
         self.dispenserSerialPortUpdated.emit()
+        self.updatePreferencedValues()
 # ==========================================================================
 
     def showDefineSetupWindow(self):

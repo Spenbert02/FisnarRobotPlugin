@@ -16,6 +16,7 @@ from .Converter import Converter
 from .FisnarCommands import FisnarCommands
 from .FisnarCSVWriter import FisnarCSVWriter
 from .FisnarRobotExtension import FisnarRobotExtension
+from .PickAndPlaceGenerator import PickAndPlaceGenerator
 from .UltimusV import PressureUnits, UltimusV
 
 from UM.i18n import i18nCatalog
@@ -169,7 +170,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # stop printing and finalize the Fisnar
         self.setPrintingState(False)  # stop iterating through gcode if it is
 
-        self.sendCommand(FisnarCommands.HM())
+        self._sendCommand(FisnarCommands.HM())
         self.sendCommand(FisnarCommands.finalizer())
 
         while not self._command_queue.empty():
@@ -341,7 +342,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self.sendCommand(FisnarCommands.HM())
 
             # reset to prep for another print
-            self._resetInternalState()
+            self._resetPrintingInternalState()
             return
 
         self._sendCommand(command_bytes)  # send bytes
@@ -357,15 +358,31 @@ class FisnarOutputDevice(PrinterOutputDevice):
             next_command = self._pick_place_commands[self._pick_place_index]
         except IndexError:
             Logger.log("i", "done with pick and place")
-
             self.setPickPlaceStatus(False)
-            self._pick_place_commands.clear()
-            self._pick_place_index = 0
+            self._resetPickAndPlaceInternalState()
+            return
 
-        if next_command[self._pick_place_index] == "d":
-            pass  # TODO: synchronously send dispenser command and update pick place command index - check if new index is out of range, if it is return
+        while next_command[0] in ("d", "sleep"):  # synchronously send dispenser commands / time delays
+            if next_command[0] == "d":
+                success = self.dispenser.sendCommand(next_command[1])
+                if not success:
+                    self.setPickPlaceStatus(False)
+                    self._resetPickAndPlaceInternalState()
+                    return
+            else:
+                time.sleep(float(next_command[1]))
 
-        # TODO: send next fisnar command
+            self._pick_place_index += 1  # ensure there is a next command to send
+            try:
+                next_command = self._pick_place_commands[self._pick_place_index]
+            except IndexError:
+                Logger.log("i", "done with pick and place")
+                self.setPickPlaceStatus(False)
+                self._resetPickAndPlaceInternalState()
+                return
+
+        self._sendCommand(next_command[1])  # is necessarily a fisnar command at this point
+        self._pick_place_index += 1
 
     def setPrintingState(self, printing_state):
         if printing_state != self._is_printing:
@@ -377,13 +394,19 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._pick_place_in_progress = pick_place_status
             self.pickPlaceStatusUpdated.emit()
 
-    def _resetInternalState(self):
-        # resets internal state - called after user terminates print
+    def _resetPrintingInternalState(self):
+        # resets internal printing state - called after user terminates print
         # or after print is finished. Assumes self._is_printing has already
         # been set to false
         self._fisnar_commands.clear()
         self._current_index = 0
         self.printProgressUpdated.emit()  # reset UI
+
+    def _resetPickAndPlaceInternalState(self):
+        # reset the internal pick and place parameters - assumes pick and place
+        # status has already been updated
+        self._pick_place_commands.clear()
+        self._pick_place_index = 0
 
     def _getPrintingProgress(self):
         try:
@@ -408,8 +431,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         place_point = self._fre_instance.place_location
         xy_speed = self._fre_instance.xy_speed
         z_speed = self._fre_instance.z_speed
-        pick_dwell = None  # TODO: add this to ui and necessary stuff in fre
-        place_dwell = None  # TODO
+        pick_dwell = self._fre_instance.pick_dwell
+        place_dwell = self._fre_instance.place_dwell
         vacuum_pressure = self._fre_instance.vacuum_pressure
         vacuum_units = self._fre_instance.vacuum_units
 
@@ -442,6 +465,19 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         # TODO: call external function for generating pick and place commands from parameters
+        self._pick_place_commands = PickAndPlaceGenerator.getCommands(
+            pick_point,
+            place_point,
+            xy_speed,
+            z_speed,
+            pick_dwell,
+            place_dwell,
+            vacuum_pressure,
+            vacuum_units
+        )
+
+        # for command in self._pick_place_commands:
+        #     Logger.log("d", "***** " + str(command[0]) + " " + str(command[1]))
 
         # start process (push first command to start ok loop)
         self.setPickPlaceStatus(True)
@@ -510,7 +546,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self.sendCommand(FisnarCommands.OU(i, 0))
         self.sendCommand(FisnarCommands.HM())
 
-        self._resetInternalState()  # resets fisnar commands, current command index
+        self._resetPrintingInternalState()  # resets fisnar commands, current command index
+
+    @pyqtSlot()
+    def terminatePickPlace(self):
+        # terminate the pick and place procedure
+        Logger.log("i", "Fisnar pick and place terminated")
+
+        self.setPickPlaceStatus(False)
+        self._resetPickAndPlaceInternalState()
+
+        self.sendCommand(FisnarCommands.HM())
+        self.dispenser.sendCommand(UltimusV.setVacuum(0, PressureUnits.V_KPA))
 
 # ------------------- dispenser serial port property setup -------------------------
     def _onExternalDispenserSerialUpdated(self):  # very hacky. should figure a way around this.
@@ -615,7 +662,30 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def setZSpeed(self, speed):
         self._fre_instance.z_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
-# ----------------------------------------------------------------------------
+
+# ------------------ pick dwell time -----------------------------------
+    pickDwellUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickDwellUpdated)
+    def pick_dwell(self):
+        return str(self._fre_instance.pick_dwell)
+
+    @pyqtSlot(str)
+    def setPickDwell(self, dwell_time):
+        self._fre_instance.pick_dwell = float(dwell_time)
+        self._fre_instance.updatePreferencedValues()
+
+# ----------------- place dwell time ----------------------------------
+    placeDwellUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=placeDwellUpdated)
+    def place_dwell(self):
+        return str(self._fre_instance.place_dwell)
+
+    @pyqtSlot(str)
+    def setPlaceDwell(self, dwell_time):
+        self._fre_instance.place_dwell = float(dwell_time)
+        self._fre_instance.updatePreferencedValues()
+
+# ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()
     @pyqtProperty(str, notify=xPosUpdated)

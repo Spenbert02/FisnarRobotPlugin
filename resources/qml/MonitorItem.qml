@@ -928,12 +928,110 @@ Component
                           }
                         }
 
-                        Rectangle {  // button rectangle
+                        Rectangle {  // dwell time rectangle
+                          width: parent.width
+                          height: childrenRect.height
+                          anchors.topMargin: UM.Theme.getSize("default_margin").height
+
+                          UM.Label {  // dwell time label
+                            id: dwellTimeLabel
+                            text: "Dwell time"
+                            font: UM.Theme.getFont("default")
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                          }
+
+                          UM.Label {  // pick dwell time label
+                            id: pickDwellLabel
+                            text: "Pick"
+                            font: UM.Theme.getFont("default_bold")
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: pickDwellEntry.left
+                            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+                            anchors.top: pickDwellEntry.top
+                          }
+
+                          TextField {  // pick dwell time entry
+                            id: pickDwellEntry
+                            text: OutputDevice.pick_dwell
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            width: UM.Theme.getSize("setting_control").width
+                            height: UM.Theme.getSize("setting_control").height
+                            validator: DoubleValidator {
+                              decimals: 1
+                              locale: "en_US"
+                              bottom: 0.0
+                              top: 60.0
+                            }
+                            onEditingFinished: {
+                              OutputDevice.setPickDwell(text)
+                            }
+                          }
+
+                          UnitLabel {  // pick dwell entry unit
+                            anchors.right: pickDwellEntry.right
+                            anchors.top: pickDwellEntry.top
+                            label: "sec"
+                          }
+
+                          UM.Label {  // place dwell time label
+                            id: placeDwellLabel
+                            text: "Place"
+                            font: UM.Theme.getFont("default_bold")
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: placeDwellEntry.left
+                            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+                            anchors.top: pickDwellLabel.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
+                          }
+
+                          TextField {  // place dwell entry
+                            id: placeDwellEntry
+                            text: OutputDevice.place_dwell
+                            width: UM.Theme.getSize("setting_control").width
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: parent.right
+                            anchors.top: placeDwellLabel.top
+                            validator: DoubleValidator {
+                              decimals: 1
+                              locale: "en_US"
+                              bottom: 0.0
+                              top: 60.0
+                            }
+                            onEditingFinished: {
+                              OutputDevice.setPlaceDwell(text)
+                            }
+                          }
+
+                          UnitLabel {  // place dwell unit
+                            anchors.top: placeDwellEntry.top
+                            anchors.right: placeDwellEntry.right
+                            label: "sec"
+                          }
+                        }
+
+                        Rectangle {  // buttons rectangle
                           width: parent.width
                           height: childrenRect.height
                           anchors.topMargin: UM.Theme.getSize("default_margin").height
 
                           Cura.SecondaryButton {
+                            id: terminatePickPlaceButton
+                            enabled: base.isPickPlacing
+                            visible: base.isPickPlacing
+                            height: UM.Theme.getSize("save_button_save_to_button").height
+                            anchors.right: executePickPlaceButton.left
+                            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+                            anchors.top: parent.top
+                            text: "Stop"
+                            onClicked: {
+                              OutputDevice.terminatePickPlace()
+                            }
+                          }
+
+                          Cura.SecondaryButton {  // execute button
                             id: executePickPlaceButton
                             enabled: !base.isPickPlacing
                             height: UM.Theme.getSize("save_button_save_to_button").height
@@ -1043,14 +1141,6 @@ Component
                     pauseResumeButton.text = "Pause"  // resetting this to prep for the next print
                   }
                 }
-
-                // Cura.MessageDialog {  // TODO: long term, figure out how to use this
-                //   id: confirmationDialog
-                //   title: "Terminate Print"
-                //   text: "Are you sure you want to terminate the print? After termination, the print cannot be resumed."
-                //   standardButtons: Cura.MessageDialog.Yes | Cura.MessageDialog.No
-                //   onAccepted: {}  // TODO: this should terminate the print in FisnarOutputDevice
-                // }
               }
             }  // end of 'MonitorButton'
         }
