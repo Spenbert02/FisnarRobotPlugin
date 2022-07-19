@@ -510,35 +510,10 @@ Component
                         width: parent.width
                         spacing: UM.Theme.getSize("default_margin").height
 
-                        Rectangle {  // dispenser serial port entry
-                          width: parent.width
-                          height: childrenRect.height
-
-                          UM.Label {
-                            id: dispenserSerialPortLabel
-                            text: "Dispenser Serial Port"
-                            font: UM.Theme.getFont("default")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                          }
-
-                          TextField {
-                            id: dispenserSerialPortEntry
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.right: parent.right
-                            anchors.top: dispenserSerialPortLabel.top
-                            text: OutputDevice.dispenser_serial_port
-                            onEditingFinished: {
-                              OutputDevice.setDispenserSerialPort(text)
-                            }
-                          }
-                        }
-
                         Rectangle {  // pick location
                           width: parent.width
                           height: childrenRect.height
+                          anchors.topMargin: UM.Theme.getSize("default_margin").height
 
                           UM.Label {
                             id: pickLocLabel
@@ -1012,6 +987,37 @@ Component
                           }
                         }
 
+                        Rectangle {  // repitions rectangle
+                          width: parent.width
+                          height: childrenRect.height
+                          anchors.topMargin: UM.Theme.getSize("default_margin").height
+
+                          UM.Label {  // repitions label
+                            id: repsLabel
+                            text: "Repititions"
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                          }
+
+                          TextField {
+                            id: repsEntry
+                            text: OutputDevice.reps
+                            width: UM.Theme.getSize("setting_control").width
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            validator: IntValidator {
+                              locale: "en_US"
+                              bottom: 1
+                              top: 100
+                            }
+                            onEditingFinished: {
+                              OutputDevice.setReps(text)
+                            }
+                          }
+                        }
+
                         Rectangle {  // buttons rectangle
                           width: parent.width
                           height: childrenRect.height
@@ -1085,12 +1091,11 @@ Component
               anchors.bottom: parent.bottom
               anchors.left: parent.left
               anchors.right: parent.right
-
+              visible: base.isPrinting
               enabled: base.isPrinting
 
               UM.Label {  // Progress label
                 id: progressTextLabel
-                visible: base.isPrinting
                 text: "Progress:"
                 font: UM.Theme.getFont("large_bold")
                 color: UM.Theme.getColor("text")
@@ -1101,7 +1106,6 @@ Component
 
               UM.Label {  // Progress percentage label
                 id: progressPercentageLabel
-                visible: base.isPrinting
                 text: OutputDevice.print_progress + "%"
                 font: UM.Theme.getFont("large_bold")
                 anchors.top: parent.top

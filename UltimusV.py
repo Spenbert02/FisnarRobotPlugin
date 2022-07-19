@@ -1,4 +1,10 @@
-from .Machine import Machine
+from cura.PrinterOutput.PrinterOutputDevice import ConnectionState
+from serial import Serial, SerialException, SerialTimeoutException
+from UM.Logger import Logger
+from UM.Message import Message
+
+from UM.i18n import i18nCatalog
+catalog = i18nCatalog("cura")
 
 
 class PressureUnits:  # enumeration class for pressure units
@@ -15,22 +21,35 @@ class PressureUnits:  # enumeration class for pressure units
     P_KPA = 7
 
 
-class UltimusV(Machine):
-    # class representing the "machine instance" for the UltimusV fluid
-    # dispenser
+class UltimusV:
+    # class for communicating with the UltimusV dispenser unit
+
+    STX = bytes.fromhex("02")
+    ETX = bytes.fromhex("03")
+    EOT = bytes.fromhex("04")
+    ENQ = bytes.fromhex("05")
 
     def __init__(self, *args):
-        super().__init__(*args)
+        # port attributes
+        self._serial = None
+        self._serial_port_name = None
+        self._timeout = 5
+        self._baud_rate = 9600
+
+        self._connection_state = ConnectionState.Closed
 
     def sendCommand(self, command_bytes):
         # send a command to the Ultimus V and return True if it was successful
         # or False if it was not
 
+        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):
+            return False
+
         number_bytes = UltimusV.intToHexBytes(len(command_bytes))
         bytes_to_send = UltimusV.ENQ + UltimusV.STX + number_bytes + command_bytes + self._checksum(number_bytes + command_bytes) + UltimusV.ETX + UltimusV.EOT
-        self.writeBytes(bytes_to_send)
+        self._serial.write(bytes_to_send)
 
-        ret_bytes = self.readUntil(UltimusV.ETX)  # bytes returned by the dispenser
+        ret_bytes = self._serial.read_until(UltimusV.ETX)  # bytes returned by the dispenser
 
         if len(ret_bytes) >= 6 and ret_bytes[4:6] == UltimusV.success():  # 'A0' recieved, command was success
             return True
@@ -39,6 +58,50 @@ class UltimusV(Machine):
 
     def sendFeedbackCommand(self, command_bytes):
         pass
+
+    def connect(self, port_name):
+        Logger.log("i", "attempting to connect to dispenser unit...")
+        self._serial_port_name = port_name
+
+        if self._serial is None:
+            try:
+                self._serial = Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, write_timeout=self._timeout)
+                Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if the UltimusV dispenser is on...")
+            except SerialException:
+                Logger.log("w", "Exception occured when trying to create serial connection")
+                err_msg = Message(text = catalog.i18nc("@message", "Unable to connect to dispenser serial port. Ensure proper port is selected"),
+                                  title = catalog.i18nc("@message", "Serial Port Error"))
+                err_msg.show()
+                return
+            except OSError as e:
+                Logger.log("w", f"The serial device is suddenly unavailable when trying to connect: {str(e)}")
+                err_msg = Message(text = catalog.i18nc("@message", "Unable to connect to dispenser serial port. Ensure proper port is selected"),
+                                  title = catalog.i18nc("@message", "Serial Port Error"))
+                err_msg.show()
+                return
+
+        # serial port is open, but dispenser might not be on.
+        self.setConnectionState(ConnectionState.Connecting)
+        success = self.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))  # units actually don't matter, because the value is zero anyway
+        if success:
+            Logger.log("i", "dispenser successfully connected at: " + str(self._serial_port_name))
+            self.setConnectionState(ConnectionState.Connected)
+        else:
+            Logger.log("w", "dispenser failed to connect...")
+            self.close()
+
+    def close(self):
+        self.setConnectionState(ConnectionState.Closed)
+        if self._serial is not None:
+            self._serial.close()
+        self._serial = None
+
+    def isConnected(self):
+        return self._connection_state == ConnectionState.Connected
+
+    def setConnectionState(self, state):
+        # use PrinterOutputDevice as a template for this
+        self._connection_state = state
 
     def _checksum(self, byte_array):
         # get the checksum (as a two byte array in forward order) from an

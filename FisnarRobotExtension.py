@@ -52,7 +52,7 @@ class FisnarRobotExtension(QObject, Extension):
         self._cura_app = CuraApplication.getInstance()
 
         # signal emitted when ExtrudersModel changes
-        numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
+        # numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -68,7 +68,8 @@ class FisnarRobotExtension(QObject, Extension):
             "xy_speed": 0.0,
             "z_speed": 0.0,
             "pick_dwell": 0.0,
-            "place_dwell": 0.0
+            "place_dwell": 0.0,
+            "reps": 0
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
@@ -88,6 +89,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.z_speed = 0.0
         self.pick_dwell = 0.0
         self.place_dwell = 0.0
+        self.reps = 0
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -198,8 +200,7 @@ class FisnarRobotExtension(QObject, Extension):
         if pref_dict.get("extruder_outputs", None) is not None:
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) != -1:
-            # self.com_port = pref_dict["com_port"]
-            self.updateComPort(pref_dict["com_port"])
+            self.com_port = pref_dict["com_port"]
         if pref_dict.get("dispenser_com_port", -1) != -1:
             self.dispenser_com_port = pref_dict["dispenser_com_port"]
         if pref_dict.get("pick_location", None) is not None:
@@ -218,6 +219,8 @@ class FisnarRobotExtension(QObject, Extension):
             self.pick_dwell = pref_dict["pick_dwell"]
         if pref_dict.get("place_dwell", None) is not None:
             self.place_dwell = pref_dict["place_dwell"]
+        if pref_dict.get("reps", None) is not None:
+            self.reps = pref_dict["reps"]
 
         Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
 
@@ -235,7 +238,8 @@ class FisnarRobotExtension(QObject, Extension):
             "xy_speed": self.xy_speed,
             "z_speed": self.z_speed,
             "pick_dwell": self.pick_dwell,
-            "place_dwell": self.place_dwell
+            "place_dwell": self.place_dwell,
+            "reps": self.reps
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -391,8 +395,9 @@ class FisnarRobotExtension(QObject, Extension):
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
-    numActiveExtrudersChanged = pyqtSignal()
-    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
+    # numActiveExtrudersChanged = pyqtSignal()
+    # @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
+    @pyqtProperty(int)
     def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
         self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
@@ -496,12 +501,6 @@ class FisnarRobotExtension(QObject, Extension):
         self.updatePreferencedValues()
 
 # ==================== COM port name setter/getter system ===================
-    # def setComPortName(self, name):
-    #     # for updating from python via function call
-    #     if name != self.com_port:
-    #         self.com_port = name
-    #         self.comPortNameUpdated.emit()
-
     comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
     @pyqtProperty(str, notify=comPortNameUpdated)
     def com_port_name(self):
@@ -518,9 +517,8 @@ class FisnarRobotExtension(QObject, Extension):
         self.comPortNameUpdated.emit()
         self.updatePreferencedValues()
 
-# =========== dispenser serial port ('shared' property with FisnarOutputDevice) ============
+# =========== dispenser serial port ===================================================
     dispenserSerialPortUpdated = pyqtSignal()
-
     @pyqtProperty(str, notify=dispenserSerialPortUpdated)
     def dispenser_serial_port(self):
         return str(self.dispenser_com_port)

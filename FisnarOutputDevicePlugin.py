@@ -64,7 +64,7 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
         # TEMP - right now this ignores any updates in com port after it connects. eventually, some sort of behavior should be implemented
             # actually - the current behavior might be good. after it connects, then it will stay connected
         while self._check_updates:
-            time.sleep(5)
+            time.sleep(10)
             self._fisnar_port_name = FisnarRobotExtension.getInstance().com_port
             self._dispenser_port_name = FisnarRobotExtension.getInstance().dispenser_com_port
 
@@ -80,11 +80,10 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
                                           title = catalog.i18nc("@message", "Connection Status Update"))
                         fis_msg.show()
 
-            if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isOpen():  # if ultimus port is None/not connected, try to.
+            if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isConnected():  # if ultimus port is not connected, try to
                 if self._dispenser_port_name not in (None, "None"):
-                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.setPortName(self._dispenser_port_name)
-                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.initializeSerialPort()
-                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isOpen():
+                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.connect(self._dispenser_port_name)
+                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isConnected():
                         disp_msg = Message(text = catalog.i18nc("@message", "UltimusV dispenser successfully connected via: " + str(self._dispenser_port_name)),
                                            title = catalog.i18nc("@message", "Connection Status Update"))
                         disp_msg.show()

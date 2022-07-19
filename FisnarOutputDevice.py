@@ -52,7 +52,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
 
-        self._fisnar_initialized = Event()  # event for tracking state of printer - set when initialized, and cleared when finalized
+        self._init_connect_send_time = None
 
         # for connecting to serial port
         self._serial = None
@@ -79,7 +79,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
         self._fre_instance = FisnarRobotExtension.getInstance()
-        self._fre_instance.dispenserSerialPortUpdated.connect(self._onExternalDispenserSerialUpdated)
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
@@ -91,6 +90,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if self._connection_state == ConnectionState.Connected:
                 self.stopPrintingAndFinalize()  # print is already stopped but doesn't matter
             self.close()
+            self.dispenser.close()
             application.triggerNextExitCheck()
             return
 
@@ -102,6 +102,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if result:
             self.stopPrintingAndFinalize()
             self.close()  # ensuring fisnar is finalized and port is closed when exiting app
+            self.dispenser.close()
             CuraApplication.getInstance().triggerNextExitCheck()
 
     def requestWrite(self, nodes, file_name=None, limit_mimetypes=False, file_handler=None, filter_by_machine=False, **kwargs):
@@ -127,9 +128,14 @@ class FisnarOutputDevice(PrinterOutputDevice):
             err_msg.show()
             return
 
-        if self._serial is not None:  # if successfully connected
+        if self._connection_state == ConnectionState.Connected:  # if successfully connected
             # Logger.log("d", "Serial port created, _printFisnarCommands() called")
             self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
+        else:  # not connected
+            printing_msg = Message(text = catalog.i18nc("@message", "The Fisnar is not yet connected. Ensure the proper serial port name has been entered under Fisnar Actions -> Define Setup"),
+                                   title = catalog.i18nc("@message", "Fisnar Not Connected"))
+            printing_msg.show()
+            return
 
     # IN PROG
     def _printFisnarCommands(self, fisnar_command_csv):
@@ -138,9 +144,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # updating fisnar command bytes from fisnar_command_csv
         commands = Converter.readFisnarCommandsFromCSV(fisnar_command_csv)
         self._fisnar_commands.clear()
-
-        if not self._fisnar_initialized.is_set():  # will need to initialize if not already
-            self._fisnar_commands.append(FisnarCommands.initializer())
 
         for command in commands:
             if command[0] == "Dummy Point":
@@ -184,7 +187,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if self._serial is None:
             try:
                 self._serial = Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
-                Logger.log("i", f"Established Fisnar serial connection to {self._serial_port_name}")
+                Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if fisnar is on...")
             except SerialException:  # exception thrown - probably not plugged in
                 Logger.log("w", "Exception occured when trying to create serial connection")
                 printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to serial port. Ensure proper port is selected."),
@@ -193,14 +196,30 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 return
             except OSError as e:  # idk when this happens
                 Logger.log("w", f"The serial device is suddenly unavailable while trying to connect: {str(e)}")
-                printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to serial port. Ensure proper port is selected."),
+                printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to Fisnar serial port. Ensure proper port is selected."),
                                        title = catalog.i18nc("@message", "Serial Port Error"))
                 printing_msg.show()
                 return
 
-        self.setConnectionState(ConnectionState.Connected)
-        self._update_thread.start()
+        # if not returned, the serial port is connected to the fisnar, but it may not be on yet.
+        self.setConnectionState(ConnectionState.Connecting)
         self._sendCommand(FisnarCommands.initializer())
+        self._init_connect_send_time = time.time()
+        while time.time() - self._init_connect_send_time < 5.0:  # 5 sec timeout to get initialization response
+            Logger.log("d", "********************** ")
+            try:
+                curr_line = self._serial.readline()
+            except:
+                continue
+
+            if curr_line == FisnarCommands.expectedReturn(FisnarCommands.initializer()):  # succesfully connected
+                Logger.log("i", "Fisnar connection successful.")
+                self.setConnectionState(ConnectionState.Connected)
+                self._update_thread.start()
+                return
+
+        self.close()  # escaped the while loop, so failed to initialize
+        Logger.log("w", "Fisnar failed to initialize...")
 
     def close(self):
         # closes the serial port and resets _serial member variable to None
@@ -211,9 +230,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if self._serial is not None:
             self._serial.close()
         self._serial = None
-
-        if self.dispenser.isOpen():  # close dispenser port if not already closed
-            self.dispenser.close()
 
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
@@ -234,10 +250,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
             Logger.log("d", "curr_line: " + str(curr_line))
 
-            if curr_line.startswith(FisnarCommands.expectedReturn(FisnarCommands.initializer())):  # check if fisnar has been initialized and update internal state (finalization check occurs in _sendCommand())
-                Logger.log("i", "Fisnar successfully initialized")
-                self._fisnar_initialized.set()
-            elif curr_line.startswith(b"ok!"):  # confirmation received
+            if curr_line.startswith(b"ok!"):  # confirmation received
                 self._command_received.set()
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
                 # Logger.log("d", str(curr_line))
@@ -262,7 +275,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                     self.zPosUpdated.emit()
 
             # can send next command
-            if curr_line.startswith(b"ok!") or curr_line.startswith(FisnarCommands.expectedReturn(FisnarCommands.initializer())):
+            if curr_line.startswith(b"ok!"):
                 # Logger.log("d", "x feedback received set: " + str(self._x_feedback_received.is_set()) + "\ny feedback received set: " + str(self._y_feedback_received.is_set()) + "\nz feedback received set: " + str(self._z_feedback_received.is_set()))
                 if not self._button_move_confirm_received.is_set():  # need to update position
                     self._button_move_confirms_received += 1
@@ -299,19 +312,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         Logger.log("d", "*****command: " + str(command) + ", sent: " + str(not (self._serial is None or self._connection_state != ConnectionState.Connected)))
 
-        if self._serial is None or self._connection_state != ConnectionState.Connected:
+        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):  # both connecting and connected mean the port is open
             return
-
-        if command.startswith(FisnarCommands.finalizer()):  # updating state representation if being finalized
-            self._fisnar_initialized.clear()
-            Logger.log("i", "Fisnar has been finalized.")
-
-        if command.startswith(FisnarCommands.initializer()):
-            if self._fisnar_initialized.is_set():  # don't initialize if already initialized
-                Logger.log("i", "Fisnar already initialized")
-                return
-            else:
-                self._fisnar_initialized.set()
 
         # actually sending bytes
         try:
@@ -419,7 +421,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # start pick and place procedure
 
         # TODO: ensure parameters and connections are such that pick and place can be done
-        if not self.dispenser.isOpen():  # if dispenser not open
+        if not self.dispenser.isConnected():  # if dispenser not connected
             Logger.log("w", "Pick and place dispenser is not open, pick and place execution terminated.")  # TODO: this should show error to user
             return
 
@@ -435,34 +437,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         place_dwell = self._fre_instance.place_dwell
         vacuum_pressure = self._fre_instance.vacuum_pressure
         vacuum_units = self._fre_instance.vacuum_units
-
-        for point in (pick_point[0], pick_point[1], place_point[0], place_point[1]):  # checking x/y travel coords
-            if not (0.0 <= point <= 200.0):
-                Logger.log("w", "pick location or place location has invalid x or y travel coordinate: " + str(point))  # TODO: show error to user
-                return
-
-        for point in (pick_point[2], place_point[2]):
-            if not (0.0 <= point <= 150.0):
-                Logger.log("w", "pick location or place location has invalid z travel coordinate: " + str(point))
-                return
-
-        for speed in (xy_speed, z_speed):
-            if not (0.0 < speed <= 100):
-                Logger.log("w", "pick and place x/y or z speed invalid: " + str(speed))
-                return
-
-        for dwell in (pick_dwell, place_dwell):
-            if not (0.0 <= dwell <= 60):
-                Logger.log("w", "pick and place dwell time out of valid range: " + str(dwell) + " seconds")
-                return
-
-        if not (0.0 <= vacuum_pressure <= 999.999):  # should have a different value for each unit, then error check units firsts
-            Logger.log("w", "pick and place vacuum pressure invalid: " + str(vacuum_units))
-            return
-
-        if vacuum_units not in (0, 1, 2, 3, 4):
-            Logger.log("w", "pick and place vacuum units are invalid: enumeration<" + str(vacuum_units) + ">")
-            return
+        reps = self._fre_instance.reps
 
         # TODO: call external function for generating pick and place commands from parameters
         self._pick_place_commands = PickAndPlaceGenerator.getCommands(
@@ -473,7 +448,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             pick_dwell,
             place_dwell,
             vacuum_pressure,
-            vacuum_units
+            vacuum_units,
+            reps
         )
 
         # for command in self._pick_place_commands:
@@ -558,21 +534,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self.sendCommand(FisnarCommands.HM())
         self.dispenser.sendCommand(UltimusV.setVacuum(0, PressureUnits.V_KPA))
-
-# ------------------- dispenser serial port property setup -------------------------
-    def _onExternalDispenserSerialUpdated(self):  # very hacky. should figure a way around this.
-        self.dispenserSerialPortUpdated.emit()
-
-    dispenserSerialPortUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
-    def dispenser_serial_port(self):
-        return str(self._fre_instance.dispenser_com_port)
-
-    @pyqtSlot(str)
-    def setDispenserSerialPort(self, serial_port_name):
-        self._fre_instance.dispenser_com_port = str(serial_port_name)
-        self._fre_instance.updatePreferencedValues()
-        self._fre_instance.dispenserSerialPortUpdated.emit()
 
 # ----------------- pick location property setup -----------------------------
     pickXUpdated = pyqtSignal()
@@ -685,6 +646,17 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.place_dwell = float(dwell_time)
         self._fre_instance.updatePreferencedValues()
 
+# ---------------- repititions -------------------------------------
+    repsUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=repsUpdated)
+    def reps(self):
+        return str(self._fre_instance.reps)
+
+    @pyqtSlot(str)
+    def setReps(self, reps):
+        self._fre_instance.reps = int(reps)
+        self._fre_instance.updatePreferencedValues()
+
 # ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()
@@ -718,7 +690,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     dispenserStatusUpdated = pyqtSignal()
     @pyqtProperty(bool, notify=dispenserStatusUpdated)
     def dispenser_connected(self):
-        return self.dispenser.isOpen()
+        return self.dispenser.isConnected()
 
     printingStatusUpdated = pyqtSignal()
     @pyqtProperty(bool, notify=printingStatusUpdated)
