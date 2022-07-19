@@ -24,8 +24,10 @@ Component
         id: base
         property bool debug: false  // set to true to see 'colors' of different UI components, false for actual display
         property var _buttonSize: UM.Theme.getSize("setting_control").height + UM.Theme.getSize("thin_margin").height  // taken from Cura's ManualPrinterControl.qml
-        property bool isConnected: OutputDevice.connectionState == 2
+        // property bool isConnected: OutputDevice.connectionState == 2
+        property bool isConnected: true
         property bool isPrinting: OutputDevice.printing_status
+        property bool isPickPlacing: OutputDevice.pick_place_status
 
         Rectangle
         {
@@ -64,7 +66,7 @@ Component
                   bottom: parent.bottom
                 }
 
-                Column {  // TODO: everything besides the output device header should be disabled when the Fisnar is actually printing
+                Column {
                   id: printMonitor
                   width: parent.width - scrollbar.width
                   property var scrollbarwidth: scrollbar.width
@@ -90,7 +92,7 @@ Component
                       id: serialPortLabel
                       font: UM.Theme.getFont("default_bold")
                       color: UM.Theme.getColor("text_inactive")
-                      text: "COM7"  // TODO: this should be dynamic - updated from the user entered value
+                      text: OutputDevice.fisnar_serial_port
                       anchors.top: fisnarNameLabel.bottom
                       anchors.topMargin: UM.Theme.getSize("default_margin").height
                       anchors.left: parent.left
@@ -157,7 +159,7 @@ Component
                         }
 
                         UM.Label {
-                          text: enabled ? OutputDevice.x_pos : "--"  // TODO: should be dynamically updating while being manually controlled
+                          text: enabled ? OutputDevice.x_pos : "--"
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -172,7 +174,7 @@ Component
                         }
 
                         UM.Label {
-                          text: enabled ? OutputDevice.y_pos : "--"  // TODO: should be updatable when under manual control
+                          text: enabled ? OutputDevice.y_pos : "--"
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -187,7 +189,7 @@ Component
                         }
 
                         UM.Label {
-                          text: enabled ? OutputDevice.z_pos : "--"  // TODO: should be updatable when under manual control
+                          text: enabled ? OutputDevice.z_pos : "--"
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }
@@ -926,6 +928,23 @@ Component
                           }
                         }
 
+                        Rectangle {  // button rectangle
+                          width: parent.width
+                          height: childrenRect.height
+                          anchors.topMargin: UM.Theme.getSize("default_margin").height
+
+                          Cura.SecondaryButton {
+                            id: executePickPlaceButton
+                            enabled: !base.isPickPlacing
+                            height: UM.Theme.getSize("save_button_save_to_button").height
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            text: base.isPickPlacing ? "In progress..." : "Execute Pick and Place Procedure"
+                            onClicked: {
+                              OutputDevice.executePickPlace()
+                            }
+                          }
+                        }
                       }
                     }
                   }

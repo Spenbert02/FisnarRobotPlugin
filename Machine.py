@@ -99,6 +99,16 @@ class Machine(ABC):
         # get a bool indicating whether or not the serial port has been successfully initialized
         return self.serial_port is not None
 
+    def close(self):
+        if self.serial_port is not None:
+            self.serial_port.close()
+
+    def isOpen(self):
+        if self.serial_port is None:
+            return False
+        else:
+            return self.serial_port.is_open
+
     def writeBytes(self, byte_array):
         # write bytes to serial port
         self.serial_port.write(byte_array)

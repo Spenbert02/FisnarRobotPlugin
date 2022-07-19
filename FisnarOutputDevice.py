@@ -16,7 +16,7 @@ from .Converter import Converter
 from .FisnarCommands import FisnarCommands
 from .FisnarCSVWriter import FisnarCSVWriter
 from .FisnarRobotExtension import FisnarRobotExtension
-from .UltimusV import PressureUnits
+from .UltimusV import PressureUnits, UltimusV
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
@@ -35,13 +35,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setDescription("Print Over RS232")
         self.setIconName("print")
 
-        # Fisnar command storage/tracking
+        # Fisnar command storage/tracking during printing
         self._fisnar_commands = []  # type: list[bytes]
         self._current_index = 0
+
+        # Fisnar/dispenser command storage tracking for pick and place
+        self._pick_place_commands = []  # type: list[tuple(str, bytes)]
+        self._pick_place_index = 0
 
         # for tracking printing state
         self._is_printing = False
         self._is_paused = False
+        self._pick_place_in_progress = False
 
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
@@ -62,8 +67,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._y_feedback_received = Event()
         self._z_feedback_received = Event()
 
-        # for pick and place maneuvers
-        self._pick_and_place_parameters = None  # type: dict
+        # for connecting to dispenser
+        self.dispenser = UltimusV()
 
         # for showing monitor while printing
         self._plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -73,16 +78,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
         self._fre_instance = FisnarRobotExtension.getInstance()
-        self._fre_instance.dispenserSerialPortUpdated.connect(self._onExternalDispenserSerialUpated)
+        self._fre_instance.dispenserSerialPortUpdated.connect(self._onExternalDispenserSerialUpdated)
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
-
-    def portName(self):
-        if self._serial is None:
-            return -1  # indicates not connected
-        else:
-            return self._serial.port
 
     def _checkActivePritingOnAppExit(self):
         # called when user tries to exit app - checks if Fisnar is trying to print
@@ -212,6 +211,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._serial.close()
         self._serial = None
 
+        if self.dispenser.isOpen():  # close dispenser port if not already closed
+            self.dispenser.close()
+
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
     def _update(self):
@@ -231,8 +233,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
             Logger.log("d", "curr_line: " + str(curr_line))
 
-            # check if fisnar has been initialized and update internal state (finalization check occurs in _sendCommand())
-            if curr_line.startswith(FisnarCommands.expectedReturn(FisnarCommands.initializer())):
+            if curr_line.startswith(FisnarCommands.expectedReturn(FisnarCommands.initializer())):  # check if fisnar has been initialized and update internal state (finalization check occurs in _sendCommand())
                 Logger.log("i", "Fisnar successfully initialized")
                 self._fisnar_initialized.set()
             elif curr_line.startswith(b"ok!"):  # confirmation received
@@ -275,8 +276,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 elif self._is_printing:  # still printing but queue is empty
                     if not self._is_paused:
                         self._sendNextFisnarLine()
+                elif self._pick_place_in_progress:
+                    self._sendNextPickPlaceCommand()
 
-        if self._is_printing:
+        if self._is_printing:  # connection broken
             self.terminatePrint()
 
     def sendCommand(self, command):
@@ -346,10 +349,33 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._current_index += 1  # update current index
         self.printProgressUpdated.emit()  # recalculate progress and update QML
 
+    def _sendNextPickPlaceCommand(self):
+        # similar to _sendNextFisnarLine, but is only used for pick and place
+        # procedures. note that most of the status setting is done
+        # manually here. eventually, these might want to be moved to a function
+        try:
+            next_command = self._pick_place_commands[self._pick_place_index]
+        except IndexError:
+            Logger.log("i", "done with pick and place")
+
+            self.setPickPlaceStatus(False)
+            self._pick_place_commands.clear()
+            self._pick_place_index = 0
+
+        if next_command[self._pick_place_index] == "d":
+            pass  # TODO: synchronously send dispenser command and update pick place command index - check if new index is out of range, if it is return
+
+        # TODO: send next fisnar command
+
     def setPrintingState(self, printing_state):
         if printing_state != self._is_printing:
             self._is_printing = not self._is_printing
             self.printingStatusUpdated.emit()
+
+    def setPickPlaceStatus(self, pick_place_status):
+        if self._pick_place_in_progress != pick_place_status:
+            self._pick_place_in_progress = pick_place_status
+            self.pickPlaceStatusUpdated.emit()
 
     def _resetInternalState(self):
         # resets internal state - called after user terminates print
@@ -365,6 +391,62 @@ class FisnarOutputDevice(PrinterOutputDevice):
         except ZeroDivisionError:
             return None  # print hasn't started yet
 
+    @pyqtSlot()  # IN PROG
+    def executePickPlace(self):
+        # start pick and place procedure
+
+        # TODO: ensure parameters and connections are such that pick and place can be done
+        if not self.dispenser.isOpen():  # if dispenser not open
+            Logger.log("w", "Pick and place dispenser is not open, pick and place execution terminated.")  # TODO: this should show error to user
+            return
+
+        if not self._connection_state == ConnectionState.Connected:
+            Logger.log("w", "Fisnar is not connected, pick and place execution terminated")
+            return
+
+        pick_point = self._fre_instance.pick_location
+        place_point = self._fre_instance.place_location
+        xy_speed = self._fre_instance.xy_speed
+        z_speed = self._fre_instance.z_speed
+        pick_dwell = None  # TODO: add this to ui and necessary stuff in fre
+        place_dwell = None  # TODO
+        vacuum_pressure = self._fre_instance.vacuum_pressure
+        vacuum_units = self._fre_instance.vacuum_units
+
+        for point in (pick_point[0], pick_point[1], place_point[0], place_point[1]):  # checking x/y travel coords
+            if not (0.0 <= point <= 200.0):
+                Logger.log("w", "pick location or place location has invalid x or y travel coordinate: " + str(point))  # TODO: show error to user
+                return
+
+        for point in (pick_point[2], place_point[2]):
+            if not (0.0 <= point <= 150.0):
+                Logger.log("w", "pick location or place location has invalid z travel coordinate: " + str(point))
+                return
+
+        for speed in (xy_speed, z_speed):
+            if not (0.0 < speed <= 100):
+                Logger.log("w", "pick and place x/y or z speed invalid: " + str(speed))
+                return
+
+        for dwell in (pick_dwell, place_dwell):
+            if not (0.0 <= dwell <= 60):
+                Logger.log("w", "pick and place dwell time out of valid range: " + str(dwell) + " seconds")
+                return
+
+        if not (0.0 <= vacuum_pressure <= 999.999):  # should have a different value for each unit, then error check units firsts
+            Logger.log("w", "pick and place vacuum pressure invalid: " + str(vacuum_units))
+            return
+
+        if vacuum_units not in (0, 1, 2, 3, 4):
+            Logger.log("w", "pick and place vacuum units are invalid: enumeration<" + str(vacuum_units) + ">")
+            return
+
+        # TODO: call external function for generating pick and place commands from parameters
+
+        # start process (push first command to start ok loop)
+        self.setPickPlaceStatus(True)
+        self._sendNextPickPlaceCommand()
+
     @pyqtSlot(float, float, float)
     def moveHead(self, dx, dy, dz):
         if not (0.0 <= self._most_recent_position[0] + dx <= 200.0):  # checking if move is valid
@@ -376,7 +458,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._button_move_confirm_received.clear()
         self._button_move_confirms_received = 0
-        Logger.log("d", f"dx: {dx}, {type(dx)}; dy: {dy}, {type(dy)}, dz: {dz}, {type(dz)}")
+        # Logger.log("d", f"dx: {dx}, {type(dx)}; dy: {dy}, {type(dy)}, dz: {dz}, {type(dz)}")
         valid_movement_distances = (-10.0, -1.0, -0.1, -0.01, -0.001, 0.001, 0.01, 0.1, 1.0, 10.0)
 
         if dx in valid_movement_distances:
@@ -431,7 +513,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._resetInternalState()  # resets fisnar commands, current command index
 
 # ------------------- dispenser serial port property setup -------------------------
-    def _onExternalDispenserSerialUpated(self):  # very hacky. should figure a way around this.
+    def _onExternalDispenserSerialUpdated(self):  # very hacky. should figure a way around this.
         self.dispenserSerialPortUpdated.emit()
 
     dispenserSerialPortUpdated = pyqtSignal()
@@ -534,6 +616,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.z_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
 # ----------------------------------------------------------------------------
+
     xPosUpdated = pyqtSignal()
     @pyqtProperty(str, notify=xPosUpdated)
     def x_pos(self):
@@ -548,6 +631,24 @@ class FisnarOutputDevice(PrinterOutputDevice):
     @pyqtProperty(str, notify=zPosUpdated)
     def z_pos(self):
         return str(round(self._most_recent_position[2], 3))
+
+    fisnarPortNameUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=fisnarPortNameUpdated)
+    def fisnar_serial_port(self):
+        if not self._connection_state == ConnectionState.Connected:
+            return "Not connected..."
+        else:
+            return str(self._fre_instance.com_port)
+
+    pickPlaceStatusUpdated = pyqtSignal()
+    @pyqtProperty(bool, notify=pickPlaceStatusUpdated)
+    def pick_place_status(self):
+        return self._pick_place_in_progress
+
+    dispenserStatusUpdated = pyqtSignal()
+    @pyqtProperty(bool, notify=dispenserStatusUpdated)
+    def dispenser_connected(self):
+        return self.dispenser.isOpen()
 
     printingStatusUpdated = pyqtSignal()
     @pyqtProperty(bool, notify=printingStatusUpdated)

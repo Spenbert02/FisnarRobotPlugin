@@ -1,5 +1,6 @@
 from .Machine import Machine
 
+
 class PressureUnits:  # enumeration class for pressure units
     # vacuum units
     V_KPA = 0
@@ -13,19 +14,20 @@ class PressureUnits:  # enumeration class for pressure units
     BAR = 6
     P_KPA = 7
 
+
 class UltimusV(Machine):
     # class representing the "machine instance" for the UltimusV fluid
     # dispenser
 
-    def __init__(self, port_name, *args):
-        super().__init__(port_name, *args)
+    def __init__(self, *args):
+        super().__init__(*args)
 
     def sendCommand(self, command_bytes):
         # send a command to the Ultimus V and return True if it was successful
         # or False if it was not
 
         number_bytes = UltimusV.intToHexBytes(len(command_bytes))
-        bytes_to_send = UltimusV.ENQ + UltimusV.STX + number_bytes + command_bytes + UltimusV.checksum(number_bytes + command_bytes) + UltimusV.ETX + UltimusV.EOT
+        bytes_to_send = UltimusV.ENQ + UltimusV.STX + number_bytes + command_bytes + self._checksum(number_bytes + command_bytes) + UltimusV.ETX + UltimusV.EOT
         self.writeBytes(bytes_to_send)
 
         ret_bytes = self.readUntil(UltimusV.ETX)  # bytes returned by the dispenser
@@ -37,6 +39,16 @@ class UltimusV(Machine):
 
     def sendFeedbackCommand(self, command_bytes):
         pass
+
+    def _checksum(self, byte_array):
+        # get the checksum (as a two byte array in forward order) from an
+        # array of bytes
+        antisum = 0
+        for byte in byte_array:
+            antisum -= byte
+        antisum = antisum % 256
+
+        return UltimusV.intToHexBytes(antisum)
 
     @staticmethod
     def success():
@@ -119,17 +131,6 @@ class UltimusV(Machine):
             return bytes(val_str[val_str.find(".") - 1:val_str.find(".")] + val_str[val_str.find(".") + 1:val_str.find(".") + 4], "ascii")
         else:
             return False
-
-    @staticmethod
-    def checksum(byte_array):
-        # get the checksum (as a two byte array in forward order) from an
-        # array of bytes
-        antisum = 0
-        for byte in byte_array:
-            antisum -= byte
-        antisum = antisum % 256
-
-        return UltimusV.intToHexBytes(antisum)
 
     @staticmethod
     def intToHexBytes(num):
