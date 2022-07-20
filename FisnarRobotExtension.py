@@ -103,7 +103,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.reset_dis_areas_timer.setInterval(500)
         self.reset_dis_areas_timer.setSingleShot(True)
         self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
-        # self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)  # this works, but a solution that updates the areas _whenever_ the disallowed areas are reset would be better.
+        self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)  # this works, but a solution that updates the areas _whenever_ the disallowed areas are reset would be better.
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))

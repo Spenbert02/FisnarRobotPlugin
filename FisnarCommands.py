@@ -56,15 +56,15 @@ class FisnarCommands():
 
     @staticmethod
     def MXR(x):
-        return bytes("MXR (0" + str(round(float(x), 3)) + ")\r", "ascii")
+        return bytes("MXR " + str(round(float(x), 3)) + "\r", "ascii")
 
     @staticmethod
     def MYR(y):
-        return bytes("MYR (0" + str(round(float(y), 3)) + ")\r", "ascii")
+        return bytes("MYR " + str(round(float(y), 3)) + "\r", "ascii")
 
     @staticmethod
     def MZR(z):
-        return bytes("MZR (0" + str(round(float(z), 3)) + ")\r", "ascii")
+        return bytes("MZR " + str(round(float(z), 3)) + "\r", "ascii")
 
     @staticmethod
     def HM():

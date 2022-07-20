@@ -425,7 +425,7 @@ Component
                         Rectangle {
                           id: textRect
 
-                          enabled: true  // TODO
+                          enabled: false  // TODO: actually implement this, should be dynamic and sould check then send bytes
 
                           color: enabled ? UM.Theme.getColor("setting_validation_ok") : UM.Theme.getColor("setting_control_disabled")
                           border.width: UM.Theme.getSize("default_lining").width
@@ -451,6 +451,7 @@ Component
                           TextInput {
                             id: textEntryBox
                             font: UM.Theme.getFont("default")
+                            text: "feature coming soon..."  // temporary, for first publish
                             color: enabled ? UM.Theme.getColor("setting_control_text") : UM.Theme.getColor("setting_control_disabled_text")
                             selectByMouse: true
                             clip: true
@@ -462,9 +463,9 @@ Component
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
 
-                            Keys.onReturnPressed: {  // TODO
-                              textEntryBox.text = ""
-                            }
+                            // Keys.onReturnPressed: {  // TODO: activate for next publish
+                            //   textEntryBox.text = ""
+                            // }
                           }
                         }
                       }

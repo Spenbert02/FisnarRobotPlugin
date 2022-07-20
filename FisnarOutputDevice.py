@@ -23,7 +23,6 @@ from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
 class FisnarOutputDevice(PrinterOutputDevice):
-
     # # signals for sending commands to dispenser
     # sendDispenserCommand = pyqtSignal(bytes)
 
@@ -255,21 +254,21 @@ class FisnarOutputDevice(PrinterOutputDevice):
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
                 # Logger.log("d", str(curr_line))
                 if not self._x_feedback_received.is_set():  # value is x position
-                    self._most_recent_position[0] = float(curr_line[:-2])
+                    self._most_recent_position[0] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0  # this is to fix slightly negative reporting bug
                     Logger.log("d", "new x: " + str(self._most_recent_position[0]))
                     self._x_feedback_received.set()
                     self.xPosUpdated.emit()
                     self._y_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PY())
                 elif not self._y_feedback_received.is_set():  # value is y position
-                    self._most_recent_position[1] = float(curr_line[:-2])
+                    self._most_recent_position[1] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
                     Logger.log("d", "new y: " + str(self._most_recent_position[1]))
                     self._y_feedback_received.set()
                     self.yPosUpdated.emit()
                     self._z_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PZ())
                 elif not self._z_feedback_received.is_set():  # value is z position
-                    self._most_recent_position[2] = float(curr_line[:-2])
+                    self._most_recent_position[2] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
                     Logger.log("d", "new z: " + str(self._most_recent_position[2]))
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
