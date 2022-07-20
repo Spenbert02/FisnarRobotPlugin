@@ -51,8 +51,8 @@ class FisnarRobotExtension(QObject, Extension):
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal emitted when ExtrudersModel changes
-        # numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
+        # signal emitted when global container stack changes
+        # self._application.globalContainerStackChanged.connect(self._onGlobalContainerStackChanged)
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -94,7 +94,6 @@ class FisnarRobotExtension(QObject, Extension):
         # setting up menus
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Define Setup", self.showDefineSetupWindow)
-        # self.addMenuItem("Print", self.showFisnarControlWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.define_setup_window = None
@@ -104,7 +103,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.reset_dis_areas_timer.setInterval(500)
         self.reset_dis_areas_timer.setSingleShot(True)
         self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
-        self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)
+        # self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)  # this works, but a solution that updates the areas _whenever_ the disallowed areas are reset would be better.
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -130,6 +129,9 @@ class FisnarRobotExtension(QObject, Extension):
         # setting setting values to values stored in preferences, and updating build area view
         self.startResetDisAreasTimer()
         self.updateFromPreferencedValues()
+
+    # def _onGlobalContainerStackChanged(self):
+    #     Logger.log("d", "***************** global stack changed ********************")
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
@@ -395,13 +397,11 @@ class FisnarRobotExtension(QObject, Extension):
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
-    # numActiveExtrudersChanged = pyqtSignal()
-    # @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
-    @pyqtProperty(int)
+    numActiveExtrudersChanged = pyqtSignal()
+    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
     def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
-        self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
-        # Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
+        Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
         return self.num_active_extruders
 
     # signal for updating extruder values
@@ -533,9 +533,15 @@ class FisnarRobotExtension(QObject, Extension):
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
+
         if not self.define_setup_window:
+            self.num_active_extruders = 1  # default val for the split second after the window is created and before it is updated
             self.define_setup_window = self._createDialogue("define_setup_window.qml")
         self.define_setup_window.show()
+
+        # update num active extruders value and in ui after opening window
+        self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
+        self.numActiveExtrudersChanged.emit()
 
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test

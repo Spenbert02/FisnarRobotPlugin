@@ -18,9 +18,9 @@ UM.Dialog {
     minimumWidth: 1000 * screenScaleFactor
     minimumHeight: 350 * screenScaleFactor
 
-    onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
-      numExtruders = main.num_extruders
-    }
+    // onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
+    //   numExtruders = main.num_extruders
+    // }
 
     // PrintSetupTooltip {  // eventually tooltips will be added
     //   id: tooltip
@@ -347,6 +347,7 @@ UM.Dialog {
 
           UM.Label {  // extruder 3 label
             id: ext3Label
+            enabled: base.numExtruders >= 3
             text: "Extruder 3"
             font: UM.Theme.getFont("default")
             height: UM.Theme.getSize("setting_control").height
@@ -373,6 +374,7 @@ UM.Dialog {
 
           UM.Label {  // extruder 4 label
             id: ext4Label
+            enabled: base.numExtruders >= 4
             text: "Extruder 4"
             font: UM.Theme.getFont("default")
             height: UM.Theme.getSize("setting_control").height
@@ -408,7 +410,7 @@ UM.Dialog {
         Rectangle {
           anchors.fill: parent
 
-          UM.Label {  //
+          UM.Label {
             id: fisnarComLabel
             text: "Fisnar"
             font: UM.Theme.getFont("default")
