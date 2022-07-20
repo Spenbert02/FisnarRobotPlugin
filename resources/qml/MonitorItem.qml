@@ -24,8 +24,7 @@ Component
         id: base
         property bool debug: false  // set to true to see 'colors' of different UI components, false for actual display
         property var _buttonSize: UM.Theme.getSize("setting_control").height + UM.Theme.getSize("thin_margin").height  // taken from Cura's ManualPrinterControl.qml
-        // property bool isConnected: OutputDevice.connectionState == 2
-        property bool isConnected: true
+        property bool isConnected: OutputDevice.connectionState == 2
         property bool isPrinting: OutputDevice.printing_status
         property bool isPickPlacing: OutputDevice.pick_place_status
 
