@@ -191,6 +191,7 @@ class FisnarRobotExtension(QObject, Extension):
     def startResetDisAreasTimer(self):
         # start the reset disallowed areas timer
         self.reset_dis_areas_timer.start()
+        Logger.log("d", "************* dis area timer started")
 
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
@@ -254,49 +255,49 @@ class FisnarRobotExtension(QObject, Extension):
 
         # test
         # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
+        Logger.log("d", "************* reset disallowed areas called")
 
-        # adding disallowed areas to each BuildVolume object
-        scene = self._application.getController().getScene()
-        for node in BreadthFirstIterator(scene.getRoot()):
-            if isinstance(node, BuildVolume):
+        node = self._cura_app.getBuildVolume()
+        if node is None:  # can happen if the _cura_app._volume is None
+            return
 
-                # getting build volume dimensions and original disallowed areas, for documentation
-                orig_disallowed_areas = node.getDisallowedAreas()
-                x_dim = node.getWidth()  # NOTE: I think width corresponds to x, not sure
-                y_dim = node.getDepth()  # NOTE: same as above comment. I think this is right
+        # getting build volume dimensions and original disallowed areas, for documentation
+        orig_disallowed_areas = node.getDisallowedAreas()
+        x_dim = node.getWidth()  # NOTE: I think width corresponds to x, not sure
+        y_dim = node.getDepth()  # NOTE: same as above comment. I think this is right
 
-                # converting coord system from fisnar to build volume coord system
-                bv_x_min = 100 - self.print_surface.getXMax()
-                bv_x_max = 100 - self.print_surface.getXMin()
-                bv_y_min = self.print_surface.getYMin() - 100
-                bv_y_max = self.print_surface.getYMax() - 100
-                new_z_dim = self.print_surface.getZMax()
+        # converting coord system from fisnar to build volume coord system
+        bv_x_min = 100 - self.print_surface.getXMax()
+        bv_x_max = 100 - self.print_surface.getXMin()
+        bv_y_min = self.print_surface.getYMin() - 100
+        bv_y_max = self.print_surface.getYMax() - 100
+        new_z_dim = self.print_surface.getZMax()
 
-                # establishing new dissalowed areas (list of Polygon objects)
-                new_disallowed_areas = []
-                new_disallowed_areas.append(self.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
-                new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
-                new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
-                new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
+        # establishing new dissalowed areas (list of Polygon objects)
+        new_disallowed_areas = []
+        new_disallowed_areas.append(self.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
+        new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
+        new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
+        new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
 
-                # removing zero area polygons from disallowed area polygon list
-                i = 0
-                while i < len(new_disallowed_areas):
-                    if new_disallowed_areas[i].isZeroArea():
-                        Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
-                        new_disallowed_areas.pop(i)
-                    else:
-                        i += 1
+        # removing zero area polygons from disallowed area polygon list
+        i = 0
+        while i < len(new_disallowed_areas):
+            if new_disallowed_areas[i].isZeroArea():
+                Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
+                new_disallowed_areas.pop(i)
+            else:
+                i += 1
 
-                # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
-                node.setDisallowedAreas(new_disallowed_areas)
-                node.setHeight(new_z_dim)
-                node.rebuild()
+        # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
+        node.setDisallowedAreas(new_disallowed_areas)
+        node.setHeight(new_z_dim)
+        node.rebuild()
 
-                # logging updated disallowed areas, tests
-                # Logger.log("i", "****** build volume disallowed areas have been reset")
-                # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
-                # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
+        # logging updated disallowed areas, tests
+        # Logger.log("i", "****** build volume disallowed areas have been reset")
+        # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
+        # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
 
     def logMessage(self):
         # logging message when one of the windows is opened
