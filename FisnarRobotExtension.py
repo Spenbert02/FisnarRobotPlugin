@@ -34,10 +34,6 @@ catalog = i18nCatalog("cura")
 
 class FisnarRobotExtension(QObject, Extension):
 
-    @pyqtSlot()
-    def test(self):
-        Logger.log("d", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-
     def __init__(self, parent=None):
         # calling necessary super methods.
         QObject.__init__(self, parent)
