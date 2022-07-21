@@ -188,7 +188,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if fisnar is on...")
             except SerialException:  # exception thrown - probably not plugged in
                 Logger.log("w", "Exception occured when trying to create serial connection")
-                printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to serial port. Ensure proper port is selected."),
+                printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to Fisnar serial port. Ensure proper port is selected."),
                                        title = catalog.i18nc("@message", "Serial Port Error"))
                 printing_msg.show()
                 return
