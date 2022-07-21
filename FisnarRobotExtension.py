@@ -27,13 +27,16 @@ from UM.PluginRegistry import PluginRegistry
 from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
-# from .FisnarController import FisnarController
 from .Converter import Converter
 from .PrinterAttributes import PrintSurface, ExtruderArray
 
 catalog = i18nCatalog("cura")
 
 class FisnarRobotExtension(QObject, Extension):
+
+    @pyqtSlot()
+    def test(self):
+        Logger.log("d", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 
     def __init__(self, parent=None):
         # calling necessary super methods.
@@ -42,17 +45,13 @@ class FisnarRobotExtension(QObject, Extension):
 
         # factory object creation
         if FisnarRobotExtension._instance is not None:  # if object has already been instantiated
-            Logger.log("e", "FisnarRobotExtension instantiated more than once")
+            Logger.log("w", "FisnarRobotExtension instantiated more than once")
         else:  # first time instantiating object
-            # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
             FisnarRobotExtension._instance = self
 
         # initializing applications
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
-
-        # signal emitted when global container stack changes
-        # self._application.globalContainerStackChanged.connect(self._onGlobalContainerStackChanged)
 
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
@@ -100,10 +99,9 @@ class FisnarRobotExtension(QObject, Extension):
 
         # timer for resetting disallowed areas when a file is loaded
         self.reset_dis_areas_timer = QTimer()
-        self.reset_dis_areas_timer.setInterval(500)
-        self.reset_dis_areas_timer.setSingleShot(True)
+        self.reset_dis_areas_timer.setInterval(1000)  # every one second, update disallowed areas. kind of hacky, but works for now
         self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
-        self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)  # this works, but a solution that updates the areas _whenever_ the disallowed areas are reset would be better.
+        self.reset_dis_areas_timer.start()
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -126,12 +124,11 @@ class FisnarRobotExtension(QObject, Extension):
             self.installDefFiles()
             Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
 
-        # setting setting values to values stored in preferences, and updating build area view
-        self.startResetDisAreasTimer()
-        self.updateFromPreferencedValues()
+        # loading tooltip dictionary
+        self.tooltips = json.load(open(os.path.join(self.this_plugin_path, "resources", "tooltips.json"), "r"))
 
-    # def _onGlobalContainerStackChanged(self):
-    #     Logger.log("d", "***************** global stack changed ********************")
+        # setting setting values to values stored in preferences
+        self.updateFromPreferencedValues()
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
@@ -188,14 +185,9 @@ class FisnarRobotExtension(QObject, Extension):
             warning = Message(catalog.i18nc("@warning:status", "An error occured while installing Fisnar Robot Plugin files."))
             warning.show()
 
-    def startResetDisAreasTimer(self):
-        # start the reset disallowed areas timer
-        self.reset_dis_areas_timer.start()
-        Logger.log("d", "************* dis area timer started")
-
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-        # Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
+
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
 
         if pref_dict.get("print_surface", None) is not None:
@@ -225,8 +217,6 @@ class FisnarRobotExtension(QObject, Extension):
         if pref_dict.get("reps", None) is not None:
             self.reps = pref_dict["reps"]
 
-        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
-
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
         new_pref_dict = {
@@ -252,10 +242,6 @@ class FisnarRobotExtension(QObject, Extension):
         # also, the min and max nomenclatures are flipped (because the directions are inverted)
         # NOTE: for some reason, the build volume class takes the origin of the build plate to be at the center
         # NOTE: this code assumes a build volume x-y dimension of (200, 200). Any integers seen in this code are based off of this assumption
-
-        # test
-        # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
-        Logger.log("d", "************* reset disallowed areas called")
 
         node = self._cura_app.getBuildVolume()
         if node is None:  # can happen if the _cura_app._volume is None
@@ -294,14 +280,16 @@ class FisnarRobotExtension(QObject, Extension):
         node.setHeight(new_z_dim)
         node.rebuild()
 
-        # logging updated disallowed areas, tests
-        # Logger.log("i", "****** build volume disallowed areas have been reset")
-        # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
-        # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
+    @pyqtSlot(str)
+    def getTooltip(self, key):
+        # get a tooltip description via its key
+        if self.tooltips is None:
+            return "<self.tooltips d.n.e.>"
 
-    def logMessage(self):
-        # logging message when one of the windows is opened
-        Logger.log("i", "Fisnar window opened")
+        if self.tooltips.get(key, None) is None:
+            return "<" + str(key) + "d.n.e. in self.tooltips>"
+
+        return self.tooltips[key]
 
     printSurfaceChanged = pyqtSignal() # signal to notify print surface properties
 
@@ -352,12 +340,10 @@ class FisnarRobotExtension(QObject, Extension):
 # ======================== z max property setup =======================
     def setZMax(self, z_max):
         # z max setter
-        Logger.log("d", f"***** z max set: {z_max}")
         self.print_surface.setZMax(float(z_max))
 
     def getZMax(self):
         # z max getter
-        Logger.log("d", f"****** z max got: {self.print_surface.getZMax()}")
         return(str(self.print_surface.getZMax()))
 
     z_max = pyqtProperty(str, fset=setZMax, fget=getZMax, notify=printSurfaceChanged)
@@ -402,7 +388,6 @@ class FisnarRobotExtension(QObject, Extension):
     @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
     def num_extruders(self):
         # called by qml to get the number of active extruders in Cura
-        Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
         return self.num_active_extruders
 
     # signal for updating extruder values
@@ -415,7 +400,6 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.setOutput(1, None)
         else:
             self.extruder_outputs.setOutput(1, int(output))
-        Logger.log("d", f"***** extruder 1 set to output: {self.extruder_outputs.getOutput(1)}")
 
     def getExt1OutInd(self):
         # extruder 1 output index getter
@@ -434,7 +418,6 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.setOutput(2, None)
         else:
             self.extruder_outputs.setOutput(2, int(output))
-        Logger.log("d", f"***** extruder 2 set to output: {self.extruder_outputs.getOutput(2)}")
 
     def getExt2OutInd(self):
         # extruder 2 output index getter
@@ -453,7 +436,6 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.setOutput(3, None)
         else:
             self.extruder_outputs.setOutput(3, int(output))
-        Logger.log("d", f"***** extruder 3 set to output: {self.extruder_outputs.getOutput(3)}")
 
     def getExt3OutInd(self):
         # extruder 2 output index getter
@@ -472,7 +454,6 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.setOutput(4, None)
         else:
             self.extruder_outputs.setOutput(4, int(output))
-        Logger.log("d", f"***** extruder 4 set to output: {self.extruder_outputs.getOutput(4)}")
 
     def getExt4OutInd(self):
         # extruder 2 output index getter
@@ -510,7 +491,6 @@ class FisnarRobotExtension(QObject, Extension):
     @pyqtSlot(str)
     def updateComPort(self, com_port):
         # for qml updating (user entered new value)
-        Logger.log("d", f"com port set to: '{com_port}'")
         if com_port == "None":
             self.com_port = None
         else:
@@ -527,7 +507,6 @@ class FisnarRobotExtension(QObject, Extension):
     @pyqtSlot(str)
     def updateDispenserSerialPort(self, name):
         self.dispenser_com_port = name
-        Logger.log("d", "***** emitted: " + str(name) + ", " + str(type(name)))
         self.dispenserSerialPortUpdated.emit()
         self.updatePreferencedValues()
 # ==========================================================================

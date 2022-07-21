@@ -18,18 +18,15 @@ UM.Dialog {
     minimumWidth: 1000 * screenScaleFactor
     minimumHeight: 350 * screenScaleFactor
 
-    // onAfterAnimating: {  // updates the extruder numbers somewhat frequently - this should probably be set on a timer, but this works for now
-    //   numExtruders = main.num_extruders
-    // }
-
-    // PrintSetupTooltip {  // eventually tooltips will be added
-    //   id: tooltip
-    // }
-
-    // Rectangle {  // test
-    //   color: "red"
-    //   anchors.fill: sectionRow
-    // }
+    function updateVal(valId, val) {
+      if (valId.includes("fisnar")) {
+        main.setCoord(valId, val);
+      } else if (valId == "com_port") {
+        main.updateComPort(val);
+      } else if (valId == "dispenser_com_port") {
+        main.updateDispenserSerialPort(val);
+      }
+    }
 
     Row {
       id: sectionRow
@@ -41,7 +38,18 @@ UM.Dialog {
       anchors.leftMargin: UM.Theme.getSize("default_margin").width
       spacing: UM.Theme.getSize("thick_margin").width
 
+      // function showTooltip(item, position, text) {
+      //   tooltip.text = text;
+      //   position = item.mapToItem(sectionRow, position.x - UM.Theme.getSize("default_arrow").width, position.y);
+      //   tooltip.show(position);
+      // }
+      //
+      // function hideTooltip() {
+      //   tooltip.hide();
+      // }
+
       GroupBox {
+        id: printSurfaceBox
         title: "Print Surface"
         width: 0.3333 * (parent.width - (2 * parent.spacing))
         anchors.top: parent.top
@@ -69,27 +77,13 @@ UM.Dialog {
             anchors.top: xRangeLabel.top
           }
 
-          TextField {  // x-min text input
+          SettingEntry {  // x min text entry
             id: xMinEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
+            anchors.top: xMinLabel.top
             anchors.right: parent.right
-            anchors.top: xRangeLabel.top
             text: main.x_min
-            validator: DoubleValidator {
-              decimals: 3
-              locale: "en_US"
-              bottom: 0
-              top: 200
-            }
-            onEditingFinished: {
-              main.setCoord("fisnar_x_min", text)
-            }
-          }
-
-          UnitLabel {
-            anchors.right: xMinEntry.right
-            anchors.top: xMinEntry.top
+            valId: "fisnar_x_min"
+            label: "mm"
           }
 
           UM.Label {  // x-max label
@@ -103,27 +97,13 @@ UM.Dialog {
             anchors.topMargin: UM.Theme.getSize("default_lining").height
           }
 
-          TextField {  // x max entry
+          SettingEntry {
             id: xMaxEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
             anchors.top: xMaxLabel.top
+            anchors.right: parent.right
             text: main.x_max
-            validator: DoubleValidator {
-              decimals: 3
-              locale: "en_US"
-              bottom: 0
-              top: 200
-            }
-            onEditingFinished: {
-              main.setCoord("fisnar_x_max", text)
-            }
-          }
-
-          UnitLabel {
-            anchors.top: xMaxEntry.top
-            anchors.right: xMaxEntry.right
+            valId: "fisnar_x_max"
+            label: "mm"
           }
 
           UM.Label {  // y range label
@@ -146,27 +126,13 @@ UM.Dialog {
             anchors.top: yRangeLabel.top
           }
 
-          TextField {  // y min entry
+          SettingEntry {
             id: yMinEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
             anchors.top: yMinLabel.top
+            anchors.right: parent.right
             text: main.y_min
-            validator: DoubleValidator {
-              decimals: 3
-              locale: "en_US"
-              bottom: 0
-              top: 200
-            }
-            onEditingFinished: {
-              main.setCoord("fisnar_y_min", text)
-            }
-          }
-
-          UnitLabel {  // y min unit label
-            anchors.top: yMinEntry.top
-            anchors.right: yMinEntry.right
+            valId: "fisnar_y_min"
+            label: "mm"
           }
 
           UM.Label {  // y max label
@@ -180,27 +146,13 @@ UM.Dialog {
             anchors.topMargin: UM.Theme.getSize("default_lining").height
           }
 
-          TextField {  // y max entry
+          SettingEntry {
             id: yMaxEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
             anchors.right: parent.right
             anchors.top: yMaxLabel.top
             text: main.y_max
-            validator: DoubleValidator {
-              decimals: 3
-              locale: "en_US"
-              bottom: 0
-              top: 200
-            }
-            onEditingFinished: {
-              main.setCoord("fisnar_y_max", text)
-            }
-          }
-
-          UnitLabel {  // y max entry
-            anchors.top: yMaxEntry.top
-            anchors.right: yMaxEntry.right
+            valId: "fisnar_y_max"
+            label: "mm"
           }
 
           UM.Label {  // z range label
@@ -223,19 +175,14 @@ UM.Dialog {
             anchors.rightMargin: UM.Theme.getSize("default_margin").width
           }
 
-          TextField {  // z min 'entry' - will always be disabled
+          SettingEntry {
             id: zMinEntry
             enabled: false
-            text: "0.0"
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
             anchors.right: parent.right
             anchors.top: zMinLabel.top
-          }
-
-          UnitLabel {  // z min units
-            anchors.right: zMinEntry.right
-            anchors.top: zMinEntry.top
+            text: "0.0"
+            valId: "<none>"
+            label: "mm"
           }
 
           UM.Label {  // z max label
@@ -249,27 +196,13 @@ UM.Dialog {
             anchors.rightMargin: UM.Theme.getSize("default_margin").width
           }
 
-          TextField {  // z max entry
+          SettingEntry {
             id: zMaxEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.top: zMaxLabel.top
             anchors.right: parent.right
+            anchors.top: zMaxLabel.top
             text: main.z_max
-            validator: DoubleValidator {
-              decimals: 3
-              locale: "en_US"
-              bottom: 0
-              top: 200
-            }
-            onEditingFinished: {
-              main.setCoord("fisnar_z_max", text)
-            }
-          }
-
-          UnitLabel {  // z max units
-            anchors.right: zMaxEntry.right
-            anchors.top: zMaxEntry.top
+            valId: "fisnar_z_max"
+            label: "mm"
           }
         }
       }
@@ -419,16 +352,14 @@ UM.Dialog {
             anchors.top: parent.top
           }
 
-          TextField {
+          SettingEntry {
             id: fisnarComEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
             anchors.right: parent.right
             anchors.top: fisnarComLabel.top
             text: main.com_port_name
-            onEditingFinished: {
-              main.updateComPort(text)
-            }
+            valId: "com_port"
+            validator: null  // don't want default DoubleValidator
+            label: ""  // dont' want unit label
           }
 
           UM.Label {  // dispenser com label
@@ -441,18 +372,20 @@ UM.Dialog {
             anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
 
-          TextField {
+          SettingEntry {
             id: dispenserComEntry
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
             anchors.right: parent.right
             anchors.top: dispenserComLabel.top
             text: main.dispenser_serial_port
-            onEditingFinished: {
-              main.updateDispenserSerialPort(text)
-            }
+            valId: "dispenser_com_port"
+            validator: null
+            label: ""
           }
         }
       }
+
+      // PrintSetupTooltip {
+      //   id: tooltip
+      // }
     }
 }

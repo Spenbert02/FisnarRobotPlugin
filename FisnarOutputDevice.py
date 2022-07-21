@@ -23,8 +23,7 @@ from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
 class FisnarOutputDevice(PrinterOutputDevice):
-    # # signals for sending commands to dispenser
-    # sendDispenserCommand = pyqtSignal(bytes)
+    # class for printing with the Fisnar over RS232 port
 
     def __init__(self):
         super().__init__("fisnar_f5200n", ConnectionType.UsbConnection)
@@ -51,11 +50,11 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
 
-        self._init_connect_send_time = None
+        self._init_connect_send_time = None  # type: float
 
         # for connecting to serial port
-        self._serial = None
-        self._serial_port_name = None
+        self._serial = None  # type: serial.Serial
+        self._serial_port_name = None  # type: str or None
         self._timeout = 3
         self._baud_rate = 115200
 
@@ -170,7 +169,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     def stopPrintingAndFinalize(self):
         # stop printing and finalize the Fisnar
-        self.setPrintingState(False)  # stop iterating through gcode if it is
+        self.setPrintingState(False)  # ensure not printing
 
         self._sendCommand(FisnarCommands.HM())
         self.sendCommand(FisnarCommands.finalizer())
@@ -205,7 +204,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._sendCommand(FisnarCommands.initializer())
         self._init_connect_send_time = time.time()
         while time.time() - self._init_connect_send_time < 5.0:  # 5 sec timeout to get initialization response
-            Logger.log("d", "********************** ")
             try:
                 curr_line = self._serial.readline()
             except:
@@ -236,18 +234,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # this continually runs while connected to device, reading lines and
         # sending fisnar commands if necessary
         while self._connection_state == ConnectionState.Connected and self._serial is not None:
-            # Logger.log("d", "groovy*****")
-
-            stage = CuraApplication.getInstance().getController().getActiveStage()
-            if stage is None or stage.stageId != "MonitorStage":
-                time.sleep(1)
-
             try:
                 curr_line = self._serial.readline()
             except:
                 continue  # nothing to read
-
-            Logger.log("d", "curr_line: " + str(curr_line))
 
             if curr_line.startswith(b"ok!"):  # confirmation received
                 self._command_received.set()
@@ -255,30 +245,28 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 # Logger.log("d", str(curr_line))
                 if not self._x_feedback_received.is_set():  # value is x position
                     self._most_recent_position[0] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0  # this is to fix slightly negative reporting bug
-                    Logger.log("d", "new x: " + str(self._most_recent_position[0]))
+                    Logger.log("d", "fisnar x updated: " + str(self._most_recent_position[0]))
                     self._x_feedback_received.set()
                     self.xPosUpdated.emit()
                     self._y_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PY())
                 elif not self._y_feedback_received.is_set():  # value is y position
                     self._most_recent_position[1] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
-                    Logger.log("d", "new y: " + str(self._most_recent_position[1]))
+                    Logger.log("d", "fisnar y updated: " + str(self._most_recent_position[1]))
                     self._y_feedback_received.set()
                     self.yPosUpdated.emit()
                     self._z_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PZ())
                 elif not self._z_feedback_received.is_set():  # value is z position
                     self._most_recent_position[2] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
-                    Logger.log("d", "new z: " + str(self._most_recent_position[2]))
+                    Logger.log("d", "fisnar z updated: " + str(self._most_recent_position[2]))
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
 
             # can send next command
             if curr_line.startswith(b"ok!"):
-                # Logger.log("d", "x feedback received set: " + str(self._x_feedback_received.is_set()) + "\ny feedback received set: " + str(self._y_feedback_received.is_set()) + "\nz feedback received set: " + str(self._z_feedback_received.is_set()))
                 if not self._button_move_confirm_received.is_set():  # need to update position
                     self._button_move_confirms_received += 1
-                    Logger.log("d", "confirms received: " + str(self._button_move_confirms_received))
                     if self._button_move_confirms_received == 2:
                         self._button_move_confirms_received = 0
                         self._button_move_confirm_received.set()
@@ -308,8 +296,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # this function doesn't check for anything besides Serial Exceptions.
         # this functio also clears the command recieved event, so this should
         # only be called if there are no expected confirmation responses
-
-        Logger.log("d", "*****command: " + str(command) + ", sent: " + str(not (self._serial is None or self._connection_state != ConnectionState.Connected)))
 
         if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):  # both connecting and connected mean the port is open
             return
@@ -451,9 +437,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
             reps
         )
 
-        # for command in self._pick_place_commands:
-        #     Logger.log("d", "***** " + str(command[0]) + " " + str(command[1]))
-
         # start process (push first command to start ok loop)
         self.setPickPlaceStatus(True)
         self._sendNextPickPlaceCommand()
@@ -501,7 +484,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     @pyqtSlot()
     def pauseOrResumePrint(self):
-        Logger.log("i", "Fisnar serial print has been " + ("resumed" if self._is_paused else "paused") + ".")
+        Logger.log("i", "Fisnar serial print has been " + ("resumed" if self._is_paused else "paused"))
         self._is_paused = not self._is_paused  # flips whether print is paused or not
         if not self._is_paused:  # if being resumed, send the next command to restart the ok! loop
             self._sendNextFisnarLine()
@@ -704,18 +687,3 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return "n/a"
         else:
             return str(round(printing_prog * 100, 2))
-
-    # # TEST - for testing UI under different conditions --------
-    # @pyqtSlot()
-    # def flipPrintingState(self):
-    #     if self._is_printing:
-    #         self.setPrintingState(False)
-    #     else:
-    #         self.setPrintingState(True)
-    # @pyqtSlot()
-    # def flipConnectionState(self):
-    #     if self._connection_state == ConnectionState.Closed:
-    #         self.setConnectionState(ConnectionState.Connected)
-    #     else:
-    #         self.setConnectionState(ConnectionState.Closed)
-    # # ----------------------------------------------------------

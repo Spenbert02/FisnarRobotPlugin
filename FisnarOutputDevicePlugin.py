@@ -13,10 +13,15 @@ catalog = i18nCatalog("cura")
 
 
 class FisnarOutputDevicePlugin(OutputDevicePlugin):
-    # this class only manages ONE output device - the Fisnar F5200N. It doesn't
-    # check serial ports regularly (like USBPrinterOutputDevice) - rather, it
-    # takes the serial port that the user has entered in FisnarRobotExtension,
-    # and it continually tries to connect to it until it successfully does so.
+    # this class manages the FisnarOutputDevice instance which is used to control
+    # the fisnar via RS232 printing and manual control (and pick and place). As
+    # the FisnarOutputDevice class also holds an UltimusV instance for dispenser
+    # control, this class also manages the UltimusV instance
+    #
+    # The UltimusV does not have it's own output device manager class because
+    # by its own, it can't do anything with slicer output - it is merely a peripheral
+    # used by the Fisnar. In order to execute pick and place manuevers, however, it must
+    # be controled independently over RS232, so this class also manages that connection
 
     def __init__(self):
         super().__init__()
@@ -35,9 +40,9 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
 
         self._application = CuraApplication.getInstance()
 
-
     def start(self):
-        Logger.log("i", "OutputDevicePlugin.start() called")
+        # start checking for serial port updates
+        Logger.log("i", "FisnarOutputDevicePlugin instance starting...")
 
         # creating FisnarOutputDevice
         self.getOutputDeviceManager().addOutputDevice(FisnarOutputDevice())
@@ -52,25 +57,19 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
 
     def stop(self):
         # stop checking for serial port updates
+        Logger.log("i", "FisnarOutputDevicePlugin instance stopping...")
         self._check_updates = False  # stops while loop in _updateThread
-
-        Logger.log("i", "OutputDevicePlugin.stop() called")
         self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").close()
         self.getOutputDeviceManager().removeOutputDevice("fisnar_f5200n")
 
     def _updateThread(self):
-        # try to connect to serial port every 5 seconds, unless port is
-        # already connected to
-        # TEMP - right now this ignores any updates in com port after it connects. eventually, some sort of behavior should be implemented
-            # actually - the current behavior might be good. after it connects, then it will stay connected
+        # try to connect to fisnar and dispenser serial port every 10 seconds if they aren't already connected
         while self._check_updates:
             time.sleep(10)
             self._fisnar_port_name = FisnarRobotExtension.getInstance().com_port
             self._dispenser_port_name = FisnarRobotExtension.getInstance().dispenser_com_port
 
             self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").fisnarPortNameUpdated.emit()
-
-            # Logger.log("d", "current serial port: " + str(self._fisnar_port_name))
 
             if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").isConnected():  # if fisnar port not connected, try to.
                 if self._fisnar_port_name not in (None, "None"):
