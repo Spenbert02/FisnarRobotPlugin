@@ -266,7 +266,7 @@ class FisnarRobotExtension(QObject, Extension):
         i = 0
         while i < len(new_disallowed_areas):
             if new_disallowed_areas[i].isZeroArea():
-                Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
+                # Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
                 new_disallowed_areas.pop(i)
             else:
                 i += 1

@@ -216,7 +216,7 @@ Component
                     height: childrenRect.height + UM.Theme.getSize("default_margin").height
                     anchors.left: parent.left
                     anchors.leftMargin: UM.Theme.getSize("default_margin").width
-                    spacing: UM.Theme.getSize("default_margin").width
+                    spacing: UM.Theme.getSize("thick_margin").width
 
                     UM.Label {  // jog position subheader
                       text: "Jog Position"
@@ -224,143 +224,177 @@ Component
                       height: UM.Theme.getSize("setting_control").height
                     }
 
-                    GridLayout {  // X/Y control interface
-                      columns: 3
-                      rows: 4
-                      columnSpacing: UM.Theme.getSize("default_lining").width
-                      rowSpacing: UM.Theme.getSize("default_lining").height
+                    Rectangle {
+                      id: xyManualRect
+                      width: childrenRect.width
+                      height: childrenRect.height
 
-                      UM.Label {
+                      Rectangle {
+                        id: middleFiller
+                        height: UM.Theme.getSize("thick_lining").height
+                        width: xyLabel.width
+                        anchors.top: yNegButton.bottom
+                        anchors.horizontalCenter: xyLabel.horizontalCenter
+                      }
+
+                      Rectangle {
+                        id: leftFiller
+                        height: xyLabel.height  // this has no effect, so long as it isn't larger than the height of the parent rectangle
+                        width: middleFiller.height
+                        anchors.right: xyLabel.left
+                        anchors.verticalCenter: middleFiller.verticalCenter
+                      }
+
+                      Rectangle {
+                        id: rightFiller
+                        height: xyLabel.height  // as above, this has no effect
+                        width: middleFiller.height
+                        anchors.left: xyLabel.right
+                        anchors.verticalCenter: middleFiller.verticalCenter
+                      }
+
+                      UM.Label {  // actual x/y label
+                        id: xyLabel
                         text: "X/Y"
                         color: UM.Theme.getColor("setting_control_text")
-                        width: height
+                        width: xNegButton.width
                         height: UM.Theme.getSize("setting_control").height
                         horizontalAlignment: Text.AlignHCenter
 
-                        Layout.row: 0
-                        Layout.column: 1
-                        Layout.preferredWidth: width
-                        Layout.preferredHeight: height
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.leftMargin: xPosButton.width + leftFiller.width
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'up' (negative y)
-                        Layout.row: 1
-                        Layout.column: 1
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
+                      Cura.SecondaryButton {  // 'up' button
+                        id: yNegButton
+                        width: base._buttonSize
+                        height: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleUp")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
+                        anchors.horizontalCenter: xyLabel.horizontalCenter
+                        anchors.top: xyLabel.bottom
+                        leftPadding: (width - iconSize) / 2
                         onClicked: {
                           OutputDevice.moveHead(0, -jogRow.selectedDistance, 0)
                         }
                       }
 
-                      Cura.SecondaryButton {  // X/Y 'left' (positive x)
-                        Layout.row: 2
-                        Layout.column: 0
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
-                        iconSource: UM.Theme.getIcon("ChevronSingleLeft")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {
-                          OutputDevice.moveHead(jogRow.selectedDistance, 0, 0)
-                        }
-                      }
-
-                      Cura.SecondaryButton {  // X/Y 'right' (negative x)
-                        Layout.row: 2
-                        Layout.column: 2
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
-                        iconSource: UM.Theme.getIcon("ChevronSingleRight")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {
-                          OutputDevice.moveHead(-jogRow.selectedDistance, 0, 0)
-                        }
-                      }
-
-                      Cura.SecondaryButton {  // X/Y 'down' (positive y)
-                        Layout.row: 3
-                        Layout.column: 1
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
+                      Cura.SecondaryButton {  // 'down' button
+                        id: yPosButton
+                        width: base._buttonSize
+                        height: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleDown")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
+                        anchors.horizontalCenter: xyLabel.horizontalCenter
+                        anchors.top: middleFiller.bottom
+                        leftPadding: (width - iconSize) / 2
                         onClicked: {
                           OutputDevice.moveHead(0, jogRow.selectedDistance, 0)
                         }
                       }
 
-                      Cura.SecondaryButton {  // home x/y axes
-                        Layout.row: 2
-                        Layout.column: 1
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
-                        iconSource: UM.Theme.getIcon("House")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
+                      Cura.SecondaryButton {  // 'left' button
+                        id: xPosButton
+                        width: base._buttonSize
+                        height: base._buttonSize
+                        iconSource: UM.Theme.getIcon("ChevronSingleLeft")
+                        anchors.verticalCenter: leftFiller.verticalCenter
+                        anchors.right: leftFiller.left
+                        leftPadding: (width - iconSize) / 2
                         onClicked: {
-                          OutputDevice.homeXY()
+                          OutputDevice.moveHead(jogRow.selectedDistance, 0, 0)
+                        }
+                      }
+
+                      Cura.SecondaryButton {  // 'right' button
+                        id: xNegButton
+                        width: base._buttonSize
+                        height: base._buttonSize
+                        iconSource: UM.Theme.getIcon("ChevronSingleRight")
+                        anchors.verticalCenter: rightFiller.verticalCenter
+                        anchors.left: rightFiller.right
+                        leftPadding: (width - iconSize) / 2
+                        onClicked: {
+                          OutputDevice.moveHead(-jogRow.selectedDistance, 0, 0)
                         }
                       }
                     }
 
-                    Rectangle {  // filler for in between x/y and z manual control buttons
-                      height: zControlButtons.height
-                      width: UM.Theme.getSize("thick_margin").width
-                      color: base.debug ? "lightyellow" : "#00000000"
-                    }
-
-                    GridLayout {  // z manual control buttons
-                      id: zControlButtons
-                      rows: 4
-                      columns: 1
-                      rowSpacing: UM.Theme.getSize("default_lining").height
-                      columnSpacing: UM.Theme.getSize("default_lining").width
+                    Rectangle {  // home button rectangle
+                      id: homeManualRect
+                      width: childrenRect.width
+                      height: childrenRect.height
 
                       UM.Label {
-                        text: "Z"
-                        color: UM.Theme.getColor("setting_control_text")
-                        width: height
-                        height: UM.Theme.getSize("setting_control").height
+                        id: homeLabel
+                        text: "Home"
                         horizontalAlignment: Text.AlignHCenter
-
-                        Layout.row: 0
-                        Layout.column: 0
-                        Layout.preferredWidth: width
-                        Layout.preferredHeight: height
+                        color: UM.Theme.getColor("setting_control_text")
+                        width: homeButton.width
+                        height: UM.Theme.getSize("setting_control").height
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.topMargin: (base._buttonSize + UM.Theme.getSize("thick_lining").height) / 2  // kind of hacky
                       }
 
-                      Cura.SecondaryButton {  // z up
-                        Layout.row: 1
-                        Layout.column: 0
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
+                      Cura.SecondaryButton {
+                        id: homeButton
+                        width: base._buttonSize
+                        height: base._buttonSize
+                        iconSource: UM.Theme.getIcon("House")
+                        anchors.top: homeLabel.bottom
+                        anchors.horizontalCenter: homeLabel.horizontalCenter
+                        leftPadding: (width - iconSize) / 2
+                        onClicked: {
+                          OutputDevice.home()
+                        }
+                      }
+                    }
+
+                    Rectangle {
+                      id: zManualRect
+                      width: childrenRect.width
+                      height: childrenRect.height
+
+                      Rectangle {  // filler between up and down buttons
+                        id: upDownFiller
+                        width: zNegButton.width
+                        height: UM.Theme.getSize("thick_lining").height
+                        anchors.top: zNegButton.bottom
+                        anchors.horizontalCenter: zNegButton.horizontalCenter
+                      }
+
+                      UM.Label {
+                        id: zManualLabel
+                        text: "Z"
+                        color: UM.Theme.getColor("setting_control_text")
+                        horizontalAlignment: Text.AlignHCenter
+                        width: zNegButton.width
+                        height: UM.Theme.getSize("setting_control").height
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                      }
+
+                      Cura.SecondaryButton {  // neg z label
+                        id: zNegButton
+                        width: base._buttonSize
+                        height: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleUp")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
+                        anchors.top: zManualLabel.bottom
+                        anchors.horizontalCenter: zManualLabel.horizontalCenter
+                        leftPadding: (width - iconSize) / 2
                         onClicked: {
                           OutputDevice.moveHead(0, 0, -jogRow.selectedDistance)
                         }
                       }
 
                       Cura.SecondaryButton {
-                        Layout.row: 2
-                        Layout.column: 0
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
-                        iconSource: UM.Theme.getIcon("House")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
-                        onClicked: {
-                          OutputDevice.homeZ()
-                        }
-                      }
-
-                      Cura.SecondaryButton {
-                        Layout.row: 3
-                        Layout.column: 0
-                        Layout.preferredWidth: base._buttonSize
-                        Layout.preferredHeight: base._buttonSize
+                        id: zPosButton
+                        width: base._buttonSize
+                        height: base._buttonSize
                         iconSource: UM.Theme.getIcon("ChevronSingleDown")
-                        leftPadding: (Layout.preferredWidth - iconSize) / 2
+                        anchors.top: upDownFiller.bottom
+                        anchors.horizontalCenter: upDownFiller.horizontalCenter
+                        leftPadding: (width - iconSize) / 2
                         onClicked: {
                           OutputDevice.moveHead(0, 0, jogRow.selectedDistance)
                         }

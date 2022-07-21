@@ -135,7 +135,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
             printing_msg.show()
             return
 
-    # IN PROG
     def _printFisnarCommands(self, fisnar_command_csv):
         # start a print based on a fisnar command csv
 
@@ -239,6 +238,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             except:
                 continue  # nothing to read
 
+            Logger.log("d", "command received: " + str(curr_line))
+
             if curr_line.startswith(b"ok!"):  # confirmation received
                 self._command_received.set()
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
@@ -299,6 +300,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):  # both connecting and connected mean the port is open
             return
+
+        Logger.log("d", "command sent: " + str(command))
 
         # actually sending bytes
         try:
@@ -466,17 +469,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._sendCommand(FisnarCommands.ID())
 
     @pyqtSlot()
-    def homeXY(self):
-        self._button_move_confirm_received.clear()
-        self._button_move_confirms_received = 0  # still needs two confirms - one for each hm command
-        self._sendCommand(FisnarCommands.HX())
-        self.sendCommand(FisnarCommands.HY())
-
-    @pyqtSlot()
-    def homeZ(self):
+    def home(self):
         self._button_move_confirm_received.clear()
         self._button_move_confirms_received = 1  # kind of hacky but it works - this makes the _update loop only need to look for one more ok! confirm before sending coord feedback commands
-        self._sendCommand(FisnarCommands.HZ())
+        self._sendCommand(FisnarCommands.HM())
 
     ################################
     # QML Stuff
