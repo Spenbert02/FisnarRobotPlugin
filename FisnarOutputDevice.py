@@ -47,6 +47,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._is_paused = False
         self._pick_place_in_progress = False
 
+        # for segmenting
+        self._va_register_count = 0
+        self._output_1_on = False
+        self._output_2_on = False
+        self._output_3_on = False
+        self._output_4_on = False
+
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
 
@@ -209,6 +216,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 continue
 
             if curr_line == FisnarCommands.expectedReturn(FisnarCommands.initializer()):  # succesfully connected
+                self._command_received.set()  # not expecting a command anymore
                 Logger.log("i", "Fisnar connection successful.")
                 self.setConnectionState(ConnectionState.Connected)
                 self._update_thread.start()
@@ -246,21 +254,21 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 # Logger.log("d", str(curr_line))
                 if not self._x_feedback_received.is_set():  # value is x position
                     self._most_recent_position[0] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0  # this is to fix slightly negative reporting bug
-                    Logger.log("d", "fisnar x updated: " + str(self._most_recent_position[0]))
+                    # Logger.log("d", "fisnar x updated: " + str(self._most_recent_position[0]))
                     self._x_feedback_received.set()
                     self.xPosUpdated.emit()
                     self._y_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PY())
                 elif not self._y_feedback_received.is_set():  # value is y position
                     self._most_recent_position[1] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
-                    Logger.log("d", "fisnar y updated: " + str(self._most_recent_position[1]))
+                    # Logger.log("d", "fisnar y updated: " + str(self._most_recent_position[1]))
                     self._y_feedback_received.set()
                     self.yPosUpdated.emit()
                     self._z_feedback_received.clear()
                     self.sendCommand(FisnarCommands.PZ())
                 elif not self._z_feedback_received.is_set():  # value is z position
                     self._most_recent_position[2] = float(curr_line[:-2]) if float(curr_line[:-2]) > 0.0 else 0.0
-                    Logger.log("d", "fisnar z updated: " + str(self._most_recent_position[2]))
+                    # Logger.log("d", "fisnar z updated: " + str(self._most_recent_position[2]))
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
 
@@ -335,10 +343,56 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._resetPrintingInternalState()
             return
 
-        self._sendCommand(command_bytes)  # send bytes
+        # the below 'if' block is a fix for the delay that occurs when many VA commands are sent sequentially. this effectively registers all consecutive
+        # extruding movement commands at once, and then sends an execute command afterwards so they all execute immediately, instead of registering and
+        # executing each movement individually, which causes significant delays and a lot of overextrusion
+        if command_bytes.startswith(bytes("OU", "ascii")) and command_bytes[-2] == ord("1"):  # if command is output on
+            current_output = int(chr(command_bytes[3]))
+            if not (self._output_1_on or self._output_2_on or self._output_3_on or self._output_4_on):  # all outputs currently off
+                self._current_index += 1
 
-        self._current_index += 1  # update current index
-        self.printProgressUpdated.emit()  # recalculate progress and update QML
+                while not (self._fisnar_commands[self._current_index].startswith(bytes("OU", "ascii")) and self._fisnar_commands[self._current_index][-2] == ord("0")):  # while not an output off command
+                    Logger.log("d", str(self._current_index) + ", " + str(self._fisnar_commands[self._current_index]))
+                    if self._va_register_count >= 100:  # if fully registered, purge
+                        self.sendCommand(FisnarCommands.OU(current_output, 1))
+                        self.sendCommand(FisnarCommands.ID())
+                        self._va_register_count = 0
+                        self.sendCommand(FisnarCommands.OU(current_output, 0))
+                        self.printProgressUpdated.emit()  # after every visual 'chunk', update progress
+
+                    if self._fisnar_commands[self._current_index].startswith(bytes("VA", "ascii")):
+                        self.sendCommand(self._fisnar_commands[self._current_index])
+                        self._va_register_count += 1
+                        self._current_index += 1
+                    elif self._fisnar_commands[self._current_index].startswith(bytes("OU", "ascii")):  # this would be an output on command - should never happen, but check just in case
+                        Logger.log("w", "multiple output on's received with no output off's")
+                    elif self._fisnar_commands[self._current_index].startswith(bytes("ID", "ascii")):
+                        self._current_index += 1  # just ignore ID() commands for now
+                    elif self._fisnar_commands[self._current_index].startswith(bytes("SP", "ascii")):  # also purge if speed changes.
+                        self.sendCommand(FisnarCommands.OU(current_output, 1))
+                        self.sendCommand(FisnarCommands.ID())  # execute movements with old speed
+                        self._va_register_count = 0
+                        self.sendCommand(FisnarCommands.OU(current_output, 0))
+                        self.sendCommand(self._fisnar_commands[self._current_index])  # update speed afterwards
+                        self._current_index += 1
+                        self.printProgressUpdated.emit()
+                    else:  # nothing should make it here
+                        Logger.log("w", "unexpected command: " + str(self._fisnar_commands[self._current_index]))
+                        self.sendCommand(self._fisnar_commands[self._current_index])
+                        self._current_index += 1
+                        self.printProgressUpdated.emit()
+
+                # send output off and ID, and reset register count
+                self.sendCommand(FisnarCommands.OU(current_output, 1))
+                self.sendCommand(FisnarCommands.ID())
+                self._va_register_count = 0
+                self.sendCommand(FisnarCommands.OU(current_output, 0))
+                self.printProgressUpdated.emit()
+        else:  # just send command like normal
+            self._sendCommand(command_bytes)  # send bytes
+
+            self._current_index += 1  # update current index
+            self.printProgressUpdated.emit()  # recalculate progress and update QML
 
     def _sendNextPickPlaceCommand(self):
         # similar to _sendNextFisnarLine, but is only used for pick and place
@@ -404,7 +458,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
         except ZeroDivisionError:
             return None  # print hasn't started yet
 
-    @pyqtSlot()  # IN PROG
+    @pyqtSlot(str)
+    def sendRawCommand(self, command_str):
+        # TODO: this should validate the string before sending
+        command_bytes = bytes(command_str + "\r", "ascii")
+        self.sendCommand(command_bytes)
+
+    @pyqtSlot()
     def executePickPlace(self):
         # start pick and place procedure
 
