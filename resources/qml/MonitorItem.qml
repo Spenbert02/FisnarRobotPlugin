@@ -40,6 +40,7 @@ Component
             ScrollView {  // start of 'Cura.PrintMonitor'
               id: scrollView
               width: parent.width
+              anchors.left: parent.left
               anchors.top: parent.top
               anchors.bottom: footerSeparator.top
 
@@ -159,12 +160,9 @@ Component
 
                         UM.Label {
                           text: enabled ? OutputDevice.x_pos : "--"
+                          width: UM.Theme.getSize("setting_control").width / 2
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
-                        }
-
-                        UM.Label {  // filler - kind of hacky, but it works
-                          text: "    "
                         }
 
                         UM.Label {
@@ -174,12 +172,9 @@ Component
 
                         UM.Label {
                           text: enabled ? OutputDevice.y_pos : "--"
+                          width: UM.Theme.getSize("setting_control").width / 2
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
-                        }
-
-                        UM.Label {  // another filler
-                          text: "    "
                         }
 
                         UM.Label {
@@ -189,6 +184,7 @@ Component
 
                         UM.Label {
                           text: enabled ? OutputDevice.z_pos : "--"
+                          width: UM.Theme.getSize("setting_control").width / 2
                           font: UM.Theme.getFont("large_bold")
                           color: UM.Theme.getColor("text_inactive")
                         }

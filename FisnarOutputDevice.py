@@ -287,14 +287,14 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if curr_line == bytes():
                 if self._connect_confirm_received.is_set():  # not already confirming
                     self._empty_byte_count += 1
-                    if self._empty_byte_count >= 3:  # send connect confirmation command and wait for return bytes
+                    if self._empty_byte_count >= 5:  # send connect confirmation command and wait for return bytes
                         Logger.log("i", "fisnar may be unresponsive, will attempt to confirm connection status")
                         self.sendCommand(FisnarCommands.PX())
                         self._connect_confirm_send_time = time.time()
                         self._connect_confirm_received.clear()
                         self._empty_byte_count = 0
                 else:  # trying to confirm
-                    if time.time() - self._connect_confirm_send_time > 5.0:  # 3 sec since sending confirm command
+                    if time.time() - self._connect_confirm_send_time > 5.0:  # 10 sec since sending confirm command
                         Logger.log("w", "fisnar unresponsive, will disconnect and attempt to reconnect")
                         self._connect_confirm_received.set()  # reset in case it reconnects and begins checking again
                         msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N is unresponsive, will attempt to regain connection..."),
@@ -302,6 +302,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                         msg.show()
                         self.close()
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
+                self._empty_byte_count = 0
                 # Logger.log("d", str(curr_line))
                 if not self._connect_confirm_received.is_set():  # PX() sent to confirm connection status
                     Logger.log("i", "Fisnar connection status confirmed")
@@ -326,6 +327,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
             elif curr_line.startswith(b"ok!"):
+                self._empty_byte_count = 0
                 self._command_received.set()
                 if not self._button_move_confirm_received.is_set():  # need to update position
                     self._button_move_confirms_received += 1
