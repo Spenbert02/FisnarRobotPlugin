@@ -12,6 +12,8 @@ UM.Dialog {
     title: "Fisnar Setup"
 
     property int numExtruders: main.num_extruders
+    property bool fisnarConnected: main.fisnar_connection_state
+    property bool dispenserConnected: main.dispenser_connection_state
 
     width: minimumWidth
     height: minimumHeight
@@ -362,13 +364,23 @@ UM.Dialog {
             label: ""  // dont' want unit label
           }
 
+          UM.Label {
+            id: fisnarConnectionStateLabel
+            text: base.fisnarConnected ? "Connected" : "Not Connected"
+            color: base.fisnarConnected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
+            font: UM.Theme.getFont("small")
+            anchors.right: parent.right
+            anchors.top: fisnarComEntry.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
+          }
+
           UM.Label {  // dispenser com label
             id: dispenserComLabel
             text: "Pick and place dispenser"
             font: UM.Theme.getFont("default")
             height: UM.Theme.getSize("setting_control").height
             anchors.left: parent.left
-            anchors.top: fisnarComLabel.bottom
+            anchors.top: fisnarConnectionStateLabel.bottom
             anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
 
@@ -380,6 +392,16 @@ UM.Dialog {
             valId: "dispenser_com_port"
             validator: null
             label: ""
+          }
+
+          UM.Label {
+            id: dispenserConnectionStateLabel
+            text: base.dispenserConnected ? "Connected" : "Not Connected"
+            color: base.dispenserConnected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
+            font: UM.Theme.getFont("small")
+            anchors.right: parent.right
+            anchors.top: dispenserComEntry.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
           }
         }
       }

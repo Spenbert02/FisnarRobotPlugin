@@ -86,6 +86,10 @@ class FisnarRobotExtension(QObject, Extension):
         self.place_dwell = 0.0
         self.reps = 0
 
+        # connection status of fisnar and dispenser for UI
+        self.fisnar_connected = False
+        self.dispenser_connected = False
+
         # setting up menus
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Define Setup", self.showDefineSetupWindow)
@@ -505,6 +509,29 @@ class FisnarRobotExtension(QObject, Extension):
         self.dispenser_com_port = name
         self.dispenserSerialPortUpdated.emit()
         self.updatePreferencedValues()
+
+# ========== fisnar connection status ======================================
+    fisnarConnectionStatusChanged = pyqtSignal()
+    def setFisnarConnectionState(self, state):
+        if state != self.fisnar_connected:
+            self.fisnar_connected = state
+            self.fisnarConnectionStatusChanged.emit()
+
+    @pyqtProperty(bool, fset=setFisnarConnectionState, notify=fisnarConnectionStatusChanged)
+    def fisnar_connection_state(self):
+        return self.fisnar_connected
+
+# ========= dispenser connection state =====================================
+    dispenserConnectionStatusChanged = pyqtSignal()
+    def setDispenserConnectionState(self, state):
+        if state != self.dispenser_connected:
+            self.dispenser_connected = state
+            self.dispenserConnectionStatusChanged.emit()
+
+    @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
+    def dispenser_connection_state(self):
+        return self.dispenser_connected
+
 # ==========================================================================
 
     def showDefineSetupWindow(self):

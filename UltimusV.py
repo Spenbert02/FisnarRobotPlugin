@@ -3,6 +3,8 @@ from serial import Serial, SerialException, SerialTimeoutException
 from UM.Logger import Logger
 from UM.Message import Message
 
+from .FisnarRobotExtension import FisnarRobotExtension
+
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
@@ -37,6 +39,8 @@ class UltimusV:
         self._baud_rate = 9600
 
         self._connection_state = ConnectionState.Closed
+
+        self._fre_instance = FisnarRobotExtension.getInstance()
 
     def sendCommand(self, command_bytes):
         # send a command to the Ultimus V and return True if it was successful
@@ -101,7 +105,9 @@ class UltimusV:
 
     def setConnectionState(self, state):
         # use PrinterOutputDevice as a template for this
-        self._connection_state = state
+        if self._connection_state != state:
+            self._connection_state = state
+            self._fre_instance.setDispenserConnectionState(self._connection_state == ConnectionState.Connected)
 
     def _checksum(self, byte_array):
         # get the checksum (as a two byte array in forward order) from an
