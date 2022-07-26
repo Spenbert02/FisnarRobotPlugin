@@ -22,6 +22,46 @@ from .UltimusV import PressureUnits, UltimusV
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
+
+class FisnarOutputTracker:
+    # class for tracking output states - this is an independent class because
+    # in the future there may need to be a signal system for when outputs are
+    # turned on or off
+
+    def __init__(self):
+        self._outputs = [False, False, False, False]
+        self._most_recent_output = None
+
+    def logOutputs(self):
+        log_str = "\n active output: " + str(self._most_recent_output)
+        for i in range(4):
+            log_str += "\n output " + str(i + 1) + ": " + str(self._outputs[i])
+        Logger.log("d", log_str)
+
+    def setOutput(self, output, state):
+        self._outputs[output - 1] = state
+        self.logOutputs()  # test
+        self._most_recent_output = output
+
+    def getOutput(self, output):
+        return self._outputs[output - 1]
+
+    def getActiveOutput(self):
+        return self._most_recent_output
+
+    def allOff(self):
+        for output in self._outputs:
+            if output:
+                return False
+        return True
+
+    def allOn(self):
+        for output in self._outputs:
+            if not output:
+                return False
+        return True
+
+
 class FisnarOutputDevice(PrinterOutputDevice):
     # class for printing with the Fisnar over RS232 port
 
@@ -49,10 +89,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         # for segmenting
         self._va_register_count = 0
-        self._output_1_on = False
-        self._output_2_on = False
-        self._output_3_on = False
-        self._output_4_on = False
+        self._outputs = FisnarOutputTracker()
 
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
@@ -366,6 +403,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         Logger.log("d", "command sent: " + str(command))
+        if len(command) > 2 and command[:2] == bytes("OU", "ascii"):  # is an output command - assumes format 'OU n, s'
+            self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
 
         # actually sending bytes
         try:
@@ -391,8 +430,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._is_paused = False
 
             # clean things up
-            for i in range(1, 5):
-                self.sendCommand(FisnarCommands.OU(i, 0))
+            if self._outputs.getActiveOutput() is not None:  # don't know why this would happen
+                self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 1))
+                time.sleep(.5)
+                self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 0))
             self.sendCommand(FisnarCommands.HM())
 
             # reset to prep for another print
@@ -404,7 +445,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # executing each movement individually, which causes significant delays and a lot of overextrusion
         if command_bytes.startswith(bytes("OU", "ascii")) and command_bytes[-2] == ord("1"):  # if command is output on
             current_output = int(chr(command_bytes[3]))
-            if not (self._output_1_on or self._output_2_on or self._output_3_on or self._output_4_on):  # all outputs currently off
+            if self._outputs.allOff():  # all outputs currently off
                 self._current_index += 1
 
                 while not (self._fisnar_commands[self._current_index].startswith(bytes("OU", "ascii")) and self._fisnar_commands[self._current_index][-2] == ord("0")):  # while not an output off command
@@ -614,9 +655,11 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setPrintingState(False)
         self._is_paused = False
 
-        # ensure all outputs are off, then home
-        for i in range(1, 5):
-            self.sendCommand(FisnarCommands.OU(i, 0))
+        # ensure outputs are off, then home
+        if self._outputs.getActiveOutput() is not None:
+            self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 1))
+            time.sleep(.5)
+            self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 0))
         self.sendCommand(FisnarCommands.HM())
 
         self._resetPrintingInternalState()  # resets fisnar commands, current command index
