@@ -5,6 +5,8 @@ from cura.CuraApplication import CuraApplication
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.OutputDevice.OutputDevicePlugin import OutputDevicePlugin
+
+from .DispenserManager import DispenserManager
 from .FisnarOutputDevice import FisnarOutputDevice
 from .FisnarRobotExtension import FisnarRobotExtension
 
@@ -36,8 +38,8 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
         self._update_thread.daemon = True  # constantly checks for serial connections until shutdown
 
         self._fisnar_port_name = None  # type: str, the name of the serial port from FisnarRobotExtension
-        self._dispenser_port_name = None
 
+        self._dispenser_manager = DispenserManager.getInstance()
         self._application = CuraApplication.getInstance()
 
     def start(self):
@@ -49,7 +51,8 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
 
         # initializing com port name
         self._fisnar_port_name = FisnarRobotExtension.getInstance().com_port
-        self._dispenser_port_name = FisnarRobotExtension.getInstance().dispenser_com_port
+        self._dispenser_1_port_name = FisnarRobotExtension.getInstance().dispenser_1_com_port
+        self._dispenser_2_port_name = FisnarRobotExtension.getInstance().dispenser_2_com_port
 
         # start update thread to find open serial ports
         self._check_updates = True
@@ -67,7 +70,7 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
         while self._check_updates:
             time.sleep(10)
             self._fisnar_port_name = FisnarRobotExtension.getInstance().com_port
-            self._dispenser_port_name = FisnarRobotExtension.getInstance().dispenser_com_port
+            self._dispenser_1_port_name = FisnarRobotExtension.getInstance().dispenser_1_com_port
 
             self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").fisnarPortNameUpdated.emit()
 
@@ -79,11 +82,17 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
                                           title = catalog.i18nc("@message", "Connection Status Update"))
                         fis_msg.show()
 
-            if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isConnected():  # if ultimus port is not connected, try to
-                if self._dispenser_port_name not in (None, "None"):
-                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.connect(self._dispenser_port_name)
-                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser.isConnected():
-                        disp_msg = Message(text = catalog.i18nc("@message", "UltimusV dispenser successfully connected via: " + str(self._dispenser_port_name)),
+            for dispenser_name in ("dispenser_1", "dispenser_2"):
+                if not self._dispenser_manager.isConnected(dispenser_name):
+                    if self._dispenser_port_names[]
+
+            if not self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser_manager.getDispenser("dispenser_1").isConnected():  # if ultimus port is not connected, try to
+                if self._dispenser_1_port_name not in (None, "None"):
+                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser_manager.attemptEstablishConnection("dispenser_1")
+
+                    self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser_1.connect(self._dispenser_1_port_name)
+                    if self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").dispenser_1.isConnected():
+                        disp_msg = Message(text = catalog.i18nc("@message", "UltimusV dispenser successfully connected via: " + str(self._dispenser_1_port_name)),
                                            title = catalog.i18nc("@message", "Connection Status Update"))
                         disp_msg.show()
 

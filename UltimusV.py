@@ -1,4 +1,5 @@
 from cura.PrinterOutput.PrinterOutputDevice import ConnectionState
+from cura.PrinterOutput.Peripheral import Peripheral
 from serial import Serial, SerialException, SerialTimeoutException
 from UM.Logger import Logger
 from UM.Message import Message
@@ -23,7 +24,7 @@ class PressureUnits:  # enumeration class for pressure units
     P_KPA = 7
 
 
-class UltimusV:
+class UltimusV(Peripheral):
     # class for communicating with the UltimusV dispenser unit
 
     STX = bytes.fromhex("02")
@@ -31,7 +32,9 @@ class UltimusV:
     EOT = bytes.fromhex("04")
     ENQ = bytes.fromhex("05")
 
-    def __init__(self, *args):
+    def __init__(self, name, *args):
+        super().__init__("dispenser", name)
+
         # port attributes
         self._serial = None
         self._serial_port_name = None
@@ -41,6 +44,8 @@ class UltimusV:
         self._connection_state = ConnectionState.Closed
 
         self._fre_instance = FisnarRobotExtension.getInstance()
+
+        self.busy = False
 
     def sendCommand(self, command_bytes):
         # send a command to the Ultimus V and return True if it was successful
@@ -62,6 +67,9 @@ class UltimusV:
 
     def sendFeedbackCommand(self, command_bytes):
         pass
+
+    def setComPort(self, name):
+        self._serial_port_name = name
 
     def connect(self, port_name):
         Logger.log("i", "attempting to connect to dispenser unit...")

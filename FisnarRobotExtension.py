@@ -55,7 +55,7 @@ class FisnarRobotExtension(QObject, Extension):
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
             "extruder_outputs": [None, None, None, None],
             "com_port": None,
-            "dispenser_com_port": None,
+            "dispenser_com_ports": {"dispenser_1": None, "dispenser_2": None},
             "pick_location": (0.0, 0.0, 0.0),
             "place_location": (0.0, 0.0, 0.0),
             "vacuum_pressure": 0.0,
@@ -75,7 +75,6 @@ class FisnarRobotExtension(QObject, Extension):
         self.com_port = None
 
         # internal pick and place preference values
-        self.dispenser_com_port = None
         self.pick_location = (0.0, 0.0, 0.0)
         self.place_location = (0.0, 0.0, 0.0)
         self.vacuum_pressure = 0.0
@@ -88,7 +87,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         # connection status of fisnar and dispenser for UI
         self.fisnar_connected = False
-        self.dispenser_connected = False
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
@@ -126,6 +124,11 @@ class FisnarRobotExtension(QObject, Extension):
 
         # loading tooltip dictionary
         self.tooltips = json.load(open(os.path.join(self.this_plugin_path, "resources", "tooltips.json"), "r"))
+
+        # setting up dispenser manager
+        self.dispenser_manager = DispenserManager()
+        self.dispenser_manager.addDispenser(UltimusV("dispenser_1"))
+        self.dispenser_manager.addDispenser(UltimusV("dispenser_2"))
 
         # setting setting values to values stored in preferences
         self.updateFromPreferencedValues()
@@ -196,8 +199,9 @@ class FisnarRobotExtension(QObject, Extension):
             self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) != -1:
             self.com_port = pref_dict["com_port"]
-        if pref_dict.get("dispenser_com_port", -1) != -1:
-            self.dispenser_com_port = pref_dict["dispenser_com_port"]
+        if pref_dict.get("dispenser_com_ports", -1) != -1:
+            self.dispenser_manager.getDispenser("dispenser_1").setComPort(pref_dict["dispenser_com_ports"]["dispenser_1"])
+            self.dispenser_manager.getDispenser("dispenser_2").setComPort(pref_dict["dispenser_com_ports"]["dispenser_2"])
         if pref_dict.get("pick_location", None) is not None:
             self.pick_location = pref_dict["pick_location"]
         if pref_dict.get("place_location", None) is not None:
@@ -223,7 +227,7 @@ class FisnarRobotExtension(QObject, Extension):
             "print_surface": self.print_surface.getAsTuple(),
             "extruder_outputs": self.extruder_outputs.getAsTuple(),
             "com_port": self.com_port,
-            "dispenser_com_port": self.dispenser_com_port,
+            "dispenser_com_ports": self.dispenser_com_ports,
             "pick_location": self.pick_location,
             "place_location": self.place_location,
             "vacuum_pressure": self.vacuum_pressure,
@@ -498,17 +502,21 @@ class FisnarRobotExtension(QObject, Extension):
         self.comPortNameUpdated.emit()
         self.updatePreferencedValues()
 
-# =========== dispenser serial port ===================================================
-    dispenserSerialPortUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
-    def dispenser_serial_port(self):
-        return str(self.dispenser_com_port)
+# =========== dispenser 1 serial port ===================================================
+    dispenser1SerialPortUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=dispenser1SerialPortUpdated)
+    def dispenser_1_serial_port(self):
+        return str(self.dispenser_manager.getPortName("dispenser_1"))
 
-    @pyqtSlot(str)
-    def updateDispenserSerialPort(self, name):
-        self.dispenser_com_port = name
-        self.dispenserSerialPortUpdated.emit()
-        self.updatePreferencedValues()
+# =========== dispenser 2 serial port =============================================
+    dispenser2SerialPortUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=dispenser2SerialPortUpdated)
+    def dispenser_2_serial_port(self):
+        return str(self.dispener_manager.getPortName("dispenser_2"))
+
+    @pyqtSlot(int, str)
+    def updateDispenserPortName(self, dispenser, port_name):
+        self.dispenser_com_ports[dispenser - 1] = port_name
 
 # ========== fisnar connection status ======================================
     fisnarConnectionStatusChanged = pyqtSignal()
@@ -521,16 +529,16 @@ class FisnarRobotExtension(QObject, Extension):
     def fisnar_connection_state(self):
         return self.fisnar_connected
 
-# ========= dispenser connection state =====================================
+# ========= dispenser connection states =====================================
     dispenserConnectionStatusChanged = pyqtSignal()
-    def setDispenserConnectionState(self, state):
-        if state != self.dispenser_connected:
+    def setDispenserConnectionState(self, dispenser_name, state):
+        if state != self.dispenser_manager.isConnected(dispenser_name):
             self.dispenser_connected = state
             self.dispenserConnectionStatusChanged.emit()
 
     @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
-    def dispenser_connection_state(self):
-        return self.dispenser_connected
+    def dispenser_1_connection_state(self):
+        status =
 
 # ==========================================================================
 
