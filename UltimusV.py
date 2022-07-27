@@ -3,8 +3,7 @@ from cura.PrinterOutput.Peripheral import Peripheral
 from serial import Serial, SerialException, SerialTimeoutException
 from UM.Logger import Logger
 from UM.Message import Message
-
-from .FisnarRobotExtension import FisnarRobotExtension
+from UM.Signal import Signal
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
@@ -32,6 +31,8 @@ class UltimusV(Peripheral):
     EOT = bytes.fromhex("04")
     ENQ = bytes.fromhex("05")
 
+    connectionStateUpdated = Signal()
+
     def __init__(self, name, *args):
         super().__init__("dispenser", name)
 
@@ -42,8 +43,6 @@ class UltimusV(Peripheral):
         self._baud_rate = 9600
 
         self._connection_state = ConnectionState.Closed
-
-        self._fre_instance = FisnarRobotExtension.getInstance()
 
         self.busy = False
 
@@ -71,7 +70,15 @@ class UltimusV(Peripheral):
     def setComPort(self, name):
         self._serial_port_name = name
 
-    def connect(self, port_name):
+    def getComPort(self):
+        return self._serial_port_name
+
+    def connect(self, port_name=None):
+        if port_name is None and self._serial_port_name is None:
+            return
+        else:
+            port_name = self._serial_port_name
+
         Logger.log("i", "attempting to connect to dispenser unit...")
         self._serial_port_name = port_name
 
@@ -115,7 +122,7 @@ class UltimusV(Peripheral):
         # use PrinterOutputDevice as a template for this
         if self._connection_state != state:
             self._connection_state = state
-            self._fre_instance.setDispenserConnectionState(self._connection_state == ConnectionState.Connected)
+            self.connectionStateUpdated.emit()
 
     def _checksum(self, byte_array):
         # get the checksum (as a two byte array in forward order) from an

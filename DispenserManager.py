@@ -1,6 +1,7 @@
 from cura.PrinterOutput.Peripheral import Peripheral
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import QTimer
 from UM.Message import Message
+from UM.Signal import Signal
 
 from .UltimusV import UltimusV, PressureUnits
 
@@ -9,7 +10,7 @@ class DispenserManager:
     # a class that holds multiple UltimusV objects that has methods for
     # getting information about their status
 
-    dispenserConnectionStatesUpdated = pyqtSignal()
+    dispenserConnectionStatesUpdated = Signal()
 
     def __init__(self):
         if DispenserManager._instance is not None:
@@ -18,17 +19,14 @@ class DispenserManager:
             DispenserManager._instance = self
 
         self._dispensers = []
+        self._pick_place_dispenser_name = None
 
         self._confirm_connection_timer = QTimer()
         self._confirm_connection_timer.setInterval(5000)
         self._confirm_connection_timer.timeout.connect(self._onConfirmConnectionTimeout)
 
-    def addDispenser(self, dispenser):
-        if dispenser not in self._dispensers and isinstance(dispenser, testDispenser):
-            self._dispensers.append(dispenser)
-
-        if not self._confirm_connection_timer.isActive() and self._dispensers != []:
-            self._confirm_connection_timer.start()
+    def _onDispenserConnectionStateUpdated(self):
+        self.dispenserConnectionStatesUpdated.emit()
 
     def _onConfirmConnectionTimeout(self):
         for dispenser in self._dispensers:
@@ -41,6 +39,20 @@ class DispenserManager:
                     msg.show()
                     dispenser.close()
                     self.dispenserConnectionStatesUpdated.emit()
+
+    def addDispenser(self, dispenser):
+        if dispenser not in self._dispensers and isinstance(dispenser, UltimusV):
+            self._dispensers.append(dispenser)
+            dispenser.connectionStateUpdated.connect(self._onDispenserConnectionStateUpdated)
+
+        if not self._confirm_connection_timer.isActive() and self._dispensers != []:
+            self._confirm_connection_timer.start()
+
+    def getPortNameDict(self):
+        ret_dict = {}
+        for dispenser in self._dispensers:
+            ret_dict[dispenser.name] = None if dispenser.getComPort() in (None, "None") else dispenser.getComPort()
+        return ret_dict
 
     def isConnected(self, dispenser_name):
         # determine if a dispenser with a given name is connected
@@ -55,12 +67,43 @@ class DispenserManager:
             if dispenser.name == dispenser_name:
                 dispenser.connect(com_port)
 
+    def closeAll(self):
+        for dispenser in self._dispensers:
+            dispenser.close()
+
     def getDispenser(self, dispenser_name):
         # get a dispenser by name
         for i in range(len(self._dispensers)):
             if self._dispensers[i].name == dispenser_name:
                 return self._dispensers[i]
         return None
+
+    def getPickPlaceDispenser(self):
+        if self._pick_place_dispenser_name is None:
+            return None
+        for dispenser in self._dispensers:
+            if dispenser.name == self._pick_place_dispenser_name:
+                return dispenser
+        Logger.log("w", "pick and place dispenser " + str(self._pick_place_dispenser_name) + " not found in list of dispensers")
+        return None
+
+    def getPickPlaceDispenserName(self):
+        return self._pick_place_dispenser_name
+
+    def setPickPlaceDispenser(self, name):
+        if name == "None":
+            name = None
+        self._pick_place_dispenser_name = name
+
+    def getDispensers(self):
+        return self._dispensers
+
+    def getConnectedDispensers(self):
+        ret_dispensers = []
+        for dispenser in self._dispensers:
+            if dispenser.isConnected():
+                ret_dispensers.append(dispenser)
+        return ret_dispensers
 
     _instance = None
 

@@ -11,13 +11,13 @@ UM.Dialog {
     id: base
     title: "Fisnar Setup"
 
-    property int numExtruders: main.num_extruders
     property bool fisnarConnected: main.fisnar_connection_state
-    property bool dispenserConnected: main.dispenser_connection_state
+    property bool dispenser1Connected: main.dispenser_1_connection_state
+    property bool dispenser2Connected: main.dispenser_2_connection_state
 
     width: minimumWidth
     height: minimumHeight
-    minimumWidth: 1000 * screenScaleFactor
+    minimumWidth: 700 * screenScaleFactor
     minimumHeight: 350 * screenScaleFactor
 
     function updateVal(valId, val) {
@@ -25,8 +25,10 @@ UM.Dialog {
         main.setCoord(valId, val);
       } else if (valId == "com_port") {
         main.updateComPort(val);
-      } else if (valId == "dispenser_com_port") {
-        main.updateDispenserSerialPort(val);
+      } else if (valId == "dispenser_1_com_port") {
+        main.updateDispenserPortName("dispenser_1", val);
+      } else if (valId == "dispenser_2_com_port") {
+        main.updateDispenserPortName("dispenser_2", val);
       }
     }
 
@@ -53,7 +55,7 @@ UM.Dialog {
       GroupBox {
         id: printSurfaceBox
         title: "Print Surface"
-        width: 0.3333 * (parent.width - (2 * parent.spacing))
+        width: 0.5 * (parent.width - parent.spacing)
         anchors.top: parent.top
         anchors.bottom: parent.bottom
 
@@ -209,136 +211,9 @@ UM.Dialog {
         }
       }
 
-      GroupBox {  // extruder output correlation group box
-        title: "Extruder Outputs"
-        width: 0.3333 * (parent.width - (2 * parent.spacing))
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-
-        Rectangle {
-          anchors.fill: parent
-
-          ListModel {  // extruder output model
-            id: outputsModel
-            ListElement{label: "None"; value: 0}
-            ListElement{label: "Output 1"; value: 1}
-            ListElement{label: "Output 2"; value: 2}
-            ListElement{label: "Output 3"; value: 3}
-            ListElement{label: "Output 4"; value: 4}
-          }
-
-          UM.Label {  // extruder 1 label
-            id: ext1Label
-            enabled: base.numExtruders >= 1
-            text: "Extruder 1"
-            font: UM.Theme.getFont("default")
-            height: UM.Theme.getSize("setting_control").height
-            anchors.left: parent.left
-            anchors.top: parent.top
-          }
-
-          ComboBox {  // extruder 1 dropdown
-            id: ext1Dropdown
-            enabled: base.numExtruders >= 1
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
-            anchors.top: ext1Label.top
-
-            model: outputsModel
-            textRole: "label"
-            currentIndex: main.ext_1_output_ind
-            onCurrentIndexChanged: {
-              main.setExtruderOutput(1, currentIndex)
-            }
-          }
-
-          UM.Label {  // extruder 2 label
-            id: ext2Label
-            enabled: base.numExtruders >= 2
-            text: "Extruder 2"
-            font: UM.Theme.getFont("default")
-            height: UM.Theme.getSize("setting_control").height
-            anchors.left: parent.left
-            anchors.top: ext1Label.bottom
-            anchors.topMargin: UM.Theme.getSize("default_margin").height
-          }
-
-          ComboBox {  // extruder 2 dropdown
-            id: ext2Dropdown
-            enabled: base.numExtruders >= 2
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
-            anchors.top: ext2Label.top
-
-            model: outputsModel
-            textRole: "label"
-            currentIndex: main.ext_2_output_ind
-            onCurrentIndexChanged: {
-              main.setExtruderOutput(2, currentIndex)
-            }
-          }
-
-          UM.Label {  // extruder 3 label
-            id: ext3Label
-            enabled: base.numExtruders >= 3
-            text: "Extruder 3"
-            font: UM.Theme.getFont("default")
-            height: UM.Theme.getSize("setting_control").height
-            anchors.left: parent.left
-            anchors.top: ext2Label.bottom
-            anchors.topMargin: UM.Theme.getSize("default_margin").height
-          }
-
-          ComboBox {  // extruder 3 dropdown
-            id: ext3Dropdown
-            enabled: base.numExtruders >= 3
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
-            anchors.top: ext3Label.top
-
-            model: outputsModel
-            textRole: "label"
-            currentIndex: main.ext_3_output_ind
-            onCurrentIndexChanged: {
-              main.setExtruderOutput(3, currentIndex)
-            }
-          }
-
-          UM.Label {  // extruder 4 label
-            id: ext4Label
-            enabled: base.numExtruders >= 4
-            text: "Extruder 4"
-            font: UM.Theme.getFont("default")
-            height: UM.Theme.getSize("setting_control").height
-            anchors.left: parent.left
-            anchors.top: ext3Label.bottom
-            anchors.topMargin: UM.Theme.getSize("default_margin").height
-          }
-
-          ComboBox {  // extruder 4 dropdown
-            id: ext4Dropdown
-            enabled: base.numExtruders >= 4
-            width: UM.Theme.getSize("setting_control").width
-            height: UM.Theme.getSize("setting_control").height
-            anchors.right: parent.right
-            anchors.top: ext4Label.top
-
-            model: outputsModel
-            textRole: "label"
-            currentIndex: main.ext_4_output_ind
-            onCurrentIndexChanged: {
-              main.setExtruderOutput(4, currentIndex)
-            }
-          }
-        }
-      }
-
       GroupBox {
         title: "Serial Ports"
-        width: 0.3333 * (parent.width - (2 * parent.spacing))
+        width: 0.5 * (parent.width - parent.spacing)
         anchors.top: parent.top
         anchors.bottom: parent.bottom
 
@@ -374,9 +249,9 @@ UM.Dialog {
             anchors.topMargin: UM.Theme.getSize("default_lining").height
           }
 
-          UM.Label {  // dispenser com label
-            id: dispenserComLabel
-            text: "Pick and place dispenser"
+          UM.Label {  // dispenser 1 label
+            id: dispenser1Label
+            text: "Dispenser 1"
             font: UM.Theme.getFont("default")
             height: UM.Theme.getSize("setting_control").height
             anchors.left: parent.left
@@ -384,23 +259,53 @@ UM.Dialog {
             anchors.topMargin: UM.Theme.getSize("default_margin").height
           }
 
-          SettingEntry {
-            id: dispenserComEntry
+          SettingEntry {  // dispenser 1 text entry
+            id: dispenser1Entry
             anchors.right: parent.right
-            anchors.top: dispenserComLabel.top
-            text: main.dispenser_serial_port
-            valId: "dispenser_com_port"
+            anchors.top: dispenser1Label.top
+            text: main.dispenser_1_serial_port
+            valId: "dispenser_1_com_port"
             validator: null
             label: ""
           }
 
-          UM.Label {
-            id: dispenserConnectionStateLabel
-            text: base.dispenserConnected ? "Connected" : "Not Connected"
-            color: base.dispenserConnected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
+          UM.Label {  // dispenser 1 connection state
+            id: dispenser1StateLabel
+            text: main.dispenser1Connected ? "Connected" : "Not Connected"
+            color: base.dispenser1Connected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
             font: UM.Theme.getFont("small")
             anchors.right: parent.right
-            anchors.top: dispenserComEntry.bottom
+            anchors.top: dispenser1Entry.bottom
+            anchors.topMargin: UM.Theme.getSize("default_lining").height
+          }
+
+          UM.Label {  // dispenser 2 label
+            id: dispenser2Label
+            text: "Dispenser 2"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("setting_control").height
+            anchors.left: parent.left
+            anchors.top: dispenser1StateLabel.bottom
+            anchors.topMargin: UM.Theme.getSize("default_margin").height
+          }
+
+          SettingEntry {  // dispenser 2 entry
+            id: dispenser2Entry
+            anchors.right: parent.right
+            anchors.top: dispenser2Label.top
+            text: main.dispenser_2_serial_port
+            valId: "dispenser_2_com_port"
+            validator: null
+            label: ""
+          }
+
+          UM.Label {  // dispenser 2 connection state
+            id: dispenser2StateLabel
+            text: base.dispenser2Connected ? "Connected" : "Not Connected"
+            color: base.dispenser2Connected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
+            font: UM.Theme.getFont("small")
+            anchors.right: parent.right
+            anchors.top: dispenser2Entry.bottom
             anchors.topMargin: UM.Theme.getSize("default_lining").height
           }
         }

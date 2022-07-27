@@ -28,7 +28,9 @@ from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
 
 from .Converter import Converter
-from .PrinterAttributes import PrintSurface, ExtruderArray
+from .DispenserManager import DispenserManager
+from .PrinterAttributes import PrintSurface
+from .UltimusV import UltimusV
 
 catalog = i18nCatalog("cura")
 
@@ -53,7 +55,6 @@ class FisnarRobotExtension(QObject, Extension):
         self.preferences = self._application.getPreferences()
         default_preferences = {
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
-            "extruder_outputs": [None, None, None, None],
             "com_port": None,
             "dispenser_com_ports": {"dispenser_1": None, "dispenser_2": None},
             "pick_location": (0.0, 0.0, 0.0),
@@ -70,8 +71,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         # internal printing preference values
         self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
-        self.num_active_extruders = None
-        self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
         self.com_port = None
 
         # internal pick and place preference values
@@ -129,9 +128,13 @@ class FisnarRobotExtension(QObject, Extension):
         self.dispenser_manager = DispenserManager()
         self.dispenser_manager.addDispenser(UltimusV("dispenser_1"))
         self.dispenser_manager.addDispenser(UltimusV("dispenser_2"))
+        self.dispenser_manager.dispenserConnectionStatesUpdated.connect(self._onDispenserConnectStateUpdated)
 
         # setting setting values to values stored in preferences
         self.updateFromPreferencedValues()
+
+    def getDispenserManager(self):
+        return self.dispenser_manager
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
@@ -195,8 +198,6 @@ class FisnarRobotExtension(QObject, Extension):
 
         if pref_dict.get("print_surface", None) is not None:
             self.print_surface.updateFromTuple(pref_dict["print_surface"])
-        if pref_dict.get("extruder_outputs", None) is not None:
-            self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
         if pref_dict.get("com_port", -1) != -1:
             self.com_port = pref_dict["com_port"]
         if pref_dict.get("dispenser_com_ports", -1) != -1:
@@ -225,9 +226,8 @@ class FisnarRobotExtension(QObject, Extension):
         # update the stored preference values from the user entered values
         new_pref_dict = {
             "print_surface": self.print_surface.getAsTuple(),
-            "extruder_outputs": self.extruder_outputs.getAsTuple(),
             "com_port": self.com_port,
-            "dispenser_com_ports": self.dispenser_com_ports,
+            "dispenser_com_ports": self.dispenser_manager.getPortNameDict(),
             "pick_location": self.pick_location,
             "place_location": self.place_location,
             "vacuum_pressure": self.vacuum_pressure,
@@ -388,104 +388,6 @@ class FisnarRobotExtension(QObject, Extension):
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
-    numActiveExtrudersChanged = pyqtSignal()
-    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
-    def num_extruders(self):
-        # called by qml to get the number of active extruders in Cura
-        return self.num_active_extruders
-
-    # signal for updating extruder values
-    extruderOutputsChanged = pyqtSignal()
-
-# ==================== Extruder 1 setter/getter system ===================
-    def setExt1Out(self, output):
-        # extruder 1 output setter
-        if output == "None" or output == None or output == 0:
-            self.extruder_outputs.setOutput(1, None)
-        else:
-            self.extruder_outputs.setOutput(1, int(output))
-
-    def getExt1OutInd(self):
-        # extruder 1 output index getter
-        output = self.extruder_outputs.getOutput(1)
-        if output == None:
-            return 0
-        else:
-            return output
-
-    ext_1_output_ind = pyqtProperty(int, fset=setExt1Out, fget=getExt1OutInd, notify=extruderOutputsChanged)
-
-# ==================== Extruder 2 setter/getter system ===================
-    def setExt2Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(2, None)
-        else:
-            self.extruder_outputs.setOutput(2, int(output))
-
-    def getExt2OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(2)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_2_output_ind = pyqtProperty(int, fset=setExt2Out, fget=getExt2OutInd, notify=extruderOutputsChanged)
-
-# ==================== Extruder 3 setter/getter system ===================
-    def setExt3Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(3, None)
-        else:
-            self.extruder_outputs.setOutput(3, int(output))
-
-    def getExt3OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(3)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_3_output_ind = pyqtProperty(int, fset=setExt3Out, fget=getExt3OutInd, notify=extruderOutputsChanged)
-
-# ==================== Extruder 4 setter/getter system ===================
-    def setExt4Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(4, None)
-        else:
-            self.extruder_outputs.setOutput(4, int(output))
-
-    def getExt4OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(4)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_4_output_ind = pyqtProperty(int, fset=setExt4Out, fget=getExt4OutInd, notify=extruderOutputsChanged)
-# ============================================================================
-
-    @pyqtSlot(int, int)
-    def setExtruderOutput(self, extruder_num, output_val):
-        # slot for qml to set the output associated with one of the extruders
-        if extruder_num == 1:
-            self.setExt1Out(output_val)
-        elif extruder_num == 2:
-            self.setExt2Out(output_val)
-        elif extruder_num == 3:
-            self.setExt3Out(output_val)
-        elif extruder_num == 4:
-            self.setExt4Out(output_val)
-        else:  # throw a warning and return
-            Logger.log("w", "Out of range extruder number set in setExtruderOutput(): " + str(extruder_num))
-            return
-        self.updatePreferencedValues()
-
 # ==================== COM port name setter/getter system ===================
     comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
     @pyqtProperty(str, notify=comPortNameUpdated)
@@ -502,21 +404,24 @@ class FisnarRobotExtension(QObject, Extension):
         self.comPortNameUpdated.emit()
         self.updatePreferencedValues()
 
-# =========== dispenser 1 serial port ===================================================
-    dispenser1SerialPortUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=dispenser1SerialPortUpdated)
+# =========== dispenser serial ports ======================================
+    dispenserSerialPortUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
     def dispenser_1_serial_port(self):
-        return str(self.dispenser_manager.getPortName("dispenser_1"))
+        return str(self.dispenser_manager.getDispenser("dispenser_1").getComPort())
 
-# =========== dispenser 2 serial port =============================================
-    dispenser2SerialPortUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=dispenser2SerialPortUpdated)
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
     def dispenser_2_serial_port(self):
-        return str(self.dispener_manager.getPortName("dispenser_2"))
+        return str(self.dispenser_manager.getDispenser("dispenser_1").getComPort())
 
-    @pyqtSlot(int, str)
-    def updateDispenserPortName(self, dispenser, port_name):
-        self.dispenser_com_ports[dispenser - 1] = port_name
+    @pyqtSlot(str, str)
+    def updateDispenserPortName(self, dispenser_name, port_name):
+        disp = self.dispenser_manager.getDispenser(dispenser_name)
+        if disp is not None:
+            if port_name == "None":
+                disp.setComPort(None)
+            else:
+                disp.setComPort(port_name)
 
 # ========== fisnar connection status ======================================
     fisnarConnectionStatusChanged = pyqtSignal()
@@ -530,6 +435,9 @@ class FisnarRobotExtension(QObject, Extension):
         return self.fisnar_connected
 
 # ========= dispenser connection states =====================================
+    def _onDispenserConnectStateUpdated(self):  # TODO: connect the two signals more cleanly
+        self.dispenserConnectionStatusChanged.emit()
+
     dispenserConnectionStatusChanged = pyqtSignal()
     def setDispenserConnectionState(self, dispenser_name, state):
         if state != self.dispenser_manager.isConnected(dispenser_name):
@@ -538,7 +446,13 @@ class FisnarRobotExtension(QObject, Extension):
 
     @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
     def dispenser_1_connection_state(self):
-        status =
+        status = self.dispenser_manager.isConnected("dispenser_1")
+        return False if not isinstance(status, bool) else status
+
+    @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
+    def dispenser_2_connection_state(self):
+        status = self.dispenser_manager.isConnected("dispenser_2")
+        return False if not isinstance(status, bool) else status
 
 # ==========================================================================
 
@@ -546,13 +460,8 @@ class FisnarRobotExtension(QObject, Extension):
         # Logger.log("i", "Define setup window called")  # test
 
         if not self.define_setup_window:
-            self.num_active_extruders = 1  # default val for the split second after the window is created and before it is updated
-            self.define_setup_window = self._createDialogue("define_setup_window.qml")
+            self.define_setup_window = self._createDialogue("DefineSetupWindow.qml")
         self.define_setup_window.show()
-
-        # update num active extruders value and in ui after opening window
-        self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
-        self.numActiveExtrudersChanged.emit()
 
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test

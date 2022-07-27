@@ -13,7 +13,6 @@ from UM.Resources import Resources
 from UM.Logger import Logger
 from UM.Message import Message
 from .Converter import Converter
-from .DispenserManager import DispenserManager
 from .FisnarCommands import FisnarCommands
 from .FisnarCSVWriter import FisnarCSVWriter
 from .FisnarRobotExtension import FisnarRobotExtension
@@ -76,7 +75,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setIconName("print")
 
         # Fisnar command storage/tracking during printing
-        self._fisnar_commands = []  # type: list[bytes]
+        self._printing_commands = []  # type: list[list[str, bytes]] (fisnar/dispenser mixed command format)
         self._current_index = 0
 
         # Fisnar/dispenser command storage tracking for pick and place
@@ -104,7 +103,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         # for connecting to serial port
         self._serial = None  # type: serial.Serial
-        self._serial_port_name = None  # type: str or None
+        self._fisnar_serial_port_name = None  # type: str or None
         self._timeout = 3
         self._baud_rate = 115200
 
@@ -116,11 +115,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._y_feedback_received = Event()
         self._z_feedback_received = Event()
 
-        # for connecting to dispenser
-        self.dispenser_manager = DispenserManager()
-        self.dispenser_manager.addDispenser(UltimusV())
-        self.dispenser_manager.addDispenser(UltimusV())
-
         # for showing monitor while printing
         self._plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
         self._monitor_view_qml_path = os.path.join(self._plugin_path, "resources", "qml", "MonitorItem.qml")
@@ -128,7 +122,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # update thread for printing
         self._update_thread = Thread(target=self._update, daemon=True, name="FisnarRobotPlugin RS232 Control")
 
+        # fre instance
         self._fre_instance = FisnarRobotExtension.getInstance()
+        self._dispenser_manager = self._fre_instance.getDispenserManager()
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
@@ -140,7 +136,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if self._connection_state == ConnectionState.Connected:
                 self.stopPrintingAndFinalize()  # print is already stopped but doesn't matter
             self.close()
-            self.dispenser_1.close()
+            self._dispenser_manager.closeAll()
             application.triggerNextExitCheck()
             return
 
@@ -152,7 +148,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if result:
             self.stopPrintingAndFinalize()
             self.close()  # ensuring fisnar is finalized and port is closed when exiting app
-            self.dispenser_1.close()
+            self._dispenser_manager.closeAll()
             CuraApplication.getInstance().triggerNextExitCheck()
 
     def setConnectionState(self, connection_state):
@@ -168,18 +164,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 if global_stack is not None:
                     global_stack.setMetaDataEntry("is_online", self.isConnected())
             self.connectionStateChanged.emit(self._id)
-
-    def _onConfirmDispenser1Connected(self):
-        # ensure the dispenser is still connected
-        if self.dispenser_1.isConnected() and not self._pick_place_in_progress:  # is connected and dispenser isn't being used
-            still_connected = self.dispenser_1.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
-            if not still_connected:
-                Logger.log("w", "dispenser_1 appears to be unresponsive, attempting to confirm connection status")
-                msg = Message(text = catalog.i18nc("@message", "Ultimus V dispenser_1 is unresponsive, will attempt to regain connection..."),
-                              title = catalog.i18nc("@message", "Unresponsive Peripheral"))
-                msg.show()
-                self.dispenser_1.close()
-                self._fre_instance.setDispenser1ConnectionState(False)
 
     def requestWrite(self, nodes, file_name=None, limit_mimetypes=False, file_handler=None, filter_by_machine=False, **kwargs):
         # called when 'Print Over RS232' button is pressed - all parameters are ignored.
@@ -218,16 +202,16 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         # updating fisnar command bytes from fisnar_command_csv
         commands = Converter.readFisnarCommandsFromCSV(fisnar_command_csv)
-        self._fisnar_commands.clear()
+        self._printing_commands.clear()
 
         for command in commands:
             if command[0] == "Dummy Point":
-                self._fisnar_commands.append(FisnarCommands.VA(command[1], command[2], command[3]))
-                self._fisnar_commands.append(FisnarCommands.ID())
-            elif command[0] == "Output":
-                self._fisnar_commands.append(FisnarCommands.OU(command[1], command[2]))
+                self._printing_commands.append(FisnarCommands.VA(command[1], command[2], command[3]))
+                self._printing_commands.append(FisnarCommands.ID())
+            elif command[0] == "Output":  # output 1 means dispenser 1, output 2 means dispenser 2
+                self._printing_commands.append(FisnarCommands.OU(command[1], command[2]))
             elif command[0] == "Line Speed":
-                self._fisnar_commands.append(FisnarCommands.SP(command[1]))
+                self._printing_commands.append(FisnarCommands.SP(command[1]))
             elif command[0] == "End Program":
                 pass
             else:
@@ -242,8 +226,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
         for i in range(2):
             self._sendNextFisnarLine()  # push the first command to start the ok loop
 
-        # Logger.log("d", "end of _printFisnarCommands")  # test
-
     def stopPrintingAndFinalize(self):
         # stop printing and finalize the Fisnar
         self.setPrintingState(False)  # ensure not printing
@@ -257,12 +239,12 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def connect(self, serial_name):
         # try to establish serial connection and store Serial object. called whenever a print is started
         Logger.log("i", "Attempting to connect to Fisnar...")
-        self._serial_port_name = serial_name
+        self._fisnar_serial_port_name = serial_name
 
         if self._serial is None:
             try:
-                self._serial = Serial(self._serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
-                Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if fisnar is on...")
+                self._serial = Serial(self._fisnar_serial_port_name, self._baud_rate, timeout=self._timeout, writeTimeout=self._timeout)
+                Logger.log("i", f"Serial port {self._fisnar_serial_port_name} is open. Testing if fisnar is on...")
             except SerialException:  # exception thrown - probably not plugged in
                 Logger.log("w", "Exception occured when trying to create serial connection")
                 printing_msg = Message(text = catalog.i18nc("@message", "Unable to connect to Fisnar serial port. Ensure proper port is selected."),
@@ -405,6 +387,12 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if len(command) > 2 and command[:2] == bytes("OU", "ascii"):  # is an output command - assumes format 'OU n, s'
             self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
 
+            success = self._dispenser_manager.getDispenser("dispenser_" + str(chr(command[3]))).sendCommand(UltimusV.dispenseToggle())
+            if not success:
+                # TODO: throw error here, probably stop print
+                Logger.log("w", f"unable to communicate with dispenser unit 'dispenser_{chr(command[3])}'")
+            return
+
         # actually sending bytes
         try:
             if command != FisnarCommands.finalizer():  # finalizer has no response, so don't set flag to wait for one
@@ -420,7 +408,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     def _sendNextFisnarLine(self):
         try:
-            command_bytes = self._fisnar_commands[self._current_index]
+            command_bytes = self._printing_commands[self._current_index]
         except IndexError:  # done printing!
             Logger.log("i", "Fisnar done with print.")
 
@@ -447,8 +435,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if self._outputs.allOff():  # all outputs currently off
                 self._current_index += 1
 
-                while not (self._fisnar_commands[self._current_index].startswith(bytes("OU", "ascii")) and self._fisnar_commands[self._current_index][-2] == ord("0")):  # while not an output off command
-                    Logger.log("d", str(self._current_index) + ", " + str(self._fisnar_commands[self._current_index]))
+                while not (self._printing_commands[self._current_index].startswith(bytes("OU", "ascii")) and self._printing_commands[self._current_index][-2] == ord("0")):  # while not an output off command
+                    Logger.log("d", str(self._current_index) + ", " + str(self._printing_commands[self._current_index]))
                     if self._va_register_count >= 100:  # if fully registered, purge
                         self.sendCommand(FisnarCommands.OU(current_output, 1))
                         self.sendCommand(FisnarCommands.ID())
@@ -456,25 +444,25 @@ class FisnarOutputDevice(PrinterOutputDevice):
                         self.sendCommand(FisnarCommands.OU(current_output, 0))
                         self.printProgressUpdated.emit()  # after every visual 'chunk', update progress
 
-                    if self._fisnar_commands[self._current_index].startswith(bytes("VA", "ascii")):
-                        self.sendCommand(self._fisnar_commands[self._current_index])
+                    if self._printing_commands[self._current_index].startswith(bytes("VA", "ascii")):
+                        self.sendCommand(self._printing_commands[self._current_index])
                         self._va_register_count += 1
                         self._current_index += 1
-                    elif self._fisnar_commands[self._current_index].startswith(bytes("OU", "ascii")):  # this would be an output on command - should never happen, but check just in case
+                    elif self._printing_commands[self._current_index].startswith(bytes("OU", "ascii")):  # this would be an output on command - should never happen, but check just in case
                         Logger.log("w", "multiple output on's received with no output off's")
-                    elif self._fisnar_commands[self._current_index].startswith(bytes("ID", "ascii")):
+                    elif self._printing_commands[self._current_index].startswith(bytes("ID", "ascii")):
                         self._current_index += 1  # just ignore ID() commands for now
-                    elif self._fisnar_commands[self._current_index].startswith(bytes("SP", "ascii")):  # also purge if speed changes.
+                    elif self._printing_commands[self._current_index].startswith(bytes("SP", "ascii")):  # also purge if speed changes.
                         self.sendCommand(FisnarCommands.OU(current_output, 1))
                         self.sendCommand(FisnarCommands.ID())  # execute movements with old speed
                         self._va_register_count = 0
                         self.sendCommand(FisnarCommands.OU(current_output, 0))
-                        self.sendCommand(self._fisnar_commands[self._current_index])  # update speed afterwards
+                        self.sendCommand(self._printing_commands[self._current_index])  # update speed afterwards
                         self._current_index += 1
                         self.printProgressUpdated.emit()
                     else:  # nothing should make it here
-                        Logger.log("w", "unexpected command: " + str(self._fisnar_commands[self._current_index]))
-                        self.sendCommand(self._fisnar_commands[self._current_index])
+                        Logger.log("w", "unexpected command: " + str(self._printing_commands[self._current_index]))
+                        self.sendCommand(self._printing_commands[self._current_index])
                         self._current_index += 1
                         self.printProgressUpdated.emit()
 
@@ -504,8 +492,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         while next_command[0] in ("d", "sleep"):  # synchronously send dispenser commands / time delays
             if next_command[0] == "d":
-                success = self.dispenser_1.sendCommand(next_command[1])
-                if not success:
+                success = self._dispenser_manager.getPickPlaceDispenser().sendCommand(next_command[1])
+                if not success:  # TODO: show error to the user here
                     self.setPickPlaceStatus(False)
                     self._resetPickAndPlaceInternalState()
                     return
@@ -526,19 +514,33 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     def setPrintingState(self, printing_state):
         if printing_state != self._is_printing:
-            self._is_printing = not self._is_printing
+            self._is_printing = printing_state
+
+            if self._is_printing:  # update business state of dispensers while printing
+                for dispenser in self._dispenser_manager.getDispensers():
+                    dispenser.busy = True
+            else:
+                for dispenser in self._dispenser_manager.getDispensers():
+                    dispenser.busy = False
+
             self.printingStatusUpdated.emit()
 
     def setPickPlaceStatus(self, pick_place_status):
         if self._pick_place_in_progress != pick_place_status:
             self._pick_place_in_progress = pick_place_status
+
+            if self._pick_place_in_progress:  # update 'busy' state of pick and place dispenser
+                self._dispenser_manager.getPickPlaceDispenser().busy = True
+            else:
+                self._dispenser_manager.getPickPlaceDispenser().busy = False
+
             self.pickPlaceStatusUpdated.emit()
 
     def _resetPrintingInternalState(self):
         # resets internal printing state - called after user terminates print
         # or after print is finished. Assumes self._is_printing has already
         # been set to false
-        self._fisnar_commands.clear()
+        self._printing_commands.clear()
         self._current_index = 0
         self.printProgressUpdated.emit()  # reset UI
 
@@ -550,7 +552,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     def _getPrintingProgress(self):
         try:
-            return self._current_index / len(self._fisnar_commands)
+            return self._current_index / len(self._printing_commands)
         except ZeroDivisionError:
             return None  # print hasn't started yet
 
@@ -565,9 +567,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # start pick and place procedure
 
         # TODO: ensure parameters and connections are such that pick and place can be done
-        if not self.dispenser_1.isConnected():  # if dispenser not connected
+        if not self._dispenser_manager.getPickPlaceDispenser().isConnected():  # if dispenser not connected
             Logger.log("w", "Pick and place dispenser is not open, pick and place execution terminated.")
-            msg = Message(text = catalog.i18nc("@message", "The UltimusV dispenser at " + str(self._fre_instance.dispenser_1_com_port) + " is not connected. Ensure the proper serial port is selected and the dispenser is on"),
+            msg = Message(text = catalog.i18nc("@message", f"UltimusV dispenser '{self._dispenser_manager.getPickPlaceDispenser().name}' at {self._dispenser_manager.getPickPlaceDispenser().getComPort()} is not connected. Ensure the proper serial port is selected and the dispenser is on"),
                           title = catalog.i18nc("@message", "Unable to Execute Pick and Place"))
             msg.show()
             return
@@ -672,7 +674,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._resetPickAndPlaceInternalState()
 
         self.sendCommand(FisnarCommands.HM())
-        self.dispenser_1.sendCommand(UltimusV.setVacuum(0, PressureUnits.V_KPA))
+        self._dispenser_manager.getPickPlaceDispenser().sendCommand(UltimusV.setVacuum(0, PressureUnits.V_KPA))
 
 # ----------------- pick location property setup -----------------------------
     pickXUpdated = pyqtSignal()
@@ -796,6 +798,27 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.reps = int(reps)
         self._fre_instance.updatePreferencedValues()
 
+# -------------- dispenser for pick and place ------------------------
+    dispenserListUpdated = pyqtSignal()
+    @pyqtProperty(list, notify=dispenserListUpdated)
+    def dispenser_list(self):
+        ret_list = []
+        dispensers = self._dispenser_manager.getDispensers()
+        for dispenser in dispensers:
+            if dispenser.isConnected():
+                ret_list.append(dispenser.name)
+
+        return ret_list
+
+    pickPlaceDispenserUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickPlaceDispenserUpdated)
+    def pick_place_dispenser(self):
+        return str(self._dispenser_manager.getPickPlaceDispenserName())
+
+    @pyqtSlot(str)
+    def setPickPlaceDispenser(self, name):
+        self._dispenser_manager.setPickPlaceDispenser(name)
+
 # ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()
@@ -825,11 +848,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
     @pyqtProperty(bool, notify=pickPlaceStatusUpdated)
     def pick_place_status(self):
         return self._pick_place_in_progress
-
-    dispenser1StatusUpdated = pyqtSignal()
-    @pyqtProperty(bool, notify=dispenser1StatusUpdated)
-    def dispenser_1_connected(self):
-        return self.dispenser_1.isConnected()
 
     printingStatusUpdated = pyqtSignal()
     @pyqtProperty(bool, notify=printingStatusUpdated)
