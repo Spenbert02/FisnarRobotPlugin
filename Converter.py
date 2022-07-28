@@ -375,16 +375,8 @@ class Converter:
         return ret_string
 
     @staticmethod
-    def fisnarCommandsToTaggedBytes(self, fisnar_commands):
-        # from a 2d-array of fisnar commands, get a 2d array of bytes
-        # in the 'tagged' format:
-        # [ ["fisnar", <example command bytes>],
-        #   ["dispenser_1", <example command bytes>],
-        #   .
-        #   .
-        #   .
-        # ]
-        #
+    def fisnarCommandsToBytes(fisnar_commands):
+        # from a 2d-array of fisnar commands, get an array of fisnar command bytes
         # assumes that whichever dipsenser(s) appear in the fisnar commands are
         # connected
 
@@ -393,38 +385,38 @@ class Converter:
         while i < len(fisnar_commands):
             if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:
                 output = fisnar_commands[i][1]
-                dispenser = "dispenser_" + str(output)
                 i += 1
                 consecutive_dummies = 0
                 while i < len(fisnar_commands) and fisnar_commands[i][0] == "Dummy Point":
                     if consecutive_dummies >= 99:
-                        ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output on
-                        ret_bytes.append(["fisnar", FisnarCommands.ID()])
-                        ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output off
+                        ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                        ret_bytes.append(FisnarCommands.ID())
+                        ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
                         consecutive_dummies = 0
 
-                    ret_bytes.append(["fisnar", FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3])])
+                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
                     i += 1
                     consecutive_dummies += 1
 
                 line_speed = fisnar_commands[i][1]
                 i += 2  # skip the output command that comes afterward
 
-                ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output on
-                ret_bytes.append(["fisnar", FisnarCommands.ID()])
-                ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output off
-                ret_bytes.append(["fisnar", FisnarCommands.SP(line_speed)])
+                ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                ret_bytes.append(FisnarCommands.ID())
+                ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
+                ret_bytes.append(FisnarCommands.SP(line_speed))
             else:
                 if fisnar_commands[i][0] == "Dummy Point":
-                    ret_bytes.append(["fisnar", FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3])])
-                    ret_bytes.append(["fisnar", FisnarCommands.ID()])
+                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                    ret_bytes.append(FisnarCommands.ID())
                     i += 1
-                elif fisnar_commands[i][1] == "Line Speed":
-                    ret_bytes.append(["fisnar", FisnarCommands.SP(fisnar_commands[i][1])])
+                elif fisnar_commands[i][0] == "Line Speed":
+                    ret_bytes.append(FisnarCommands.SP(fisnar_commands[i][1]))
                     i += 1
                 else:
                     Logger.log("w", "unaccounted for command in fisnar_commands: " + str(fisnar_commands[i]))
                     i += 1
+        return ret_bytes
 
     @staticmethod
     def readFisnarCommandsFromCSV(csv_string):

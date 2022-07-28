@@ -31,16 +31,27 @@ class DispenserManager:
         self.dispenserConnectionStatesUpdated.emit()
 
     def _onConfirmConnectionTimeout(self):
+        pass
+        # for dispenser in self._dispensers:
+        #     if dispenser.isConnected() and not dispenser.busy:
+        #         still_connected = dispenser.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
+        #         if not still_connected:
+        #             Logger.log("w", str(dispenser.name) + " appears to be unresponsive, attempting to confirm connection status")
+        #             msg = Message(text = catalog.i18nc("@message", str(dispenser.name) + " is unresponsive, will attempt to regain connection..."),
+        #                           title = catalog.i18nc("@message", "Unresponsive Peripheral"))
+        #             msg.show()
+        #             dispenser.close()
+        #             self.dispenserConnectionStatesUpdated.emit()
+
+    def sendComplete(self):
         for dispenser in self._dispensers:
-            if dispenser.isConnected() and not dispenser.busy:
-                still_connected = dispenser.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
-                if not still_connected:
-                    Logger.log("w", str(dispenser.name) + " appears to be unresponsive, attempting to confirm connection status")
-                    msg = Message(text = catalog.i18nc("@message", str(dispenser.name) + " is unresponsive, will attempt to regain connection..."),
-                                  title = catalog.i18nc("@message", "Unresponsive Peripheral"))
-                    msg.show()
-                    dispenser.close()
-                    self.dispenserConnectionStatesUpdated.emit()
+            if dispenser.command_send_complete.is_set():
+                return True
+        return False
+
+    def clear(self):
+        for dispenser in self._dispensers:
+            dispenser.command_send_complete.clear()
 
     def addDispenser(self, dispenser):
         if dispenser not in self._dispensers and isinstance(dispenser, UltimusV):

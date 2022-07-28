@@ -91,7 +91,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
-        self._dispenser_command_confirmed = Event()  # for integrating dispenser commands with fisnar commands
 
         self._empty_byte_count = 0
         self._connect_confirm_received = Event()  # for tracking whether the fisnar is still connected
@@ -188,6 +187,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         if self._connection_state == ConnectionState.Connected:  # if successfully connected
+            # TODO: also check for necessary dispenser connections here
             # Logger.log("d", "Serial port created, _printFisnarCommands() called")
             self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
         else:  # not connected
@@ -202,19 +202,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # updating fisnar command bytes from fisnar_command_csv
         commands = Converter.readFisnarCommandsFromCSV(fisnar_command_csv)
         self._printing_commands.clear()
-
-        for command in commands:
-            if command[0] == "Dummy Point":
-                self._printing_commands.append(FisnarCommands.VA(command[1], command[2], command[3]))
-                self._printing_commands.append(FisnarCommands.ID())
-            elif command[0] == "Output":  # output 1 means dispenser 1, output 2 means dispenser 2
-                self._printing_commands.append(FisnarCommands.OU(command[1], command[2]))
-            elif command[0] == "Line Speed":
-                self._printing_commands.append(FisnarCommands.SP(command[1]))
-            elif command[0] == "End Program":
-                pass
-            else:
-                Logger.log("w", "Unrecognized command found when uploading over Serial port: " + str(command[0]))
+        self._printing_commands = Converter.fisnarCommandsToBytes(commands)
 
         self._current_index = 0  # resetting command index
 
@@ -275,6 +263,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
                 self.home()
                 return
 
+        self._sendCommand(FisnarCommands.finalizer())  # in case couldn't connect because already initialized
         self.close()  # escaped the while loop, so failed to initialize
         Logger.log("w", "Fisnar failed to initialize...")
 
@@ -301,23 +290,44 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
             Logger.log("d", "command received: " + str(curr_line))
 
-            if curr_line == bytes():
-                if self._connect_confirm_received.is_set():  # not already confirming
-                    self._empty_byte_count += 1
-                    if self._empty_byte_count >= 5:  # send connect confirmation command and wait for return bytes
-                        Logger.log("i", "fisnar may be unresponsive, will attempt to confirm connection status")
+            if curr_line.startswith(b"ok!") or self._dispenser_manager.sendComplete():
+                self._dispenser_manager.clear()
+                self._empty_byte_count = 0
+                self._command_received.set()
+                if not self._button_move_confirm_received.is_set():  # need to update position
+                    self._button_move_confirms_received += 1
+                    if self._button_move_confirms_received == 2:
+                        self._button_move_confirms_received = 0
+                        self._button_move_confirm_received.set()
+                        self._x_feedback_received.clear()  # this will trigger the PX->PY->PZ 'cascade'
                         self.sendCommand(FisnarCommands.PX())
-                        self._connect_confirm_send_time = time.time()
-                        self._connect_confirm_received.clear()
-                        self._empty_byte_count = 0
-                else:  # trying to confirm
-                    if time.time() - self._connect_confirm_send_time > 5.0:  # 10 sec since sending confirm command
-                        Logger.log("w", "fisnar unresponsive, will disconnect and attempt to reconnect")
-                        self._connect_confirm_received.set()  # reset in case it reconnects and begins checking again
-                        msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N is unresponsive, will attempt to regain connection..."),
-                                      title = catalog.i18nc("@message", "Unresponsive Peripheral"))
-                        msg.show()
-                        self.close()
+
+                if not self._command_queue.empty():
+                    self._sendCommand(self._command_queue.get())
+                elif self._is_printing:  # still printing but queue is empty
+                    if not self._is_paused:
+                        self._sendNextFisnarLine()
+                elif self._pick_place_in_progress:
+                    self._sendNextPickPlaceCommand()
+
+            elif curr_line == bytes():
+                pass
+                # if self._connect_confirm_received.is_set():  # not already confirming
+                #     self._empty_byte_count += 1
+                #     if self._empty_byte_count >= 5:  # send connect confirmation command and wait for return bytes
+                #         Logger.log("i", "fisnar may be unresponsive, will attempt to confirm connection status")
+                #         self.sendCommand(FisnarCommands.PX())
+                #         self._connect_confirm_send_time = time.time()
+                #         self._connect_confirm_received.clear()
+                #         self._empty_byte_count = 0
+                # else:  # trying to confirm
+                #     if time.time() - self._connect_confirm_send_time > 5.0:  # 10 sec since sending confirm command
+                #         Logger.log("w", "fisnar unresponsive, will disconnect and attempt to reconnect")
+                #         self._connect_confirm_received.set()  # reset in case it reconnects and begins checking again
+                #         msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N is unresponsive, will attempt to regain connection..."),
+                #                       title = catalog.i18nc("@message", "Unresponsive Peripheral"))
+                #         msg.show()
+                #         self.close()
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
                 self._empty_byte_count = 0
                 # Logger.log("d", str(curr_line))
@@ -343,25 +353,6 @@ class FisnarOutputDevice(PrinterOutputDevice):
                     # Logger.log("d", "fisnar z updated: " + str(self._most_recent_position[2]))
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
-            elif curr_line.startswith(b"ok!") or self._dispenser_command_confirmed.is_set():
-                self._dispenser_command_confirmed.clear()
-                self._empty_byte_count = 0
-                self._command_received.set()
-                if not self._button_move_confirm_received.is_set():  # need to update position
-                    self._button_move_confirms_received += 1
-                    if self._button_move_confirms_received == 2:
-                        self._button_move_confirms_received = 0
-                        self._button_move_confirm_received.set()
-                        self._x_feedback_received.clear()  # this will trigger the PX->PY->PZ 'cascade'
-                        self.sendCommand(FisnarCommands.PX())
-
-                if not self._command_queue.empty():
-                    self._sendCommand(self._command_queue.get())
-                elif self._is_printing:  # still printing but queue is empty
-                    if not self._is_paused:
-                        self._sendNextFisnarLine()
-                elif self._pick_place_in_progress:
-                    self._sendNextPickPlaceCommand()
 
         if self._is_printing:  # connection broken
             self.terminatePrint()
@@ -385,14 +376,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         Logger.log("d", "command sent: " + str(command))
         if len(command) > 2 and command[:2] == bytes("OU", "ascii"):  # is an output command - assumes format 'OU n, s'
-            self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
-
-            success = self._dispenser_manager.getDispenser("dispenser_" + str(chr(command[3]))).sendCommand(UltimusV.dispenseToggle())
-            if not success:
-                # TODO: throw error here, probably stop print
-                Logger.log("w", f"unable to communicate with dispenser unit 'dispenser_{chr(command[3])}'")
-            else:
-                self._dispenser_command_confirmed.set()  # to keep the ok! loop going
+            if self._outputs.getOutput(int(chr(command[3]))) != (int(chr(command[6])) == 1):  # if change in output state
+                self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
+                self._dispenser_manager.getDispenser("dispenser_" + str(chr(command[3]))).sendCommand(UltimusV.dispenseToggle())
             return
 
         # actually sending bytes
@@ -429,56 +415,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._resetPrintingInternalState()
             return
 
-        # the below 'if' block is a fix for the delay that occurs when many VA commands are sent sequentially. this effectively registers all consecutive
-        # extruding movement commands at once, and then sends an execute command afterwards so they all execute immediately, instead of registering and
-        # executing each movement individually, which causes significant delays and a lot of overextrusion
-        if command_bytes.startswith(bytes("OU", "ascii")) and command_bytes[-2] == ord("1"):  # if command is output on
-            current_output = int(chr(command_bytes[3]))
-            if self._outputs.allOff():  # all outputs currently off
-                self._current_index += 1
+        self._sendCommand(command_bytes)  # send bytes
 
-                while not (self._printing_commands[self._current_index].startswith(bytes("OU", "ascii")) and self._printing_commands[self._current_index][-2] == ord("0")):  # while not an output off command
-                    Logger.log("d", str(self._current_index) + ", " + str(self._printing_commands[self._current_index]))
-                    if self._va_register_count >= 100:  # if fully registered, purge
-                        self.sendCommand(FisnarCommands.OU(current_output, 1))
-                        self.sendCommand(FisnarCommands.ID())
-                        self._va_register_count = 0
-                        self.sendCommand(FisnarCommands.OU(current_output, 0))
-                        self.printProgressUpdated.emit()  # after every visual 'chunk', update progress
-
-                    if self._printing_commands[self._current_index].startswith(bytes("VA", "ascii")):
-                        self.sendCommand(self._printing_commands[self._current_index])
-                        self._va_register_count += 1
-                        self._current_index += 1
-                    elif self._printing_commands[self._current_index].startswith(bytes("OU", "ascii")):  # this would be an output on command - should never happen, but check just in case
-                        Logger.log("w", "multiple output on's received with no output off's")
-                    elif self._printing_commands[self._current_index].startswith(bytes("ID", "ascii")):
-                        self._current_index += 1  # just ignore ID() commands for now
-                    elif self._printing_commands[self._current_index].startswith(bytes("SP", "ascii")):  # also purge if speed changes.
-                        self.sendCommand(FisnarCommands.OU(current_output, 1))
-                        self.sendCommand(FisnarCommands.ID())  # execute movements with old speed
-                        self._va_register_count = 0
-                        self.sendCommand(FisnarCommands.OU(current_output, 0))
-                        self.sendCommand(self._printing_commands[self._current_index])  # update speed afterwards
-                        self._current_index += 1
-                        self.printProgressUpdated.emit()
-                    else:  # nothing should make it here
-                        Logger.log("w", "unexpected command: " + str(self._printing_commands[self._current_index]))
-                        self.sendCommand(self._printing_commands[self._current_index])
-                        self._current_index += 1
-                        self.printProgressUpdated.emit()
-
-                # send output off and ID, and reset register count
-                self.sendCommand(FisnarCommands.OU(current_output, 1))
-                self.sendCommand(FisnarCommands.ID())
-                self._va_register_count = 0
-                self.sendCommand(FisnarCommands.OU(current_output, 0))
-                self.printProgressUpdated.emit()
-        else:  # just send command like normal
-            self._sendCommand(command_bytes)  # send bytes
-
-            self._current_index += 1  # update current index
-            self.printProgressUpdated.emit()  # recalculate progress and update QML
+        self._current_index += 1  # update current index
+        self.printProgressUpdated.emit()  # recalculate progress and update QML
 
     def _sendNextPickPlaceCommand(self):
         # similar to _sendNextFisnarLine, but is only used for pick and place
