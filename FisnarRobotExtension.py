@@ -8,16 +8,11 @@ import sys
 import threading
 import time
 import zipfile
-
 from typing import Optional, Union, List
-
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
-
 from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty, pyqtSignal
 from PyQt6.QtQml import QQmlComponent, QQmlContext
-
-from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Extension import Extension
 from UM.Logger import Logger
@@ -26,12 +21,12 @@ from UM.Message import Message
 from UM.PluginRegistry import PluginRegistry
 from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
-
 from .Converter import Converter
 from .DispenserManager import DispenserManager
 from .PrinterAttributes import PrintSurface
 from .UltimusV import UltimusV
 
+from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
 class FisnarRobotExtension(QObject, Extension):
@@ -412,16 +407,18 @@ class FisnarRobotExtension(QObject, Extension):
 
     @pyqtProperty(str, notify=dispenserSerialPortUpdated)
     def dispenser_2_serial_port(self):
-        return str(self.dispenser_manager.getDispenser("dispenser_1").getComPort())
+        return str(self.dispenser_manager.getDispenser("dispenser_2").getComPort())
 
     @pyqtSlot(str, str)
     def updateDispenserPortName(self, dispenser_name, port_name):
         disp = self.dispenser_manager.getDispenser(dispenser_name)
         if disp is not None:
+            Logger.log("d", f"********** {dispenser_name} set to port {port_name}")
             if port_name == "None":
                 disp.setComPort(None)
             else:
                 disp.setComPort(port_name)
+        self.updatePreferencedValues()
 
 # ========== fisnar connection status ======================================
     fisnarConnectionStatusChanged = pyqtSignal()

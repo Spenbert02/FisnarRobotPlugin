@@ -271,7 +271,7 @@ UM.Dialog {
 
           UM.Label {  // dispenser 1 connection state
             id: dispenser1StateLabel
-            text: main.dispenser1Connected ? "Connected" : "Not Connected"
+            text: base.dispenser1Connected ? "Connected" : "Not Connected"
             color: base.dispenser1Connected ? UM.Theme.getColor("success") : UM.Theme.getColor("error")
             font: UM.Theme.getFont("small")
             anchors.right: parent.right

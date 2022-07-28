@@ -1,7 +1,6 @@
 import os
 import os.path
 import time
-
 from cura.CuraApplication import CuraApplication
 from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice, ConnectionType, ConnectionState
 from io import StringIO
@@ -21,7 +20,6 @@ from .UltimusV import PressureUnits, UltimusV
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
-
 
 class FisnarOutputTracker:
     # class for tracking output states - this is an independent class because
@@ -93,6 +91,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
         self._command_queue = Queue()  # queue to hold commands to be sent
         self._command_received = Event()  # event that is set when the Fisnar sends 'ok!' and cleared when waiting for an 'ok!' confirm from the Fisnar
+        self._dispenser_command_confirmed = Event()  # for integrating dispenser commands with fisnar commands
 
         self._empty_byte_count = 0
         self._connect_confirm_received = Event()  # for tracking whether the fisnar is still connected
@@ -344,7 +343,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
                     # Logger.log("d", "fisnar z updated: " + str(self._most_recent_position[2]))
                     self._z_feedback_received.set()
                     self.zPosUpdated.emit()
-            elif curr_line.startswith(b"ok!"):
+            elif curr_line.startswith(b"ok!") or self._dispenser_command_confirmed.is_set():
+                self._dispenser_command_confirmed.clear()
                 self._empty_byte_count = 0
                 self._command_received.set()
                 if not self._button_move_confirm_received.is_set():  # need to update position
@@ -391,6 +391,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             if not success:
                 # TODO: throw error here, probably stop print
                 Logger.log("w", f"unable to communicate with dispenser unit 'dispenser_{chr(command[3])}'")
+            else:
+                self._dispenser_command_confirmed.set()  # to keep the ok! loop going
             return
 
         # actually sending bytes

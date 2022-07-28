@@ -53,6 +53,7 @@ class UltimusV(Peripheral):
         if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):
             return False
 
+        Logger.log("d", "command: " + str(command_bytes))
         number_bytes = UltimusV.intToHexBytes(len(command_bytes))
         bytes_to_send = UltimusV.ENQ + UltimusV.STX + number_bytes + command_bytes + self._checksum(number_bytes + command_bytes) + UltimusV.ETX + UltimusV.EOT
         self._serial.write(bytes_to_send)
@@ -62,6 +63,7 @@ class UltimusV(Peripheral):
         if len(ret_bytes) >= 6 and ret_bytes[4:6] == UltimusV.success():  # 'A0' recieved, command was success
             return True
         else:  # failure
+            self.close()
             return False
 
     def sendFeedbackCommand(self, command_bytes):
@@ -88,13 +90,13 @@ class UltimusV(Peripheral):
                 Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if the UltimusV dispenser is on...")
             except SerialException:
                 Logger.log("w", "Exception occured when trying to create serial connection")
-                err_msg = Message(text = catalog.i18nc("@message", "Unable to connect to dispenser serial port. Ensure proper port is selected"),
+                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
                                   title = catalog.i18nc("@message", "Serial Port Error"))
                 err_msg.show()
                 return
             except OSError as e:
                 Logger.log("w", f"The serial device is suddenly unavailable when trying to connect: {str(e)}")
-                err_msg = Message(text = catalog.i18nc("@message", "Unable to connect to dispenser serial port. Ensure proper port is selected"),
+                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
                                   title = catalog.i18nc("@message", "Serial Port Error"))
                 err_msg.show()
                 return

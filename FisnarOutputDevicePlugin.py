@@ -1,11 +1,9 @@
 import threading
 import time
-
 from cura.CuraApplication import CuraApplication
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.OutputDevice.OutputDevicePlugin import OutputDevicePlugin
-
 from .FisnarOutputDevice import FisnarOutputDevice
 from .FisnarRobotExtension import FisnarRobotExtension
 

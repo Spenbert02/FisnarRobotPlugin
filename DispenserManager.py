@@ -1,10 +1,12 @@
 from cura.PrinterOutput.Peripheral import Peripheral
 from PyQt6.QtCore import QTimer
+from UM.Logger import Logger
 from UM.Message import Message
 from UM.Signal import Signal
-
 from .UltimusV import UltimusV, PressureUnits
 
+from UM.i18n import i18nCatalog
+catalog = i18nCatalog("cura")
 
 class DispenserManager:
     # a class that holds multiple UltimusV objects that has methods for
@@ -52,6 +54,7 @@ class DispenserManager:
         ret_dict = {}
         for dispenser in self._dispensers:
             ret_dict[dispenser.name] = None if dispenser.getComPort() in (None, "None") else dispenser.getComPort()
+        Logger.log("d", "********** " + str(ret_dict))
         return ret_dict
 
     def isConnected(self, dispenser_name):
