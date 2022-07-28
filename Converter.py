@@ -1,16 +1,16 @@
 import copy
-
+from .FisnarCommands import FisnarCommands
 from .gcodeBuddy.marlin import Command
 from .PrinterAttributes import PrintSurface
+from .UltimusV import UltimusV
 
 from UM.Logger import Logger
 
 
 class Converter:
-    # class that facilitates the conversion of gcode commands into Fisnar
-    # commands
+    # class that facilitates the translation of commands between gcode and
+    # fisnar commands in several different formats
 
-    # movement commands
     XYZ_COMMANDS = ("Dummy Point", "Line Start", "Line Passing", "Line End")
 
     def __init__(self):
@@ -131,8 +131,9 @@ class Converter:
         # put home coordinates into home dummy point
         fisnar_commands[1] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
 
-        # removing redundant output commands
+        # removing redundant output and line speed commands
         Converter.optimizeFisnarOutputCommands(fisnar_commands)
+        Converter.optimizeLineSpeedCommands(fisnar_commands)  # ensures no consectuive line speed commands
 
         return fisnar_commands
 
@@ -152,6 +153,18 @@ class Converter:
                     Logger.log("e", f"command found outside user-defined build volume: {str(command)}")
                     return False
         return True  # functioned hasn't returned False, so all good
+
+    @staticmethod
+    def optimizeLineSpeedCommands(fisnar_commands):
+        i = len(fisnar_commands) - 1
+        while i >= 0:
+            if fisnar_commands[i][0] == "Line Speed":
+                i -= 1
+                while fisnar_commands[i][0] == "Line Speed":
+                    fisnar_commands.pop(i)
+                    i -= 1
+            else:
+                i -= 1
 
     @staticmethod
     def g0g1NoIO(command, next_command, curr_pos):
@@ -360,6 +373,58 @@ class Converter:
                     ret_string += ","
 
         return ret_string
+
+    @staticmethod
+    def fisnarCommandsToTaggedBytes(self, fisnar_commands):
+        # from a 2d-array of fisnar commands, get a 2d array of bytes
+        # in the 'tagged' format:
+        # [ ["fisnar", <example command bytes>],
+        #   ["dispenser_1", <example command bytes>],
+        #   .
+        #   .
+        #   .
+        # ]
+        #
+        # assumes that whichever dipsenser(s) appear in the fisnar commands are
+        # connected
+
+        ret_bytes = []
+        i = 0
+        while i < len(fisnar_commands):
+            if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:
+                output = fisnar_commands[i][1]
+                dispenser = "dispenser_" + str(output)
+                i += 1
+                consecutive_dummies = 0
+                while i < len(fisnar_commands) and fisnar_commands[i][0] == "Dummy Point":
+                    if consecutive_dummies >= 99:
+                        ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output on
+                        ret_bytes.append(["fisnar", FisnarCommands.ID()])
+                        ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output off
+                        consecutive_dummies = 0
+
+                    ret_bytes.append(["fisnar", FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3])])
+                    i += 1
+                    consecutive_dummies += 1
+
+                line_speed = fisnar_commands[i][1]
+                i += 2  # skip the output command that comes afterward
+
+                ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output on
+                ret_bytes.append(["fisnar", FisnarCommands.ID()])
+                ret_bytes.append([dispenser, UltimusV.dispenseToggle()])  # output off
+                ret_bytes.append(["fisnar", FisnarCommands.SP(line_speed)])
+            else:
+                if fisnar_commands[i][0] == "Dummy Point":
+                    ret_bytes.append(["fisnar", FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3])])
+                    ret_bytes.append(["fisnar", FisnarCommands.ID()])
+                    i += 1
+                elif fisnar_commands[i][1] == "Line Speed":
+                    ret_bytes.append(["fisnar", FisnarCommands.SP(fisnar_commands[i][1])])
+                    i += 1
+                else:
+                    Logger.log("w", "unaccounted for command in fisnar_commands: " + str(fisnar_commands[i]))
+                    i += 1
 
     @staticmethod
     def readFisnarCommandsFromCSV(csv_string):
