@@ -1,24 +1,27 @@
 # FisnarRobotPlugin
 Fisnar Robot Plugin adds the Fisnar F5200N dispensing robot to Cura,
 allows slicer output to be saved in the Fisnar command .csv format, and
-enables 'USB' printing using the F5200N's RS232 port.
+enables printing CAD models, executing pick-and-place maneuvers, and manually
+controlling the robot over it's RS232 port.
 
 # Table of Contents
-- [Introduction](##Introduction)
+<!-- - [Introduction](##Introduction)
 - [Installation Instructions](##Installation-and-Initial-Setup)
 - [Physical Setup Needed](##Necessary-Physical-Printer-Configuration)
 - [Using the Plugin](##Using-the-Plugin)
 - [Technical Details](##Technical-Details)
-- [Contact Info](#Contact)
+- [Contact Info](#Contact) -->
 
 ## Introduction
-FisnarRobotPlugin is a plugin for [Ultimaker Cura](https://ultimaker.com/software/ultimaker-cura) version 5.0.0+. Broadly speaking, it makes the Fisnar F5200N
-robot compatible with Cura. This plugin contains the necessary files to add
+FisnarRobotPlugin is a plugin for [Ultimaker Cura](https://ultimaker.com/software/ultimaker-cura) version 5.1.0. Broadly speaking, it makes the Fisnar F5200N
+robot compatible with Cura and adds some functionality to it. This plugin contains the necessary files to add
 the Fisnar F5200N printer to Cura and enables exporting slicer output in the
 Fisnar .csv format. Additionally, this plugin allows the user to print
 with the Fisnar F5200N over the RS232 port, which eliminates any command limit
 issues sometimes seen with Fisnar's proprietary command upload software ('Smart
-Robot Edit').
+Robot Edit'). There is also a user-interface that allows the user to 'jog' the
+printer, manually type and send RS232 commands, and execute two-point pick-and-place
+maneuvers.
 
 A lot of this plugin was written using other existing plugins as guides. This
 includes Ultimaker's [GCodeWriter](https://github.com/Ultimaker/Cura/tree/main/plugins/GCodeWriter) plugin and Tim Schoenmackers' [Dremel Printer](https://github.com/timmehtimmeh/Cura-Dremel-Printer-Plugin) plugin.
@@ -26,62 +29,52 @@ includes Ultimaker's [GCodeWriter](https://github.com/Ultimaker/Cura/tree/main/p
 If you find any bugs/issues or have suggestions for this plugin, contact me
 using the info below or use one of the GitHub communication features.
 
-Lastly, the development of this plugin was funded by the [McAlpine Research
-Group](https://sites.google.com/view/mcalpineresearchgroup/home) at the University of Minnesota.
+Lastly, the development of this plugin was funded by the [McAlpine Research Group](https://sites.google.com/view/mcalpineresearchgroup/home) at the University of Minnesota.
 
 ## Installation and Initial Setup
-This plugin has been submitted to the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins) and as of now (6/29/2022) it is under review. Until it is accepted, the only way to install it is by packaging it
+This plugin has been submitted to the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins) and as of now (8/1/2022) it is under review. Until it is accepted, the only way to install it is by packaging it
 from source. Instructions to do so can be found [here](https://community.ultimaker.com/topic/26046-writing-a-custom-cura-package/).
 
-Once the plugin is accepted, a more user-friendly description of how to download
-it will be provided.
+Once the plugin is accepted, it will be easier to download and a more user-friendly description of how to do so
+will be provided.
 
 After installing the plugin, the Fisnar F5200N printer has to be added
-before the plugin can be used. First, go to
+before the plugin can be used.
+
+_todo - explain how to add printer_
 
 ## Necessary Physical Printer Configuration
-In order to use this plugin, the Fisnar F5200N in use needs to be using an
-i/o card to control its outputs. This i/o card can be purchased from Fisnar,
-and is pictured below.
-
-![i/o card diagram from Fisnar F5200N manual](docs/doc_pics/io_card_2.png)
-
-![physical i/o card setup](docs/doc_pics/io_card_setup_marked.JPG)
-
-The format of the exported Fisnar .csv file depends on whether
-an i/o card is being used or not. In order to support using multiple
-dispensers, this plugin assumes that the i/o card is being used. Also, it
-is impossible to control the Fisnar over the RS232 port without using
-an i/o card. In the future, the ability to export Fisnar .csv files for use
-without an i/o card will likely be added.
-
-Additionally, if you want to print over the RS232 port, the Fisnar needs to be
-connected to the computer running Cura using an RS232-to-USB cable. This
-method of printing is recommended, because it circumvents the command limit
-issue seen with Fisnar's proprietary command uploading software.
+This plugin assumes that (up to) two [Nordson Ultimus V](https://www.nordson.com/en/divisions/efd/products/fluid-dispensing-systems/ultimus-v-high-precision-dispenser)
+dispensers are being used for pressure control. The fisnar .csv file that is saved
+from slicer output will be the same regardless of the dispensers connected, as
+it assumes the Fisnar [I/O Expansion Module](https://www.fisnar.com/products/robotics/robotic-accessories/robot-add-ons/) is being
+used. Every other feature of the plugin, however, hinges upon the fact that the
+Ultimus V dispensers are being used.
 
 ## Using the Plugin
-All features of the plugin can accessed from the extensions menu found on
-the top-left menu bar in Cura (extensions -> Fisnar Actions).
+There are two main interfaces of the plugin: the 'Define Setup' window, and the
+'Monitor' stage.
 
-![accessing plugin infographic](docs/doc_pics/menu_access.png)
+The define setup window can be accessed under the Extensions > Fisnar Actions
+tab in the menu in the top left corner of the screen.
 
-There are two sub-menus under the 'Fisnar Actions' tab: 'Define Setup' and
-'Print'. The 'Define Setup' menu is used to enter information about the
-physical printing setup being used, and the 'Print' menu is used to initiate
-printing over the RS232 port.
+![](docs/doc_pics/menu_access_2.png)
+
+![](docs/doc_pics/define_setup_window_2.png)
+
+And the monitor stage can be access via the 'Monitor' tab in the top-middle of
+the screen.
+
+![](docs/doc_pics/monitor_tab.png)
+
+![](docs/doc_pics/monitor_window_2.png)
 
 ### Entering Setup Information
-Clicking on the 'Define Setup' tab brings up the following dialog:
-
-![fisnar setup menu](docs/doc_pics/fisnar_setup_menu.png)
-
-This is where the print surface, extruder-output, and COM port information
-can be entered.
-
+The define setup window has two main sections: 'Print Surface' and 'Serial
+Ports'. The main purpose of this window is to enter information about the
+physical setup being used.
 
 #### Print Surface
-
 The print surface info sets the x, y, and z boundaries for the print surface
 in use. It should be noted that the Fisnar coordinate system is inverted to
 the coordinate system used in Cura - the print surface coordinates should be
@@ -105,38 +98,13 @@ printable region.
 
 ![example model that is outside of the printable area](docs/doc_pics/out_of_area_model.png)
 
-#### Extruder Outputs
-The extruder-output values determine which output number on the i/o card
-corresponds to which extruder in Cura. The i/o card has labelled outputs
-(1 through 4), each of which can be connected to a dispenser and turned
-on or off during printing. Assigning an output to each extruder determines
-which output number (and therefore which dispenser) will be turned on when
-printing a model assigned to that extruder.
-
-The easiest way to set this up is to just assign extruder 1 to output 1,
-extruder 2 to output 2, etc. However, being able to change the outputs provides
-more flexibility in case certain output ports aren't functioning properly.
-
-For example: if a single model is being printed, let's say it is assigned to
-extruder 1 in Cura (that is, the model will be printed by extruder 1). In
-the physical setup, the dispenser nozzle that corresponds to extruder 1 in
-Cura is controlled by the output 4 cable. Then in the 'Extruder Outputs' menu,
-output 4 would be selected for extruder 1.
-
-The output cables on the i/o card are labelled as shown below.
-
-![](docs/doc_pics/Output_3_label.JPG)
-
-#### COM Port
-The COM port is simply the COM port that the Fisnar RS232 port is connected
-to. This connection is made via an RS232-to-USB adapter cable, connecting
-the Fisnar RS232 port to one of the USB ports on the PC Cura is running
-from.
-
-The COM port only needs to be entered in order to print over RS232. If the
-intent is to slice a model, save the output as a CSV, and copy-and-paste it
-into Fisnar's 'Smart Robot Edit' software for uploading, the COM port
-setting is irrelevant.
+#### Serial Ports
+The serial ports section is used to assign the fisnar and dispensers to the
+serial port they are connected to on the computer running Cura. Underneath
+each text field, there is an indicator showing whether or not the device
+is connected. Each device is set on a timer, such that every few seconds
+the computer attempts to connect to them, so any changes in serial ports
+may take a few seconds to update in the user interface.
 
 ### Saving Output to CSV
 Once a model is loaded into Cura and positioned as intended, it can be sliced
@@ -152,12 +120,37 @@ up the file-saving interface. In the file-saving interface, the 'Fisnar Command 
 ![file saving interface showing 'Fisnar Command CSV' format option](docs/doc_pics/file_saving_ui.png)
 
 ### Printing Over RS232 Port
-\< _coming soon_ \>
+After slicing, the slicer output can also be directly printed in real time.
+In the same place as the 'Save to Disk' button, a dropdown arrow can be pressed
+to activate a 'Print Over RS232' button.
+
+![](docs/doc_pics/print_over_button.png)
+
+Upon clicking this button, the monitor stage will be activated and the fisnar
+will immediately begin printing. When the robot is printing, a progress bar near the bottom of the monitor stage will
+indicate the percentage completion of the print, and buttons for
+terminating, pausing, and resuming the print will appear.
+
+![](docs/doc_pics/progress_footer.png)
+
+### Manual Control
+In the monitor stage, a user interface is provided for controlling the robot in real
+time. There are jog buttons for the x, y, and z directions, as well as a home button.
+The jog distance row beneath these buttons can be used to select how far the robot
+will move (in mm) on each jog motion (button press). Under the jog distance row
+is a text field, which can be used to send custom RS232 commands to the fisnar.
+The format of these commands can be found under the [Fisnar RS232 Command Format](#fisnar-rs232-command-format) section of this document. The text in this box will be sent
+to the robot upon pressing enter.
+
+### Pick and Place
+Underneath the manual control UI is an entry form for executing pick-and-place
+maneuvers. Upon pressing the 'Execute Pick and Place' button, the entered parameters
+will be used to generate and execute a series of commands which will pick an object up
+at the 'pick' location and release it at the 'place' location.
 
 ## Technical Details
-\< _coming soon_ \>
-
 ### Fisnar CSV Format
+\< _coming soon_ \>
 
 ### Fisnar RS232 Command Format
 \< _coming soon_ \>
