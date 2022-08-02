@@ -57,10 +57,12 @@ class FisnarRobotExtension(QObject, Extension):
             "vacuum_pressure": 0.0,
             "vacuum_units": 0,  # uses enumeration in UltimusV.PressureUnits
             "xy_speed": 0.0,
-            "z_speed": 0.0,
+            "pick_z_speed": 0.0,
+            "place_z_speed": 0.0,
             "pick_dwell": 0.0,
             "place_dwell": 0.0,
-            "reps": 0
+            "reps": 0,
+            "pick_place_dispenser_id": None
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
@@ -74,7 +76,8 @@ class FisnarRobotExtension(QObject, Extension):
         self.vacuum_pressure = 0.0
         self.vacuum_units = 0
         self.xy_speed = 0.0
-        self.z_speed = 0.0
+        self.pick_z_speed = 1.0
+        self.place_z_speed = 1.0
         self.pick_dwell = 0.0
         self.place_dwell = 0.0
         self.reps = 0
@@ -208,14 +211,18 @@ class FisnarRobotExtension(QObject, Extension):
             self.vacuum_units = pref_dict["vacuum_units"]
         if pref_dict.get("xy_speed", None) is not None:
             self.xy_speed = pref_dict["xy_speed"]
-        if pref_dict.get("z_speed", None) is not None:
-            self.z_speed = pref_dict["z_speed"]
+        if pref_dict.get("pick_z_speed", None) is not None:
+            self.pick_z_speed = pref_dict["pick_z_speed"]
+        if pref_dict.get("place_z_speed", None) is not None:
+            self.place_z_speed = pref_dict["place_z_speed"]
         if pref_dict.get("pick_dwell", None) is not None:
             self.pick_dwell = pref_dict["pick_dwell"]
         if pref_dict.get("place_dwell", None) is not None:
             self.place_dwell = pref_dict["place_dwell"]
         if pref_dict.get("reps", None) is not None:
             self.reps = pref_dict["reps"]
+        if pref_dict.get("pick_place_dispenser_id", -1) is not -1:
+            self.dispenser_manager.setPickPlaceDispenser(pref_dict["pick_place_dispenser_id"])
 
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
@@ -228,10 +235,12 @@ class FisnarRobotExtension(QObject, Extension):
             "vacuum_pressure": self.vacuum_pressure,
             "vacuum_units": self.vacuum_units,
             "xy_speed": self.xy_speed,
-            "z_speed": self.z_speed,
+            "pick_z_speed": self.pick_z_speed,
+            "place_z_speed": self.place_z_speed,
             "pick_dwell": self.pick_dwell,
             "place_dwell": self.place_dwell,
-            "reps": self.reps
+            "reps": self.reps,
+            "pick_place_dispenser_id": self.dispenser_manager.getPickPlaceDispenserName()
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 

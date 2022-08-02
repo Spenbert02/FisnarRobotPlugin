@@ -538,6 +538,46 @@ Component
                         width: parent.width
                         spacing: UM.Theme.getSize("default_margin").height
 
+                        Rectangle {   // pick and place dispenser selection
+                          width: parent.width
+                          height: childrenRect.height
+                          anchors.topMargin: UM.Theme.getSize("default_margin").height
+
+                          UM.Label {
+                            id: pickPlaceDispenserLabel
+                            text: "Dispenser"
+                            font: UM.Theme.getFont("default")
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                          }
+
+                          ComboBox {
+                            id: pickPlaceDispenserDropdown
+                            width: UM.Theme.getSize("setting_control").width
+                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            editable: false
+                            currentIndex: OutputDevice.pick_place_dispenser_index
+                            textRole: "text"
+                            model: ListModel {
+                              id: dispenserListModel
+                              ListElement {
+                                enabled: true
+                                text: "Dispenser 1"
+                                value: "dispenser_1"
+                              }
+                              ListElement {
+                                text: "Dispenser 2"
+                                value: "dispenser_2"
+                              }
+                            }
+                            onCurrentIndexChanged: {
+                              OutputDevice.setPickPlaceDispenser(dispenserListModel.get(currentIndex).value)
+                            }
+                          }
+                        }
+
                         Rectangle {  // pick location
                           width: parent.width
                           height: childrenRect.height
@@ -892,21 +932,21 @@ Component
                           }
 
                           UM.Label {
-                            id: zSpeedLabel
-                            text: "Z"
+                            id: pickZSpeedLabel
+                            text: "Pick Z"
                             font: UM.Theme.getFont("default_bold")
                             height: UM.Theme.getSize("setting_control").height
-                            anchors.right: zSpeedEntry.left
+                            anchors.right: pickZSpeedEntry.left
                             anchors.rightMargin: UM.Theme.getSize("default_margin").width
                             anchors.top: xySpeedLabel.bottom
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
                           TextField {
-                            id: zSpeedEntry
-                            text: OutputDevice.z_speed
+                            id: pickZSpeedEntry
+                            text: OutputDevice.pick_z_speed
                             anchors.right: parent.right
-                            anchors.top: zSpeedLabel.top
+                            anchors.top: pickZSpeedLabel.top
                             width: UM.Theme.getSize("setting_control").width
                             height: UM.Theme.getSize("setting_control").height
                             validator: DoubleValidator {
@@ -916,18 +956,49 @@ Component
                               top: 200
                             }
                             onEditingFinished: {
-                              OutputDevice.setZSpeed(text)
+                              OutputDevice.setPickZSpeed(text)
                             }
                           }
 
-                          UM.Label {  // z speed entry unit
-                            text: "mm/s"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
+                          UnitLabel {
+                            label: "mm/s"
+                            anchors.top: pickZSpeedEntry.top
+                            anchors.right: pickZSpeedEntry.right
+                          }
+
+                          UM.Label {
+                            id: placeZSpeedLabel
+                            text: "Place Z"
+                            font: UM.Theme.getFont("default_bold")
                             height: UM.Theme.getSize("setting_control").height
-                            anchors.top: zSpeedEntry.top
-                            anchors.right: zSpeedEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            anchors.right: placeZSpeedEntry.left
+                            anchors.rightMargin: UM.Theme.getSize("default_margin").width
+                            anchors.top: pickZSpeedEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
+                          }
+
+                          TextField {
+                            id: placeZSpeedEntry
+                            text: OutputDevice.place_z_speed
+                            anchors.right: parent.right
+                            anchors.top: placeZSpeedLabel.top
+                            width: UM.Theme.getSize("setting_control").width
+                            height: UM.Theme.getSize("setting_control").height
+                            validator: DoubleValidator {
+                              decimals: 3
+                              locale: "en_US"
+                              bottom: 0
+                              top: 200
+                            }
+                            onEditingFinished: {
+                              OutputDevice.setPlaceZSpeed(text)
+                            }
+                          }
+
+                          UnitLabel {
+                            label: "mm/s"
+                            anchors.right: placeZSpeedEntry.right
+                            anchors.top: placeZSpeedEntry.top
                           }
                         }
 

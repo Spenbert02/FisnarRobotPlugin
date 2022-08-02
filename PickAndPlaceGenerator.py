@@ -10,14 +10,14 @@ class PickAndPlaceGenerator:
         Logger.log("w", "instance created of static class 'PickAndPlaceGenerator'")
 
     @staticmethod
-    def getCommands(p1, p2, xy_speed, z_speed, pick_dwell, place_dwell, vacuum_pressure, vacuum_units, reps):
+    def getCommands(p1, p2, xy_speed, pick_z_speed, place_z_speed, pick_dwell, place_dwell, vacuum_pressure, vacuum_units, reps):
         # returns a list of pick and place commands from the given parameters, or False
         # if any of the parameters are invalid
 
         for param in (p1, p2):
             if not isinstance(param, (list, tuple)):
                 return False
-        for param in (xy_speed, z_speed, pick_dwell, place_dwell, vacuum_pressure):
+        for param in (xy_speed, pick_z_speed, place_z_speed, pick_dwell, place_dwell, vacuum_pressure):
             if not isinstance(param, (int, float)):
                 return False
         if vacuum_units not in (0, 1, 2, 3, 4):  # vacuum_units is an enumeration
@@ -27,7 +27,7 @@ class PickAndPlaceGenerator:
 
         commands = [
             ["d", UltimusV.setVacuumUnits(vacuum_units)],  # set dispenser vacuum units
-            ["f", FisnarCommands.SP(z_speed)],
+            ["f", FisnarCommands.SP(pick_z_speed)],
             ["f", FisnarCommands.HZ()],
             ["f", FisnarCommands.SP(xy_speed)],
             ["f", FisnarCommands.HX()],
@@ -38,7 +38,7 @@ class PickAndPlaceGenerator:
             commands = commands + [
                 ["f", FisnarCommands.VA(p1[0], p1[1], 0)],
                 ["f", FisnarCommands.ID()],
-                ["f", FisnarCommands.SP(z_speed)],
+                ["f", FisnarCommands.SP(pick_z_speed)],
                 ["f", FisnarCommands.VA(p1[0], p1[1], p1[2])],
                 ["f", FisnarCommands.ID()],
                 ["d", UltimusV.setVacuum(vacuum_pressure, vacuum_units)],
@@ -48,7 +48,7 @@ class PickAndPlaceGenerator:
                 ["f", FisnarCommands.SP(xy_speed)],
                 ["f", FisnarCommands.VA(p2[0], p2[1], 0)],
                 ["f", FisnarCommands.ID()],
-                ["f", FisnarCommands.SP(z_speed)],
+                ["f", FisnarCommands.SP(place_z_speed)],
                 ["f", FisnarCommands.VA(p2[0], p2[1], p2[2])],
                 ["f", FisnarCommands.ID()],
                 ["d", UltimusV.setVacuum(0, vacuum_units)],
@@ -59,7 +59,7 @@ class PickAndPlaceGenerator:
             ]
 
         commands = commands + [
-            ["f", FisnarCommands.SP(z_speed)],
+            ["f", FisnarCommands.SP(pick_z_speed)],
             ["f", FisnarCommands.HZ()],
             ["f", FisnarCommands.SP(xy_speed)],
             ["f", FisnarCommands.HX()],

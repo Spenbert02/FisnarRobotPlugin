@@ -61,6 +61,9 @@ class DispenserManager:
         if not self._confirm_connection_timer.isActive() and self._dispensers != []:
             self._confirm_connection_timer.start()
 
+        if self._pick_place_dispenser_name is None:  # defaulting pick and place dispenser
+            self._pick_place_dispenser_name = dispenser.name
+
     def getPortNameDict(self):
         ret_dict = {}
         for dispenser in self._dispensers:

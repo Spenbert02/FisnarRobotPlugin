@@ -21,6 +21,7 @@ from .UltimusV import PressureUnits, UltimusV
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
+
 class FisnarOutputTracker:
     # class for tracking output states - this is an independent class because
     # in the future there may need to be a signal system for when outputs are
@@ -523,7 +524,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
         pick_point = self._fre_instance.pick_location
         place_point = self._fre_instance.place_location
         xy_speed = self._fre_instance.xy_speed
-        z_speed = self._fre_instance.z_speed
+        pick_z_speed = self._fre_instance.pick_z_speed
+        place_z_speed = self._fre_instance.place_z_speed
         pick_dwell = self._fre_instance.pick_dwell
         place_dwell = self._fre_instance.place_dwell
         vacuum_pressure = self._fre_instance.vacuum_pressure
@@ -535,7 +537,8 @@ class FisnarOutputDevice(PrinterOutputDevice):
             pick_point,
             place_point,
             xy_speed,
-            z_speed,
+            pick_z_speed,
+            place_z_speed,
             pick_dwell,
             place_dwell,
             vacuum_pressure,
@@ -696,15 +699,26 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.xy_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
 
-# ---------------------- z speed property setup -----------------------------
-    zSpeedUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=zSpeedUpdated)
-    def z_speed(self):
-        return str(self._fre_instance.z_speed)
+# ------------------ pick z speed property setup -----------------------------
+    pickZSpeedUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=pickZSpeedUpdated)
+    def pick_z_speed(self):
+        return str(self._fre_instance.pick_z_speed)
 
     @pyqtSlot(str)
-    def setZSpeed(self, speed):
-        self._fre_instance.z_speed = float(speed)
+    def setPickZSpeed(self, speed):
+        self._fre_instance.pick_z_speed = float(speed)
+        self._fre_instance.updatePreferencedValues()
+
+# --------------- place z speed prop setup ----------------------
+    placeZSpeedUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=placeZSpeedUpdated)
+    def place_z_speed(self):
+        return str(self._fre_instance.place_z_speed)
+
+    @pyqtSlot(str)
+    def setPlaceZSpeed(self, speed):
+        self._fre_instance.place_z_speed = float(speed)
         self._fre_instance.updatePreferencedValues()
 
 # ------------------ pick dwell time -----------------------------------
@@ -740,27 +754,42 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.reps = int(reps)
         self._fre_instance.updatePreferencedValues()
 
-# -------------- dispenser for pick and place ------------------------
-    dispenserListUpdated = pyqtSignal()
-    @pyqtProperty(list, notify=dispenserListUpdated)
-    def dispenser_list(self):
-        ret_list = []
-        dispensers = self._dispenser_manager.getDispensers()
-        for dispenser in dispensers:
-            if dispenser.isConnected():
-                ret_list.append(dispenser.name)
-
-        return ret_list
+# -------------- dispenser for pick and place ------------------------  # TODO: implement this dynamically in the future, right now either dispenser can be selected for pick and place
+#     dispenserListUpdated = pyqtSignal()
+#     @pyqtProperty(list, notify=dispenserListUpdated)
+#     def dispenser_list(self):
+#         ret_list = []
+#         dispensers = self._dispenser_manager.getDispensers()
+#         for dispenser in dispensers:
+#             # if dispenser.isConnected():
+#             #     ret_list.append(dispenser.name)
+#             ret_list.append(dispenser.name)
+#         return ret_list
+#
+#     pickPlaceDispenserUpdated = pyqtSignal()
+#     @pyqtProperty(str, notify=pickPlaceDispenserUpdated)
+#     def pick_place_dispenser(self):
+#         return str(self._dispenser_manager.getPickPlaceDispenserName())
+#
+#     @pyqtSlot(str)
+#     def setPickPlaceDispenser(self, name):
+#         self._dispenser_manager.setPickPlaceDispenser(name)
 
     pickPlaceDispenserUpdated = pyqtSignal()
-    @pyqtProperty(str, notify=pickPlaceDispenserUpdated)
-    def pick_place_dispenser(self):
-        return str(self._dispenser_manager.getPickPlaceDispenserName())
+    @pyqtProperty(int, notify=pickPlaceDispenserUpdated)
+    def pick_place_dispenser_index(self):
+        if self._dispenser_manager.getPickPlaceDispenserName() == "dispenser_1":
+            return 0
+        elif self._dispenser_manager.getPickPlaceDispenserName() == "dispenser_2":
+            return 1
+        else:
+            Logger.log("w", "pick and place dispenser not set dispenser manager: " + str(self._dispenser_manager.getPickPlaceDispenserName()))
+            return 0  # default to dispenser 1
 
     @pyqtSlot(str)
-    def setPickPlaceDispenser(self, name):
-        self._dispenser_manager.setPickPlaceDispenser(name)
-
+    def setPickPlaceDispenser(self, id):
+        self._dispenser_manager.setPickPlaceDispenser(id)
+        self._fre_instance.updatePreferencedValues()
 # ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()
