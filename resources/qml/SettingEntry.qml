@@ -11,6 +11,7 @@ Rectangle {
   property var valId
   property var text
   property var label
+  property var tooltipId
 
   // text validator
   property var bottomLim: 0.0
@@ -35,13 +36,13 @@ Rectangle {
     anchors.fill: parent
     cursorShape: Qt.IBeamCursor
 
-    // onHoveredChanged: {
-    //   if (containsMouse) {
-    //     sectionRow.showTooltip(sectionRow, {x: -tooltip.width, y: entryMouseArea.mapToItem(sectionRow, 0, 0).y}, "tooltip text")
-    //   } else {
-    //     sectionRow.hideTooltip()
-    //   }
-    // }
+    onHoveredChanged: {
+      if (containsMouse) {
+        tooltip.show()
+      } else {
+        tooltip.hide()
+      }
+    }
   }
 
   TextInput {
@@ -62,5 +63,13 @@ Rectangle {
     anchors.top: parent.top
     anchors.right: parent.right
     label: parent.label
+  }
+
+  DefineSetupTooltip {
+    id: tooltip
+    label: base.getTooltip(settingEntryBaseRect.tooltipId)
+    anchors.right: parent.left
+    anchors.rightMargin: UM.Theme.getSize("default_margin").width
+    anchors.verticalCenter: parent.verticalCenter
   }
 }

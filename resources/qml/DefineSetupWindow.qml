@@ -32,6 +32,10 @@ UM.Dialog {
       }
     }
 
+    function getTooltip(val) {
+      return main.getTooltip(val);
+    }
+
     Row {
       id: sectionRow
       height: parent.height - (2 * UM.Theme.getSize("default_margin").height)
@@ -41,16 +45,6 @@ UM.Dialog {
       anchors.left: parent.left
       anchors.leftMargin: UM.Theme.getSize("default_margin").width
       spacing: UM.Theme.getSize("thick_margin").width
-
-      // function showTooltip(item, position, text) {
-      //   tooltip.text = text;
-      //   position = item.mapToItem(sectionRow, position.x - UM.Theme.getSize("default_arrow").width, position.y);
-      //   tooltip.show(position);
-      // }
-      //
-      // function hideTooltip() {
-      //   tooltip.hide();
-      // }
 
       GroupBox {
         id: printSurfaceBox
@@ -88,6 +82,7 @@ UM.Dialog {
             text: main.x_min
             valId: "fisnar_x_min"
             label: "mm"
+            tooltipId: "x_min"
           }
 
           UM.Label {  // x-max label
@@ -108,6 +103,7 @@ UM.Dialog {
             text: main.x_max
             valId: "fisnar_x_max"
             label: "mm"
+            tooltipId: "x_max"
           }
 
           UM.Label {  // y range label
@@ -137,6 +133,7 @@ UM.Dialog {
             text: main.y_min
             valId: "fisnar_y_min"
             label: "mm"
+            tooltipId: "y_min"
           }
 
           UM.Label {  // y max label
@@ -157,6 +154,7 @@ UM.Dialog {
             text: main.y_max
             valId: "fisnar_y_max"
             label: "mm"
+            tooltipId: "y_max"
           }
 
           UM.Label {  // z range label
@@ -187,6 +185,7 @@ UM.Dialog {
             text: "0.0"
             valId: "<none>"
             label: "mm"
+            tooltipId: "z_min"
           }
 
           UM.Label {  // z max label
@@ -207,6 +206,7 @@ UM.Dialog {
             text: main.z_max
             valId: "fisnar_z_max"
             label: "mm"
+            tooltipId: "z_max"
           }
         }
       }
@@ -237,6 +237,7 @@ UM.Dialog {
             valId: "com_port"
             validator: null  // don't want default DoubleValidator
             label: ""  // dont' want unit label
+            tooltipId: "fisnar_serial"
           }
 
           UM.Label {
@@ -267,6 +268,7 @@ UM.Dialog {
             valId: "dispenser_1_com_port"
             validator: null
             label: ""
+            tooltipId: "dispenser_1_serial"
           }
 
           UM.Label {  // dispenser 1 connection state
@@ -297,6 +299,7 @@ UM.Dialog {
             valId: "dispenser_2_com_port"
             validator: null
             label: ""
+            tooltipId: "dispenser_2_serial"
           }
 
           UM.Label {  // dispenser 2 connection state
@@ -310,9 +313,5 @@ UM.Dialog {
           }
         }
       }
-
-      // PrintSetupTooltip {
-      //   id: tooltip
-      // }
     }
 }

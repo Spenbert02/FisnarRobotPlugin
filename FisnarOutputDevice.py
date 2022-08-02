@@ -621,6 +621,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.sendCommand(FisnarCommands.HM())
         self._dispenser_manager.getPickPlaceDispenser().sendCommand(UltimusV.setVacuum(0, PressureUnits.V_KPA))
 
+    @pyqtSlot(str, result=str)
+    def getTooltip(self, id):
+        return self._fre_instance.getTooltip(id)
+
 # ----------------- pick location property setup -----------------------------
     pickXUpdated = pyqtSignal()
     @pyqtProperty(str, notify=pickXUpdated)
@@ -639,8 +643,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     @pyqtSlot(str, str, str)
     def setPickLocation(self, x, y, z):
-        new_val = (float(x), float(y), float(z))
-        self._fre_instance.pick_location = new_val
+        if x != "-1":
+            self._fre_instance.pick_location[0] = float(x)
+        if y != "-1":
+            self._fre_instance.pick_location[1] = float(y)
+        if z != "-1":
+            self._fre_instance.pick_location[2] = float(z)
+
         self._fre_instance.updatePreferencedValues()
 
 # -------------------- place location property setup ------------------------
@@ -661,8 +670,13 @@ class FisnarOutputDevice(PrinterOutputDevice):
 
     @pyqtSlot(str, str, str)
     def setPlaceLocation(self, x, y, z):
-        new_val = (float(x), float(y), float(z))
-        self._fre_instance.place_location = new_val
+        if x != "-1":
+            self._fre_instance.place_location[0] = float(x)
+        if y != "-1":
+            self._fre_instance.place_location[1] = float(y)
+        if z != "-1":
+            self._fre_instance.place_location[2] = float(z)
+
         self._fre_instance.updatePreferencedValues()
 
 # -------------------- vacuum pressure property setup -----------------------

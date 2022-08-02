@@ -24,9 +24,47 @@ Component
         id: base
         property bool debug: false  // set to true to see 'colors' of different UI components, false for actual display
         property var _buttonSize: UM.Theme.getSize("setting_control").height + UM.Theme.getSize("thin_margin").height  // taken from Cura's ManualPrinterControl.qml
-        property bool isConnected: OutputDevice.connectionState == 2
-        property bool isPrinting: OutputDevice.printing_status
+        // property bool isConnected: OutputDevice.connectionState == 2
+        property bool isConnected: true
+        // property bool isPrinting: OutputDevice.printing_status
+        property bool isPrinting: false
         property bool isPickPlacing: OutputDevice.pick_place_status
+
+        function updateVal(valId, val) {
+          if (valId == "pick_place_dispenser") {
+            // pass
+          } else if (valId == "pick_x") {
+            OutputDevice.setPickLocation(val, -1, -1);
+          } else if (valId == "pick_y") {
+            OutputDevice.setPickLocation(-1, val, -1);
+          } else if (valId == "pick_z") {
+            OutputDevice.setPickLocation(-1, -1, val);
+          } else if (valId == "place_x") {
+            OutputDevice.setPlaceLocation(val, -1, -1);
+          } else if (valId == "place_y") {
+            OutputDevice.setPlaceLocation(-1, val, -1);
+          } else if (valId == "place_z") {
+            OutputDevice.setPlaceLocation(-1, -1, val);
+          } else if (valId == "vacuum_pressure") {
+            OutputDevice.setVacuumPressure(val)
+          } else if (valId == "xy_travel_speed") {
+            OutputDevice.setXYSpeed(val);
+          } else if (valId == "pick_z_travel_speed") {
+            OutputDevice.setPickZSpeed(val);
+          } else if (valId == "place_z_travel_speed") {
+            OutputDevice.setPlaceZSpeed(val);
+          } else if (valId == "pick_dwell_time") {
+            OutputDevice.setPickDwell(val);
+          } else if (valId == "place_dwell_time") {
+            OutputDevice.setPlaceDwell(val);
+          } else if (valId == "repititions") {
+            OutputDevice.setReps(val);
+          }
+        }
+
+        function getTooltip(val) {
+          return OutputDevice.getTooltip(val);
+        }
 
         Rectangle
         {
@@ -534,7 +572,7 @@ Component
                       height: childrenRect.height
                       color: base.debug ? "red" : UM.Theme.getColor("setting_category")
 
-                      Column {  // column for pick and place entries; TODO: these text box values should be able to be updated from python
+                      Column {  // column for pick and place entries
                         width: parent.width
                         spacing: UM.Theme.getSize("default_margin").height
 
@@ -601,32 +639,14 @@ Component
                             anchors.top: parent.top
                           }
 
-                          TextField {  // x entry
+                          SettingEntry {  // pick x entry
                             id: pickXEntry
                             anchors.right: parent.right
-                            anchors.top: parent.top
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
+                            anchors.top: pickXLabel.top
                             text: OutputDevice.pick_x
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPickLocation(text, pickYEntry.text, pickZEntry.text)
-                            }
-                          }
-
-                          UM.Label {  // x entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: pickXEntry.top
-                            anchors.right: pickXEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "pick_x"
+                            tooltipId: "pick_x"
                           }
 
                           UM.Label {  // y label
@@ -639,33 +659,15 @@ Component
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
-                          TextField {  // pick y entry
+                          SettingEntry {
                             id: pickYEntry
-                            anchors.left: pickXEntry.left
+                            anchors.right: parent.right
                             anchors.top: pickXEntry.bottom
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
                             text: OutputDevice.pick_y
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPickLocation(pickXEntry.text, text, pickZEntry.text)
-                            }
-                          }
-
-                          UM.Label {  // y entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: pickYEntry.top
-                            anchors.right: pickYEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "pick_y"
+                            tooltipId: "pick_y"
                           }
 
                           UM.Label {  // pick z label
@@ -678,33 +680,15 @@ Component
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
-                          TextField {  // z entry
+                          SettingEntry {  // pick z entry
                             id: pickZEntry
-                            anchors.left: pickYEntry.left
+                            anchors.right: parent.right
                             anchors.top: pickYEntry.bottom
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
                             text: OutputDevice.pick_z
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPickLocation(pickXEntry.text, pickYEntry.text, text)
-                            }
-                          }
-
-                          UM.Label {  // z entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: pickZEntry.top
-                            anchors.right: pickZEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "pick_z"
+                            tooltipId: "pick_z"
                           }
                         }
 
@@ -732,32 +716,14 @@ Component
                             anchors.rightMargin: UM.Theme.getSize("default_margin").width
                           }
 
-                          TextField {  // place x entry
+                          SettingEntry {
                             id: placeXEntry
                             anchors.top: parent.top
                             anchors.right: parent.right
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
                             text: OutputDevice.place_x
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPlaceLocation(text, placeYEntry.text, placeZEntry.text)
-                            }
-                          }
-
-                          UM.Label {  // x entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: placeXEntry.top
-                            anchors.right: placeXEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "place_x"
+                            tooltipId: "place_x"
                           }
 
                           UM.Label {  // place y label
@@ -770,32 +736,15 @@ Component
                             anchors.left: placeXLabel.left
                           }
 
-                          TextField {  // place y entry
+                          SettingEntry {
                             id: placeYEntry
-                            anchors.top: placeYLabel.top
-                            anchors.left: placeXEntry.left
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: parent.right
+                            anchors.top: placeXEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
                             text: OutputDevice.place_y
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPlaceLocation(placeXEntry.text, text, placeZEntry.text)
-                            }
-                          }
-
-                          UM.Label {  // y entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: placeYEntry.top
-                            anchors.right: placeYEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "place_y"
+                            tooltipId: "place_y"
                           }
 
                           UM.Label {  // place z label
@@ -808,32 +757,15 @@ Component
                             anchors.left: placeYLabel.left
                           }
 
-                          TextField {  // place z entry
+                          SettingEntry {
                             id: placeZEntry
-                            anchors.top: placeZLabel.top
-                            anchors.left: placeYEntry.left
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
+                            anchors.right: parent.right
+                            anchors.top: placeYEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
                             text: OutputDevice.place_z
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPlaceLocation(placeXEntry.text, placeYEntry.text, text)
-                            }
-                          }
-
-                          UM.Label {  // z entry unit
-                            text: "mm"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: placeZEntry.top
-                            anchors.right: placeZEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            label: "mm"
+                            valId: "place_z"
+                            tooltipId: "place_z"
                           }
                         }
 
@@ -851,16 +783,15 @@ Component
                             anchors.left: parent.left
                           }
 
-                          TextField {
+                          SettingEntry {
                             id: vacuumPressureEntry
                             anchors.right: vacuumPressureUnitsDropdown.left
                             anchors.top: parent.top
-                            text: OutputDevice.vacuum_pressure
                             width: UM.Theme.getSize("setting_control").width - vacuumPressureUnitsDropdown.width
-                            height: UM.Theme.getSize("setting_control").height
-                            onEditingFinished: {
-                              OutputDevice.setVacuumPressure(text)
-                            }
+                            text: OutputDevice.vacuum_pressure
+                            label: ""
+                            valId: "vacuum_pressure"
+                            tooltipId: "vacuum_pressure"
                           }
 
                           ComboBox {  // vacuum pressure unit dropdown
@@ -903,32 +834,14 @@ Component
                             anchors.top: parent.top
                           }
 
-                          TextField {
+                          SettingEntry {
                             id: xySpeedEntry
-                            text: OutputDevice.xy_speed
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 100
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setXYSpeed(text)
-                            }
-                          }
-
-                          UM.Label {  // x/y speed entry unit
-                            text: "mm/s"
-                            font: UM.Theme.getFont("small")
-                            color: UM.Theme.getColor("setting_unit")
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.top: xySpeedEntry.top
-                            anchors.right: xySpeedEntry.right
-                            anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width
+                            text: OutputDevice.xy_speed
+                            label: "mm/s"
+                            valId: "xy_travel_speed"
+                            tooltipId: "xy_travel_speed"
                           }
 
                           UM.Label {
@@ -942,28 +855,15 @@ Component
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
-                          TextField {
+                          SettingEntry {
                             id: pickZSpeedEntry
-                            text: OutputDevice.pick_z_speed
                             anchors.right: parent.right
-                            anchors.top: pickZSpeedLabel.top
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPickZSpeed(text)
-                            }
-                          }
-
-                          UnitLabel {
+                            anchors.top: xySpeedEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
+                            text: OutputDevice.pick_z_speed
                             label: "mm/s"
-                            anchors.top: pickZSpeedEntry.top
-                            anchors.right: pickZSpeedEntry.right
+                            valId: "pick_z_travel_speed"
+                            tooltipId: "pick_z_travel_speed"
                           }
 
                           UM.Label {
@@ -977,28 +877,15 @@ Component
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
-                          TextField {
+                          SettingEntry {
                             id: placeZSpeedEntry
-                            text: OutputDevice.place_z_speed
                             anchors.right: parent.right
-                            anchors.top: placeZSpeedLabel.top
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            validator: DoubleValidator {
-                              decimals: 3
-                              locale: "en_US"
-                              bottom: 0
-                              top: 200
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPlaceZSpeed(text)
-                            }
-                          }
-
-                          UnitLabel {
+                            anchors.top: pickZSpeedEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
+                            text: OutputDevice.place_z_speed
                             label: "mm/s"
-                            anchors.right: placeZSpeedEntry.right
-                            anchors.top: placeZSpeedEntry.top
+                            valId: "place_z_travel_speed"
+                            tooltipId: "place_z_travel_speed"
                           }
                         }
 
@@ -1026,28 +913,14 @@ Component
                             anchors.top: pickDwellEntry.top
                           }
 
-                          TextField {  // pick dwell time entry
+                          SettingEntry {
                             id: pickDwellEntry
-                            text: OutputDevice.pick_dwell
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            validator: DoubleValidator {
-                              decimals: 1
-                              locale: "en_US"
-                              bottom: 0.0
-                              top: 60.0
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPickDwell(text)
-                            }
-                          }
-
-                          UnitLabel {  // pick dwell entry unit
-                            anchors.right: pickDwellEntry.right
-                            anchors.top: pickDwellEntry.top
+                            text: OutputDevice.pick_dwell
                             label: "sec"
+                            valId: "pick_dwell_time"
+                            tooltipId: "place_dwell_time"
                           }
 
                           UM.Label {  // place dwell time label
@@ -1061,28 +934,15 @@ Component
                             anchors.topMargin: UM.Theme.getSize("default_lining").height
                           }
 
-                          TextField {  // place dwell entry
+                          SettingEntry {
                             id: placeDwellEntry
-                            text: OutputDevice.place_dwell
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
                             anchors.right: parent.right
-                            anchors.top: placeDwellLabel.top
-                            validator: DoubleValidator {
-                              decimals: 1
-                              locale: "en_US"
-                              bottom: 0.0
-                              top: 60.0
-                            }
-                            onEditingFinished: {
-                              OutputDevice.setPlaceDwell(text)
-                            }
-                          }
-
-                          UnitLabel {  // place dwell unit
-                            anchors.top: placeDwellEntry.top
-                            anchors.right: placeDwellEntry.right
+                            anchors.top: pickDwellEntry.bottom
+                            anchors.topMargin: UM.Theme.getSize("default_lining").height
+                            text: OutputDevice.place_dwell
                             label: "sec"
+                            valId: "place_dwell_time"
+                            tooltipId: "place_dwell_time"
                           }
                         }
 
@@ -1099,21 +959,19 @@ Component
                             anchors.left: parent.left
                           }
 
-                          TextField {
+                          SettingEntry {
                             id: repsEntry
-                            text: OutputDevice.reps
-                            width: UM.Theme.getSize("setting_control").width
-                            height: UM.Theme.getSize("setting_control").height
-                            anchors.right: parent.right
                             anchors.top: parent.top
+                            anchors.right: parent.right
                             validator: IntValidator {
                               locale: "en_US"
                               bottom: 1
                               top: 100
                             }
-                            onEditingFinished: {
-                              OutputDevice.setReps(text)
-                            }
+                            text: OutputDevice.reps
+                            label: ""
+                            valId: "repititions"
+                            tooltipId: "repitions"
                           }
                         }
 

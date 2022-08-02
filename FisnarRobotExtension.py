@@ -288,7 +288,7 @@ class FisnarRobotExtension(QObject, Extension):
         node.setHeight(new_z_dim)
         node.rebuild()
 
-    @pyqtSlot(str)
+    @pyqtSlot(str, result=str)
     def getTooltip(self, key):
         # get a tooltip description via its key
         if self.tooltips is None:
