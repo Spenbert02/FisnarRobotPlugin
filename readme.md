@@ -5,12 +5,12 @@ enables printing CAD models, executing pick-and-place maneuvers, and manually
 controlling the robot over it's RS232 port.
 
 # Table of Contents
-<!-- - [Introduction](##Introduction)
-- [Installation Instructions](##Installation-and-Initial-Setup)
-- [Physical Setup Needed](##Necessary-Physical-Printer-Configuration)
-- [Using the Plugin](##Using-the-Plugin)
-- [Technical Details](##Technical-Details)
-- [Contact Info](#Contact) -->
+- [Introduction](#introduction)
+- [Installation and Initial Setup](#installation-and-initial-setup)
+- [Necessary Physical Printer Configuration](#necessary-physical-printer-configuration)
+- [Using the Plugin](#using-the-plugin)
+- [Technical Details](#technical-details)
+- [Contact](#contact)
 
 ## Introduction
 FisnarRobotPlugin is a plugin for [Ultimaker Cura](https://ultimaker.com/software/ultimaker-cura) version 5.1.0. Broadly speaking, it makes the Fisnar F5200N
@@ -39,9 +39,15 @@ Once the plugin is accepted, it will be easier to download and a more user-frien
 will be provided.
 
 After installing the plugin, the Fisnar F5200N printer has to be added
-before the plugin can be used.
+before the plugin can be used. To do so, first navigate to the 'Add Printer' menu
+as indicated in the picture below.
 
-_todo - explain how to add printer_
+![](docs/doc_pics/add_printer_menu.png)
+
+In the resulting menu, the Fisnar F5200N can be found under 'Adda non-networked
+printer' > 'Fisnar' > 'Fisnar F5200N'.
+
+![](docs/doc_pics/fisnar_add_printer_location.png)
 
 ## Necessary Physical Printer Configuration
 This plugin assumes that (up to) two [Nordson Ultimus V](https://www.nordson.com/en/divisions/efd/products/fluid-dispensing-systems/ultimus-v-high-precision-dispenser)
@@ -62,7 +68,7 @@ tab in the menu in the top left corner of the screen.
 
 ![](docs/doc_pics/define_setup_window_2.png)
 
-And the monitor stage can be access via the 'Monitor' tab in the top-middle of
+And the monitor stage can be accessed via the 'Monitor' tab in the top-middle of
 the screen.
 
 ![](docs/doc_pics/monitor_tab.png)
