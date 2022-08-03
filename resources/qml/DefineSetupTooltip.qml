@@ -16,13 +16,16 @@ Rectangle {
 
   opacity: 0
   enabled: opacity > 0
+  property bool parentEnabled: parent.enabled
 
   Behavior on opacity {
     NumberAnimation{ duration: 200; }
   }
 
   function show() {
-    tooltipBaseRect.opacity = 1;
+    if (parentEnabled) {
+      tooltipBaseRect.opacity = 1;
+    }
   }
 
   function hide() {
@@ -55,11 +58,6 @@ Rectangle {
       }
     }
   }
-
-  // Rectangle {
-  //   anchors.fill: pointer
-  //   color: "red"
-  // }
 
   UM.Label {
     id: tooltipText
