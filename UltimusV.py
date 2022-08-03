@@ -27,7 +27,7 @@ class PressureUnits:  # enumeration class for pressure units
 
 
 class UltimusV(Peripheral):
-    # class for communicating with the UltimusV dispenser unit
+    # class for communicating with the UltimusV dispenser unit synchronously (as opposed to Fisnar asynchronous communication method)
 
     STX = bytes.fromhex("02")
     ETX = bytes.fromhex("03")
@@ -35,6 +35,8 @@ class UltimusV(Peripheral):
     ENQ = bytes.fromhex("05")
 
     connectionStateUpdated = Signal()
+    busyStateUpdated = Signal()
+    successfulCommandSend = Signal()
 
     def __init__(self, name, *args):
         super().__init__("dispenser", name)
@@ -47,59 +49,37 @@ class UltimusV(Peripheral):
 
         self._connection_state = ConnectionState.Closed
 
-        self._command_queue = Queue()
-        self._command_received = Event()
-
-        self.command_send_complete = Event()
-
-        # initial connecting stuff
-        self._init_connect_send_time = None
-
-        self._update_thread = Thread(target=self._update, daemon=True, name="UltimusV Control")
-
-        self.busy = False
+        self._busy = False
 
     def sendCommand(self, command_bytes):
         # send a command to the Ultimus V and return True if it was successful
         # or False if it was not
 
-        if not self._command_received.is_set():
-            self._command_queue.put(command_bytes)
-        else:
-            self._sendCommand(command_bytes)
-
-    def _sendCommand(self, command_bytes):
-        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):
-            return
-
-        command_bytes = UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + self._checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT
+        command_bytes = UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + UltimusV.checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT
 
         try:
             self._serial.write(command_bytes)
-            self._command_received.clear()
+            self.successfulCommandSend.emit()
+            return
+            # ret_line = self._serial.readline()
+            # if len(ret_line) >=6 and ret_line[4:6] == UltimusV.success():
+            #     Logger.log("d", f"{self.name} successfully sent command: {command_bytes}")
+            #     self.successfulCommandSend.emit()
+            #     self.setBusyState(False)
+            #     return True
+            # else:
+            #     Logger.log("w", f"failed to send command '{command_bytes}' to {self.name} - received bytes: '{ret_line}'")
+            #     self.setBusyState(False)
+            #     return False
         except SerialTimeoutException:
-            self._command_received.set()
-            Logger.log("w", "_serial timeout when sending bytes: " + str(command_bytes))
+            Logger.log("w", f"{self.name} timed out when sending command {command_bytes}")
+            return False
         except SerialException:
-            self.setConnectionState(ConnectionState.Error)
-            Logger.log("w", "unexpected serial error occured when sending bytes:" + str(command_bytes))
+            Logger.log("w", f"unexpected serial error occured when sending command '{command_bytes}' to {self.name}")
+            return False
 
-    def _update(self):
-        while self._connection_state == ConnectionState.Connected and self._serial is not None:
-            time.sleep(1)
-            try:
-                curr_line == self._serial.readline()
-            except:
-                continue
-
-            if len(curr_line) >= 6 and curr_line[4:6] == UltimusV.success():
-                Logger.log("i", f"{self.name} received command: {curr_line}")
-                self._command_received.set()
-                self.command_send_complete.set()
-                if not self._command_queue.empty():
-                    self._sendCommand(self._command_queue.get())
-            else:
-                Logger.log("i", "nothing received")
+        Logger.log("w", f"unexpected error occured when sending command '{command_bytes}' to {self.name}")  # not sure what other exceptions could happen, but this will catch them
+        return False
 
     def setComPort(self, name):
         self._serial_port_name = name
@@ -133,34 +113,22 @@ class UltimusV(Peripheral):
                 err_msg.show()
                 return
 
-        # serial port is open, but dispenser might not be on.
         self.setConnectionState(ConnectionState.Connecting)
-        self._sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
-        self._init_connect_send_time = time.time()
-        while time.time() - self._init_connect_send_time < 5.0:
-            try:
-                curr_line = self._serial.readline()
-            except:
-                continue
-
-            Logger.log("d", "curr_line: " + str(curr_line))
-            if curr_line[4:6] == UltimusV.success():
-                self._command_received.set()
-                Logger.log("i", "dispenser '" + str(self.name) + "' successfully connected at: " + str(self._serial_port_name))
-                self.setConnectionState(ConnectionState.Connected)
-                self._update_thread.start()
-                return
-
-        Logger.log("w", "dispenser failed to connect...")
-        self.close()
+        self.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
+        result = self._serial.readline()
+        if len(result) > 5 and result[4:6] == UltimusV.success():  # successfully initialized
+            Logger.log("i", f"{self.name} succesfully connected via {self._serial_port_name}")
+            self.setConnectionState(ConnectionState.Connected)
+        else:
+            Logger.log("w", "dispenser failed to connect...")
+            self.close()  # sets connection state to closed
 
     def close(self):
         self.setConnectionState(ConnectionState.Closed)
+
         if self._serial is not None:
             self._serial.close()
         self._serial = None
-
-        self._update_thread = Thread(target=self._update, daemon=True, name="UltimusV Control")
 
     def isConnected(self):
         return self._connection_state == ConnectionState.Connected
@@ -171,7 +139,16 @@ class UltimusV(Peripheral):
             self._connection_state = state
             self.connectionStateUpdated.emit()
 
-    def _checksum(self, byte_array):
+    def isBusy(self):
+        return self._busy
+
+    def setBusyState(self, state):
+        if state != self._busy:
+            self._busy = state
+            self.busyStateUpdated.emit()
+
+    @staticmethod
+    def checksum(byte_array):
         # get the checksum (as a two byte array in forward order) from an
         # array of bytes
         antisum = 0

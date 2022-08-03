@@ -23,9 +23,23 @@ class DispenserManager:
         self._dispensers = []
         self._pick_place_dispenser_name = None
 
+        self.trigger_fisnar_loop = False  # sent to true when a dispenser sends a command, in order to keep the fisnar 'ok!' loop going
+        self.busy = False  # true if any dispensers are busy, false otherwise
+
         self._confirm_connection_timer = QTimer()
         self._confirm_connection_timer.setInterval(5000)
         self._confirm_connection_timer.timeout.connect(self._onConfirmConnectionTimeout)
+
+    def _onBusyStateUpdated(self):
+        # update internal busy state
+        for dispenser in self._dispensers:
+            if dispenser.isBusy():
+                self.busy = True
+                return
+        self.busy = False
+
+    def _onSuccessfulCommandSend(self):
+        self.trigger_fisnar_loop = True
 
     def _onDispenserConnectionStateUpdated(self):
         self.dispenserConnectionStatesUpdated.emit()
@@ -43,22 +57,14 @@ class DispenserManager:
         #             dispenser.close()
         #             self.dispenserConnectionStatesUpdated.emit()
 
-    def sendComplete(self):
-        for dispenser in self._dispensers:
-            if dispenser.command_send_complete.is_set():
-                return True
-        return False
-
-    def clear(self):
-        for dispenser in self._dispensers:
-            dispenser.command_send_complete.clear()
-
     def addDispenser(self, dispenser):
         if dispenser not in self._dispensers and isinstance(dispenser, UltimusV):
             self._dispensers.append(dispenser)
             dispenser.connectionStateUpdated.connect(self._onDispenserConnectionStateUpdated)
+            dispenser.successfulCommandSend.connect(self._onSuccessfulCommandSend)
+            dispenser.busyStateUpdated.connect(self._onBusyStateUpdated)
 
-        if not self._confirm_connection_timer.isActive() and self._dispensers != []:
+        if not self._confirm_connection_timer.isActive() and self._dispensers != []:  # start confirm connection timer if not going already
             self._confirm_connection_timer.start()
 
         if self._pick_place_dispenser_name is None:  # defaulting pick and place dispenser

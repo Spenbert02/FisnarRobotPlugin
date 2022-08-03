@@ -39,7 +39,6 @@ class FisnarOutputTracker:
 
     def setOutput(self, output, state):
         self._outputs[output - 1] = state
-        self.logOutputs()  # test
         self._most_recent_output = output
 
     def getOutput(self, output):
@@ -285,23 +284,32 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # sending fisnar commands if necessary
         while self._connection_state == ConnectionState.Connected and self._serial is not None:
             try:
-                curr_line = self._serial.readline()
-            except:
+                if not self._dispenser_manager.trigger_fisnar_loop:
+                    Logger.log("d", "****** 1")
+                    curr_line = self._serial.readline()
+                else:
+                    Logger.log("d", "****** 2")
+                    curr_line = b"abcdef"  # arbitrary, won't trigger any if blocks
+            except Exception as e:
+                Logger.log("d", f"exception occurred: {e}")
                 continue  # nothing to read
 
             Logger.log("d", "command received: " + str(curr_line))
 
-            if curr_line.startswith(b"ok!") or self._dispenser_manager.sendComplete():
-                self._dispenser_manager.clear()
-                self._empty_byte_count = 0
-                self._command_received.set()
-                if not self._button_move_confirm_received.is_set():  # need to update position
-                    self._button_move_confirms_received += 1
-                    if self._button_move_confirms_received == 2:
-                        self._button_move_confirms_received = 0
-                        self._button_move_confirm_received.set()
-                        self._x_feedback_received.clear()  # this will trigger the PX->PY->PZ 'cascade'
-                        self.sendCommand(FisnarCommands.PX())
+            if curr_line.startswith(b"ok!") or self._dispenser_manager.trigger_fisnar_loop:
+                if self._dispenser_manager.trigger_fisnar_loop:
+                    self._dispenser_manager.trigger_fisnar_loop = False
+                elif curr_line.startswith(b"ok!"):
+                    self._empty_byte_count = 0
+                    self._command_received.set()
+
+                    if not self._button_move_confirm_received.is_set():  # need to update position
+                        self._button_move_confirms_received += 1
+                        if self._button_move_confirms_received == 2:
+                            self._button_move_confirms_received = 0
+                            self._button_move_confirm_received.set()
+                            self._x_feedback_received.clear()  # this will trigger the PX->PY->PZ 'cascade'
+                            self.sendCommand(FisnarCommands.PX())
 
                 if not self._command_queue.empty():
                     self._sendCommand(self._command_queue.get())
@@ -379,7 +387,11 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if len(command) > 2 and command[:2] == bytes("OU", "ascii"):  # is an output command - assumes format 'OU n, s'
             if self._outputs.getOutput(int(chr(command[3]))) != (int(chr(command[6])) == 1):  # if change in output state
                 self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
-                self._dispenser_manager.getDispenser("dispenser_" + str(chr(command[3]))).sendCommand(UltimusV.dispenseToggle())
+                Logger.log("d", "********** 3")
+                dispenser_name = "dispenser_" + str(chr(command[3]))
+                self._dispenser_manager.busy = True
+                self._dispenser_manager.getDispenser(dispenser_name).sendCommand(UltimusV.dispenseToggle())  # TODO: handle potential errors here
+                Logger.log("d", "********** 4")
             return
 
         # actually sending bytes
@@ -768,7 +780,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.reps = int(reps)
         self._fre_instance.updatePreferencedValues()
 
-# -------------- dispenser for pick and place ------------------------  # TODO: implement this dynamically in the future, right now either dispenser can be selected for pick and place
+# -------------- dispenser for pick and place ------------------------  # TODO: implement this dynamically in the future, right now either dispenser can be selected for pick and place regardless of whether they are connected
 #     dispenserListUpdated = pyqtSignal()
 #     @pyqtProperty(list, notify=dispenserListUpdated)
 #     def dispenser_list(self):
