@@ -29,6 +29,38 @@ Rectangle {
     tooltipBaseRect.opacity = 0;
   }
 
+  Rectangle {
+    id: pointer
+    property var sideLength: Math.round((UM.Theme.getSize("default_margin").width * 2) / (Math.pow(3, 0.5) * 2))
+
+    anchors.left: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    height: 2 * sideLength
+    width: UM.Theme.getSize("default_margin").width
+
+    Canvas {
+      anchors.fill: parent
+
+      onPaint: {
+        var context = getContext("2d");
+
+        context.beginPath();
+        context.moveTo(0, Math.round((parent.height / 2) - (parent.sideLength)));
+        context.lineTo(Math.round((parent.sideLength * Math.pow(3, 0.5)) / 2), Math.round(parent.height / 2));
+        context.lineTo(0, Math.round((parent.height / 2) + (parent.sideLength)));
+        context.closePath();
+
+        context.fillStyle = UM.Theme.getColor("tooltip");
+        context.fill()
+      }
+    }
+  }
+
+  // Rectangle {
+  //   anchors.fill: pointer
+  //   color: "red"
+  // }
+
   UM.Label {
     id: tooltipText
     text: parent.label
