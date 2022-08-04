@@ -123,6 +123,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # fre instance
         self._fre_instance = FisnarRobotExtension.getInstance()
         self._dispenser_manager = self._fre_instance.getDispenserManager()
+        self._dispenser_command_sent = Event()
 
         # for checking if Fisnar is printing while trying to exit app
         CuraApplication.getInstance().getOnExitCallbackManager().addCallback(self._checkActivePritingOnAppExit)
@@ -130,7 +131,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def _checkActivePritingOnAppExit(self):
         # called when user tries to exit app - checks if Fisnar is trying to print
         application = CuraApplication.getInstance()
-        if not self._is_printing:  # not printing, so lose serial port and continue with exit checks
+        if not (self._is_printing or self._pick_place_in_progress):  # not printing, so lose serial port and continue with exit checks
             if self._connection_state == ConnectionState.Connected:
                 self.stopPrintingAndFinalize()  # print is already stopped but doesn't matter
             self.close()
@@ -139,7 +140,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         application.setConfirmExitDialogCallback(self._onConfirmExitDialogResult)
-        application.showConfirmExitDialog.emit(catalog.i18nc("@label", "Fisnar print is in progress - closing Cura will stop this print. Are you sure?"))
+        application.showConfirmExitDialog.emit(catalog.i18nc("@label", "Fisnar " + ("print" if self._is_printing else "pick and place") + " is in progress - closing Cura will stop this print. Are you sure?"))
 
     def _onConfirmExitDialogResult(self, result):
         # triggers when user clicks cancel or confirm on the confirm exit dialog
@@ -187,8 +188,15 @@ class FisnarOutputDevice(PrinterOutputDevice):
             return
 
         if self._connection_state == ConnectionState.Connected:  # if successfully connected
-            # TODO: also check for necessary dispenser connections here
-            # Logger.log("d", "Serial port created, _printFisnarCommands() called")
+            necessary_outputs = Converter.getOutputsInFisnarCommands(Converter.readFisnarCommandsFromCSV(fisnar_command_csv_io.getvalue()))
+            for i in range(4):  # ensure necessray dispensers are connected
+                if necessary_outputs[i]:
+                    if not self._dispenser_manager.getDispenser("dispenser_" + str(i + 1)).isConnected():
+                        printing_msg = Message(text = catalog.i18nc("@message", f"Dispenser {i + 1} is not yet connected. Ensure the proper serial port name has been entered under 'Fisnar Actions' -> 'Define Setup' and that the dispenser is on."),
+                                               title = catalog.i18nc("@message", "Dispenser Not Connected"))
+                        printing_msg.show()
+                        return
+
             self._printFisnarCommands(fisnar_command_csv_io.getvalue())  # starting print
         else:  # not connected
             printing_msg = Message(text = catalog.i18nc("@message", "The Fisnar is not yet connected. Ensure the proper serial port name has been entered under Fisnar Actions -> Define Setup"),
@@ -283,22 +291,18 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # this continually runs while connected to device, reading lines and
         # sending fisnar commands if necessary
         while self._connection_state == ConnectionState.Connected and self._serial is not None:
-            try:
-                if not self._dispenser_manager.trigger_fisnar_loop:
-                    Logger.log("d", "****** 1")
+            if not self._dispenser_command_sent.is_set():
+                try:
                     curr_line = self._serial.readline()
-                else:
-                    Logger.log("d", "****** 2")
-                    curr_line = b"abcdef"  # arbitrary, won't trigger any if blocks
-            except Exception as e:
-                Logger.log("d", f"exception occurred: {e}")
-                continue  # nothing to read
+                except:
+                    continue
+            else:
+                curr_line = b""
 
-            Logger.log("d", "command received: " + str(curr_line))
+            if self._dispenser_command_sent.is_set() or curr_line.startswith(b"ok!"):
 
-            if curr_line.startswith(b"ok!") or self._dispenser_manager.trigger_fisnar_loop:
-                if self._dispenser_manager.trigger_fisnar_loop:
-                    self._dispenser_manager.trigger_fisnar_loop = False
+                if self._dispenser_command_sent.is_set():
+                    self._dispenser_command_sent.clear()
                 elif curr_line.startswith(b"ok!"):
                     self._empty_byte_count = 0
                     self._command_received.set()
@@ -320,23 +324,22 @@ class FisnarOutputDevice(PrinterOutputDevice):
                     self._sendNextPickPlaceCommand()
 
             elif curr_line == bytes():
-                pass
-                # if self._connect_confirm_received.is_set():  # not already confirming
-                #     self._empty_byte_count += 1
-                #     if self._empty_byte_count >= 5:  # send connect confirmation command and wait for return bytes
-                #         Logger.log("i", "fisnar may be unresponsive, will attempt to confirm connection status")
-                #         self.sendCommand(FisnarCommands.PX())
-                #         self._connect_confirm_send_time = time.time()
-                #         self._connect_confirm_received.clear()
-                #         self._empty_byte_count = 0
-                # else:  # trying to confirm
-                #     if time.time() - self._connect_confirm_send_time > 5.0:  # 10 sec since sending confirm command
-                #         Logger.log("w", "fisnar unresponsive, will disconnect and attempt to reconnect")
-                #         self._connect_confirm_received.set()  # reset in case it reconnects and begins checking again
-                #         msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N is unresponsive, will attempt to regain connection..."),
-                #                       title = catalog.i18nc("@message", "Unresponsive Peripheral"))
-                #         msg.show()
-                #         self.close()
+                if self._connect_confirm_received.is_set():  # not already confirming
+                    self._empty_byte_count += 1
+                    if self._empty_byte_count >= 5:  # send connect confirmation command and wait for return bytes
+                        Logger.log("i", "fisnar may be unresponsive, will attempt to confirm connection status")
+                        self.sendCommand(FisnarCommands.PX())
+                        self._connect_confirm_send_time = time.time()
+                        self._connect_confirm_received.clear()
+                        self._empty_byte_count = 0
+                else:  # trying to confirm
+                    if time.time() - self._connect_confirm_send_time > 5.0:  # 10 sec since sending confirm command
+                        Logger.log("w", "fisnar unresponsive, will disconnect and attempt to reconnect")
+                        self._connect_confirm_received.set()  # reset in case it reconnects and begins checking again
+                        msg = Message(text = catalog.i18nc("@message", "Fisnar F5200N is unresponsive, will attempt to regain connection..."),
+                                      title = catalog.i18nc("@message", "Unresponsive Peripheral"))
+                        msg.show()
+                        self.close()
             elif FisnarCommands.isFeedback(curr_line):  # check if value was received
                 self._empty_byte_count = 0
                 # Logger.log("d", str(curr_line))
@@ -387,11 +390,10 @@ class FisnarOutputDevice(PrinterOutputDevice):
         if len(command) > 2 and command[:2] == bytes("OU", "ascii"):  # is an output command - assumes format 'OU n, s'
             if self._outputs.getOutput(int(chr(command[3]))) != (int(chr(command[6])) == 1):  # if change in output state
                 self._outputs.setOutput(int(chr(command[3])), int(chr(command[6])) == 1)
-                Logger.log("d", "********** 3")
                 dispenser_name = "dispenser_" + str(chr(command[3]))
                 self._dispenser_manager.busy = True
                 self._dispenser_manager.getDispenser(dispenser_name).sendCommand(UltimusV.dispenseToggle())  # TODO: handle potential errors here
-                Logger.log("d", "********** 4")
+            self._dispenser_command_sent.set()
             return
 
         # actually sending bytes
@@ -418,11 +420,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
             self._is_paused = False
 
             # clean things up
-            if self._outputs.getActiveOutput() is not None:  # don't know why this would happen
-                self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 1))
-                time.sleep(.5)
-                self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 0))
-            self.sendCommand(FisnarCommands.HM())
+            self._sendCommand(FisnarCommands.OU(1, 0))
+            self._sendCommand(FisnarCommands.OU(2, 0))
+            self._sendCommand(FisnarCommands.HM())
 
             # reset to prep for another print
             self._resetPrintingInternalState()
@@ -524,7 +524,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # TODO: ensure parameters and connections are such that pick and place can be done
         if not self._dispenser_manager.getPickPlaceDispenser().isConnected():  # if dispenser not connected
             Logger.log("w", "Pick and place dispenser is not open, pick and place execution terminated.")
-            msg = Message(text = catalog.i18nc("@message", f"UltimusV dispenser '{self._dispenser_manager.getPickPlaceDispenser().name}' at {self._dispenser_manager.getPickPlaceDispenser().getComPort()} is not connected. Ensure the proper serial port is selected and the dispenser is on"),
+            msg = Message(text = catalog.i18nc("@message", f"UltimusV dispenser '{self._dispenser_manager.getPickPlaceDispenser().display_name}' at {self._dispenser_manager.getPickPlaceDispenser().getComPort()} is not connected. Ensure the proper serial port is selected and the dispenser is on"),
                           title = catalog.i18nc("@message", "Unable to Execute Pick and Place"))
             msg.show()
             return
@@ -613,11 +613,9 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self.setPrintingState(False)
         self._is_paused = False
 
-        # ensure outputs are off, then home
-        if self._outputs.getActiveOutput() is not None:
-            self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 1))
-            time.sleep(.5)
-            self.sendCommand(FisnarCommands.OU(self._outputs.getActiveOutput(), 0))
+        # # ensure outputs are off, then home
+        self.sendCommand(FisnarCommands.OU(1, 0))
+        self.sendCommand(FisnarCommands.OU(2, 0))
         self.sendCommand(FisnarCommands.HM())
 
         self._resetPrintingInternalState()  # resets fisnar commands, current command index

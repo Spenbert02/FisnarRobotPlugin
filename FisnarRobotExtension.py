@@ -80,7 +80,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.place_z_speed = 1.0
         self.pick_dwell = 0.0
         self.place_dwell = 0.0
-        self.reps = 0
+        self.reps = 1
 
         # connection status of fisnar and dispenser for UI
         self.fisnar_connected = False
@@ -125,7 +125,9 @@ class FisnarRobotExtension(QObject, Extension):
         # setting up dispenser manager
         self.dispenser_manager = DispenserManager()
         self.dispenser_manager.addDispenser(UltimusV("dispenser_1"))
+        self.dispenser_manager.getDispenser("dispenser_1").display_name = "Dispenser 1"
         self.dispenser_manager.addDispenser(UltimusV("dispenser_2"))
+        self.dispenser_manager.getDispenser("dispenser_2").display_name = "Dispenser 2"
         self.dispenser_manager.dispenserConnectionStatesUpdated.connect(self._onDispenserConnectStateUpdated)
 
         # setting setting values to values stored in preferences

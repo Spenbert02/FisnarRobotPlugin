@@ -65,7 +65,6 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
     def _updateThread(self):
         # try to connect to fisnar and dispenser serial port every 10 seconds if they aren't already connected
         while self._check_updates:
-            time.sleep(10)
             self._fisnar_port_name = self._fre_instance.com_port
             self.getOutputDeviceManager().getOutputDevice("fisnar_f5200n").fisnarPortNameUpdated.emit()
             # TODO: put dispenser ports in manual control ui and emit signal here - basically the above line but for the dispensers
@@ -79,13 +78,15 @@ class FisnarOutputDevicePlugin(OutputDevicePlugin):
                         fis_msg.show()
 
             for dispenser in self._dispenser_manager.getDispensers():
-                if not dispenser.isConnected():
+                if not dispenser.isConnected() and dispenser.available.is_set():
                     if dispenser.getComPort() not in (None, "None"):
                         dispenser.connect()
                         if dispenser.isConnected():
                             disp_msg = Message(text = catalog.i18nc("@message", f"UltimusV dispenser '{dispenser.name}' successfully connected via: {dispenser.getComPort()}"),
                                                title = catalog.i18nc("@message", "Connection Status Update"))
                             disp_msg.show()
+
+            time.sleep(3)
 
     _instance = None
 

@@ -1,5 +1,7 @@
+import time
 from cura.PrinterOutput.Peripheral import Peripheral
 from PyQt6.QtCore import QTimer
+from threading import Event, Thread
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.Signal import Signal
@@ -7,6 +9,7 @@ from .UltimusV import UltimusV, PressureUnits
 
 from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
+
 
 class DispenserManager:
     # a class that holds multiple UltimusV objects that has methods for
@@ -23,12 +26,26 @@ class DispenserManager:
         self._dispensers = []
         self._pick_place_dispenser_name = None
 
-        self.trigger_fisnar_loop = False  # sent to true when a dispenser sends a command, in order to keep the fisnar 'ok!' loop going
+        self.trigger_fisnar_loop = Event()  # set when done sending, in order to trigger ok loop in fisnar _update
+
         self.busy = False  # true if any dispensers are busy, false otherwise
 
-        self._confirm_connection_timer = QTimer()
-        self._confirm_connection_timer.setInterval(5000)
-        self._confirm_connection_timer.timeout.connect(self._onConfirmConnectionTimeout)
+        self._confirm_connection_thread = Thread(target=self._update, daemon=True, name="DispenserManager Connection Confirmation")
+
+    def _update(self):
+        Logger.log("i", f"DispenserManager connection confirm thread started")
+        while len(self._dispensers) > 0:
+            for dispenser in self._dispensers:
+                if dispenser.isConnected() and dispenser.available.is_set():
+                    still_connected = dispenser.testConnection()
+                    if not still_connected:
+                        Logger.log("w", str(dispenser.display_name) + " appears to be unresponsive, attempting to confirm connection status")
+                        msg = Message(text = catalog.i18nc("@message", str(dispenser.display_name) + " is unresponsive, will attempt to regain connection..."),
+                                      title = catalog.i18nc("@message", "Unresponsive Peripheral"))
+                        msg.show()
+                        dispenser.close()
+                        self.dispenserConnectionStatesUpdated.emit()
+            time.sleep(5)
 
     def _onBusyStateUpdated(self):
         # update internal busy state
@@ -39,33 +56,19 @@ class DispenserManager:
         self.busy = False
 
     def _onSuccessfulCommandSend(self):
-        self.trigger_fisnar_loop = True
+        self.trigger_fisnar_loop.set()
 
     def _onDispenserConnectionStateUpdated(self):
         self.dispenserConnectionStatesUpdated.emit()
 
-    def _onConfirmConnectionTimeout(self):
-        pass
-        # for dispenser in self._dispensers:
-        #     if dispenser.isConnected() and not dispenser.busy:
-        #         still_connected = dispenser.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
-        #         if not still_connected:
-        #             Logger.log("w", str(dispenser.name) + " appears to be unresponsive, attempting to confirm connection status")
-        #             msg = Message(text = catalog.i18nc("@message", str(dispenser.name) + " is unresponsive, will attempt to regain connection..."),
-        #                           title = catalog.i18nc("@message", "Unresponsive Peripheral"))
-        #             msg.show()
-        #             dispenser.close()
-        #             self.dispenserConnectionStatesUpdated.emit()
-
     def addDispenser(self, dispenser):
         if dispenser not in self._dispensers and isinstance(dispenser, UltimusV):
             self._dispensers.append(dispenser)
+            if len(self._dispensers) == 1:
+                self._confirm_connection_thread.start()
             dispenser.connectionStateUpdated.connect(self._onDispenserConnectionStateUpdated)
             dispenser.successfulCommandSend.connect(self._onSuccessfulCommandSend)
             dispenser.busyStateUpdated.connect(self._onBusyStateUpdated)
-
-        if not self._confirm_connection_timer.isActive() and self._dispensers != []:  # start confirm connection timer if not going already
-            self._confirm_connection_timer.start()
 
         if self._pick_place_dispenser_name is None:  # defaulting pick and place dispenser
             self._pick_place_dispenser_name = dispenser.name
@@ -100,6 +103,8 @@ class DispenserManager:
             if self._dispensers[i].name == dispenser_name:
                 return self._dispensers[i]
         return None
+
+    # TODO: add infrastructure for tracking active dispensers in dispensermanager and add method for getting the active dispenser
 
     def getPickPlaceDispenser(self):
         if self._pick_place_dispenser_name is None:

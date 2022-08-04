@@ -38,8 +38,12 @@ class UltimusV(Peripheral):
     busyStateUpdated = Signal()
     successfulCommandSend = Signal()
 
+    outputToggled = Signal()
+
     def __init__(self, name, *args):
         super().__init__("dispenser", name)
+
+        self.display_name = None
 
         # port attributes
         self._serial = None
@@ -49,36 +53,54 @@ class UltimusV(Peripheral):
 
         self._connection_state = ConnectionState.Closed
 
-        self._busy = False
+        self._output_state = False
 
-    def sendCommand(self, command_bytes):
-        # send a command to the Ultimus V and return True if it was successful
-        # or False if it was not
+        self.sending = Event()
+        self.available = Event()
+        self.available.set()
 
-        command_bytes = UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + UltimusV.checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT
+    def testConnection(self):
+        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):
+            return
+
+        command_bytes = UltimusV.setVacuum(0.0, PressureUnits.V_KPA)
+        self._serial.write(UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + UltimusV.checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT)
+
+        ret = self._serial.readline()
+        if len(ret) > 5 and ret[4:6] == UltimusV.success():
+            return True
+        else:
+            return False
+
+    def sendCommand(self, command):
+        # send a command to the Ultimus V and return True if it was succesfully sent
+        # or false if an exception was thrown when sending
+
+        if self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting) or self._serial is None:
+            return
+
+        self.available.clear()
+        command_bytes = UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command)) + command + UltimusV.checksum(UltimusV.intToHexBytes(len(command)) + command) + UltimusV.ETX + UltimusV.EOT
 
         try:
             self._serial.write(command_bytes)
-            self.successfulCommandSend.emit()
-            return
-            # ret_line = self._serial.readline()
-            # if len(ret_line) >=6 and ret_line[4:6] == UltimusV.success():
-            #     Logger.log("d", f"{self.name} successfully sent command: {command_bytes}")
-            #     self.successfulCommandSend.emit()
-            #     self.setBusyState(False)
-            #     return True
-            # else:
-            #     Logger.log("w", f"failed to send command '{command_bytes}' to {self.name} - received bytes: '{ret_line}'")
-            #     self.setBusyState(False)
-            #     return False
+            self.successfulCommandSend.emit()  # for now, assume succesfully sent
+            if command == UltimusV.dispenseToggle():
+                self._output_state = not self._output_state
+                self.outputToggled.emit()
+            self.available.set()
+            return True
         except SerialTimeoutException:
-            Logger.log("w", f"{self.name} timed out when sending command {command_bytes}")
+            Logger.log("w", f"{self.display_name} timed out when sending command {command_bytes}")
+            self.available.set()
             return False
         except SerialException:
-            Logger.log("w", f"unexpected serial error occured when sending command '{command_bytes}' to {self.name}")
+            Logger.log("w", f"unexpected serial error occured when sending command '{command_bytes}' to {self.display_name}")
+            self.available.set()
             return False
 
-        Logger.log("w", f"unexpected error occured when sending command '{command_bytes}' to {self.name}")  # not sure what other exceptions could happen, but this will catch them
+        Logger.log("w", f"unexpected error occured when sending command '{command_bytes}' to {self.display_name}")  # not sure what other exceptions could happen, but this will catch them
+        self.available.set()
         return False
 
     def setComPort(self, name):
@@ -102,22 +124,21 @@ class UltimusV(Peripheral):
                 Logger.log("i", f"Serial port {self._serial_port_name} is open. Testing if the UltimusV dispenser is on...")
             except SerialException:
                 Logger.log("w", "Exception occured when trying to create serial connection")
-                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
+                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.display_name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
                                   title = catalog.i18nc("@message", "Serial Port Error"))
                 err_msg.show()
                 return
             except OSError as e:
                 Logger.log("w", f"The serial device is suddenly unavailable when trying to connect: {str(e)}")
-                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
+                err_msg = Message(text = catalog.i18nc("@message", f"Unable to connect to serial port for '{self.display_name}' at '{self._serial_port_name}'. Ensure proper port is selected"),
                                   title = catalog.i18nc("@message", "Serial Port Error"))
                 err_msg.show()
                 return
 
         self.setConnectionState(ConnectionState.Connecting)
-        self.sendCommand(UltimusV.setVacuum(0.0, PressureUnits.V_KPA))
-        result = self._serial.readline()
-        if len(result) > 5 and result[4:6] == UltimusV.success():  # successfully initialized
-            Logger.log("i", f"{self.name} succesfully connected via {self._serial_port_name}")
+        success = self.testConnection()
+        if success:  # successfully initialized
+            Logger.log("i", f"{self.display_name} succesfully connected via {self._serial_port_name}")
             self.setConnectionState(ConnectionState.Connected)
         else:
             Logger.log("w", "dispenser failed to connect...")
@@ -138,14 +159,6 @@ class UltimusV(Peripheral):
         if self._connection_state != state:
             self._connection_state = state
             self.connectionStateUpdated.emit()
-
-    def isBusy(self):
-        return self._busy
-
-    def setBusyState(self, state):
-        if state != self._busy:
-            self._busy = state
-            self.busyStateUpdated.emit()
 
     @staticmethod
     def checksum(byte_array):
