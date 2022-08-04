@@ -778,27 +778,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         self._fre_instance.reps = int(reps)
         self._fre_instance.updatePreferencedValues()
 
-# -------------- dispenser for pick and place ------------------------  # TODO: implement this dynamically in the future, right now either dispenser can be selected for pick and place regardless of whether they are connected
-#     dispenserListUpdated = pyqtSignal()
-#     @pyqtProperty(list, notify=dispenserListUpdated)
-#     def dispenser_list(self):
-#         ret_list = []
-#         dispensers = self._dispenser_manager.getDispensers()
-#         for dispenser in dispensers:
-#             # if dispenser.isConnected():
-#             #     ret_list.append(dispenser.name)
-#             ret_list.append(dispenser.name)
-#         return ret_list
-#
-#     pickPlaceDispenserUpdated = pyqtSignal()
-#     @pyqtProperty(str, notify=pickPlaceDispenserUpdated)
-#     def pick_place_dispenser(self):
-#         return str(self._dispenser_manager.getPickPlaceDispenserName())
-#
-#     @pyqtSlot(str)
-#     def setPickPlaceDispenser(self, name):
-#         self._dispenser_manager.setPickPlaceDispenser(name)
-
+# -------------- dispenser for pick and place ------------------------
     pickPlaceDispenserUpdated = pyqtSignal()
     @pyqtProperty(int, notify=pickPlaceDispenserUpdated)
     def pick_place_dispenser_index(self):
@@ -814,6 +794,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def setPickPlaceDispenser(self, id):
         self._dispenser_manager.setPickPlaceDispenser(id)
         self._fre_instance.updatePreferencedValues()
+        
 # ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()
