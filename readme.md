@@ -44,7 +44,7 @@ as indicated in the picture below.
 
 ![](docs/doc_pics/add_printer_menu.png)
 
-In the resulting menu, the Fisnar F5200N can be found under 'Adda non-networked
+In the resulting menu, the Fisnar F5200N can be found under 'Add a non-networked
 printer' > 'Fisnar' > 'Fisnar F5200N'.
 
 ![](docs/doc_pics/fisnar_add_printer_location.png)
