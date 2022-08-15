@@ -3,7 +3,7 @@ import serial
 import time
 import threading
 
-from .Fisnar import Fisnar
+# from .Fisnar import Fisnar
 from .Converter import Converter
 
 from UM.Logger import Logger
@@ -53,20 +53,18 @@ class FisnarController:
             return str(self.information)
 
     def setComPort(self, com_port):
-        # update the com port and create fisnar machine if the port
-        # isn't None
-        if com_port is None or com_port == "None":
-            self.com_port = None
-            if self.fisnar_machine is not None:  # None signals to get rid of port
-                self.fisnar_machine.close()
-                del self.fisnar_machine
-                self.fisnar_machine = None
-        else:
-            self.com_port = str(com_port)
-            if self.fisnar_machine is not None:  # delete com port object to free port
-                self.fisnar_machine.close()
-                del self.fisnar_machine
-            self.fisnar_machine = Fisnar(self.com_port, 115200)
+        # # update the com port and create fisnar machine if the port
+        # # isn't None
+        # if com_port is None or com_port == "None":
+        #     self.com_port = None
+        #     if self.fisnar_machine is not None:
+        #         del self.fisnar_machine
+        # else:
+        #     self.com_port = str(com_port)
+        #     if self.fisnar_machine is not None:  # delete com port object to free port
+        #         del self.fisnar_machine
+        #     self.fisnar_machine = Fisnar(self.com_port, 115200)
+        self.com_port = None
 
     def getComPort(self):
         return str(self.com_port)
@@ -266,41 +264,3 @@ class FisnarController:
             # if no errors have triggered so far, all good
             setSuccessfulPrint(True)
             return  # will return anyway, so this isn't really necessary
-
-    @staticmethod
-    def readFisnarCommandsFromFile(file_abspath):
-        """
-        this will break down if the file doesn't exist. This is for development,
-        so just make sure the file exists. Returns a 2D array of fisnar commands in the expected format
-        """
-
-        # get the csv cells into a 2D array (again, no error checking)
-        csv_file = open(file_abspath, "r")
-        command_str = csv_file.read()
-        commands = [line.split(",") for line in command_str.split("\n")]
-
-        # converting all 2D array entries into proper types
-        i = 0
-        while i < len(commands):
-            if commands[i][0] == "Output":
-                for j in range(1, 3):
-                    commands[i][j] = int(commands[i][j])
-            elif commands[i][0] == "Dummy Point":
-                for j in range(1, 4):
-                    commands[i][j] = float(commands[i][j])
-            elif commands[i][0] == "Line Speed":
-                commands[i][1] = float(commands[i][1])
-            elif commands[i][0] == "Z Clearance":
-                commands[i][1] = int(commands[i][1])
-            elif commands[i][0] == "End Program":
-                pass
-            elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
-                for j in range(1, 4):
-                    commands[i][j] = float(commands[i][j])
-            else:
-                print("Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
-                commands.pop(i)
-                i -= 1
-            i += 1
-
-        return copy.deepcopy(commands)

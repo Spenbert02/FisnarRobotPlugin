@@ -1,20 +1,16 @@
 import copy
-
+from .FisnarCommands import FisnarCommands
 from .gcodeBuddy.marlin import Command
-from .PrinterAttributes import PrintSurface, ExtruderArray
+from .PrinterAttributes import PrintSurface
+from .UltimusV import UltimusV
 
 from UM.Logger import Logger
 
 
 class Converter:
-    # class that facilitates the conversion of gcode commands into Fisnar
-    # commands
+    # class that facilitates the translation of commands between gcode and
+    # fisnar commands in several different formats
 
-    # enumeration for different conversion modes
-    IO_CARD = 2
-    NO_IO_CARD = 3
-
-    # movement commands
     XYZ_COMMANDS = ("Dummy Point", "Line Start", "Line Passing", "Line End")
 
     def __init__(self):
@@ -22,21 +18,13 @@ class Converter:
         self.gcode_commands_lst = None  # gcode commands as a list of Command objects
         self.last_converted_fisnar_commands = None  # the last converted fisnar command list
 
-        self.print_surface = None
-
-        # extruder-output correlations
-        self.extruder_outputs = ExtruderArray(4)
-
-        # only the io_card mode is used. NO_IO_CARD feature is deprecated
-        self.conversion_mode = Converter.IO_CARD  # default to using io card
+        self.print_surface = None  # type: PrintSurface
 
         self.information = None  # for error reporting
-
 
     def setInformation(self, info_str):
         # set error information (takes one str parameter)
         self.information = str(info_str)  # converting to str just to be safe
-
 
     def getInformation(self):
         # get error information as string describing error that occured
@@ -45,50 +33,19 @@ class Converter:
         else:
             return str(self.information)
 
-
     def setPrintSurface(self, print_surface):
         # set the Fisnar print surface coordinates
         self.print_surface = print_surface
-
 
     def getPrintSurface(self):
         # get the Fisnar print surface area as an array of coords in the form:
         # [x min, x max, y min, y max, z max]
         return self.print_surface
 
-
-    def setExtruderOutputs(self, extruder_outputs):
-        # set the output assigned to each extruder
-        self.extruder_outputs = extruder_outputs
-
-
-    def getExtruderOutputs(self):
-        # get the outputs associated with each extruder in a list of the form:
-        # [extr 1, extr 2, extr 3, extr 4]
-        return self.extruder_outputs
-
-
     def setGcode(self, gcode_str):
         # sets the gcode string (and gcode list)
         self.gcode_commands_str = gcode_str
         self.gcode_commands_lst = Converter.getStrippedCommands(gcode_str.split("\n"))
-
-
-    def getExtrudersInGcode(self):
-        # get the extruders used in the gcode file in a list of bools [extruder 1, extruder 2, extruder 3, extruder 4]
-
-        ret_extruders = [False, False, False, False]
-        for command in self.gcode_commands_lst:
-            if command.get_command()[0] == "T":
-                ret_extruders[int(command.get_command()[1])] = True
-
-        # if no toolhead commands are given, there must only be one extruder
-        if ret_extruders == [False, False, False, False]:
-            Logger.log("i", "Only one extruder is being used")
-            ret_extruders[0] = True
-
-        return ret_extruders  # extruder 1 is T0, extruder 2 is T1, etc etc so the max T is one less than the number of extruders
-
 
     def getFisnarCommands(self):
         # get the fisnar command list from the last set gcode commands and settings.
@@ -97,25 +54,6 @@ class Converter:
         # ensuring gcode commands exist
         if self.gcode_commands_lst is None:
             self.setInformation("internal error: in getFisnarCommands(), gcode_commands_lst is None")
-            return False
-
-        # gcode and user extruder lists
-        gcode_extruders = self.getExtrudersInGcode()  # list of bools
-        user_extruders = self.getExtruderOutputs()  # list of ints
-
-        if self.conversion_mode == Converter.NO_IO_CARD:  # io card is not being used
-            if gcode_extruders != [True, False, False, False]:  # if wrong extruders for no io
-                self.setInformation("multiple extruders are used in gcode - i/o card must be used")
-                return False
-        elif self.conversion_mode == Converter.IO_CARD:  # io card is being used
-            # checking that user has entered necessary extruder outputs
-            for i in range(len(gcode_extruders)):
-                if gcode_extruders[i]:
-                    if user_extruders.getOutput(i + 1) is None:  # user hasn't entered output for extruder 'i + 1'
-                        self.setInformation("Output for extruder " + str(i + 1) + " must be entered")
-                        return False
-        else:
-            self.setInformation("internal error: no conversion mode set for Converter (Converter.getFisnarCommands)")
             return False
 
         # converting and interpreting command output
@@ -131,7 +69,6 @@ class Converter:
         self.last_converted_fisnar_commands = fisnar_commands
         return fisnar_commands
 
-
     def convertCommands(self):
         # convert gcode to fisnar command 2d list. Assumes the extruder outputs given are valid.
         # returns False if there aren't enough gcode commands to deduce any Fisnar commands.
@@ -140,7 +77,6 @@ class Converter:
         # useful information for the conversion process
         first_relevant_command_index = Converter.getFirstPositionalCommandIndex(self.gcode_commands_lst)
         last_relevant_command_index = Converter.getLastExtrudingCommandIndex(self.gcode_commands_lst)
-        extruder_outputs = self.getExtruderOutputs()
 
         # in case there isn't enough commands (this should never happen in slicer output)
         if first_relevant_command_index is None or last_relevant_command_index is None:
@@ -148,15 +84,7 @@ class Converter:
             return False
 
         # default fisnar initial commands
-        fisnar_commands = None
-        if self.conversion_mode == Converter.IO_CARD:
-            fisnar_commands = [["Line Speed", 30], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
-        elif self.conversion_mode == Converter.NO_IO_CARD:
-            fisnar_commands = [["Line Speed", 20], ["Z Clearance", 5], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
-        else:
-            self.setInformation("internal error: no conversion mode set for Converter (Converter.convertCommands)")
-            return False
-
+        fisnar_commands = [["Line Speed", 30], ["SET ME AFTER CONVERTING COORD SYSTEM"]]
 
         # finding first extruder used in gcode
         curr_extruder = 0
@@ -175,76 +103,39 @@ class Converter:
                 curr_speed = command.get_param("F") / 60
                 fisnar_commands.append(["Line Speed", curr_speed])
 
-            # considering the command for io card conversion
-            if self.conversion_mode == Converter.IO_CARD:
-                if first_relevant_command_index <= i <= last_relevant_command_index:  # command needs to be converted
-                    if command.get_command() in ("G0", "G1"):
-                        new_commands = Converter.g0g1WithIO(command, extruder_outputs.getOutput(curr_extruder + 1), curr_pos)
-                        for command in new_commands:
-                            fisnar_commands.append(command)
-                    elif command.get_command() in ("G2", "G3"):
-                        pass  # might implement eventually. probably not, these are _rarely_ used.
-                    elif command.get_command() == "G90":
-                        pass  # assuming all commands are absolute coords for now.
-                    elif command.get_command() == "G91":
-                        pass  # assuming all commands are absolute coords for now.
-                    elif command.get_command()[0] == "T":
-                        curr_extruder = int(command.get_command()[1])
-
-            # considering the command for non io card conversion
-            elif self.conversion_mode == Converter.NO_IO_CARD:
-                if first_relevant_command_index <= i < last_relevant_command_index:  # the last command will be 'manually' converted after this loop
-                    if command.get_command() in ("G0", "G1"):
-                        j = i + 1
-                        while self.gcode_commands_lst[j].get_command() not in ("G0", "G1"):
-                            j += 1
-                        next_extruding_command = self.gcode_commands_lst[j]
-                        new_command = Converter.g0g1NoIO(command, next_extruding_command, curr_pos)
-                        fisnar_commands.append(new_command)
-                    elif command.get_command() in ("G2", "G3"):
-                        pass
-                    elif command.get_command() == "G90":
-                        pass
-                    elif command.get_command() == "G91":
-                        pass
-                elif i == last_relevant_command_index:  # last command (necessarily a line end)
-                    if command.has_param("X"):
-                        curr_pos[0] = command.get_param("X")
-                    if command.has_param("Y"):
-                        curr_pos[1] = command.get_param("Y")
-                    if command.has_param("Z"):
-                        curr_pos[2] = command.get_param("Z")
-                    fisnar_commands.append(["Line End", curr_pos[0], curr_pos[1], curr_pos[2]])
-
-            else:
-                pass  # error checking for conversion happens before in this function
+            if first_relevant_command_index <= i <= last_relevant_command_index:  # command needs to be converted
+                if command.get_command() in ("G0", "G1"):
+                    new_commands = Converter.g0g1WithIO(command, curr_extruder + 1, curr_pos)
+                    for command in new_commands:
+                        fisnar_commands.append(command)
+                elif command.get_command() in ("G2", "G3"):
+                    pass  # might implement eventually. probably not, these are _rarely_ used.
+                elif command.get_command() == "G90":
+                    pass  # assuming all commands are absolute coords for now.
+                elif command.get_command() == "G91":
+                    pass  # assuming all commands are absolute coords for now.
+                elif command.get_command()[0] == "T":
+                    curr_extruder = int(command.get_command()[1])
 
         # turning off necessary outputs
-        if self.conversion_mode == Converter.IO_CARD:
-            gcode_outputs = Converter.getOutputsInFisnarCommands(fisnar_commands)
-            Logger.log("d", "gcode outputs: " + str(gcode_outputs))
-            for i in range(4):
-                if gcode_outputs[i]:
-                    fisnar_commands.append(["Output", i + 1, 0])
+        gcode_outputs = Converter.getOutputsInFisnarCommands(fisnar_commands)
+        Logger.log("d", "gcode outputs: " + str(gcode_outputs))
+        for i in range(4):
+            if gcode_outputs[i]:
+                fisnar_commands.append(["Output", i + 1, 0])
         fisnar_commands.append(["End Program"])
 
         # inverting and shifting coordinate system from gcode to fisnar, then putting home travel command
         Converter.invertCoords(fisnar_commands, self.print_surface.getZMax())
 
-        # this is effectively a homing command
-        if self.conversion_mode == Converter.IO_CARD:
-            fisnar_commands[1] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
-        elif self.conversion_mode == Converter.NO_IO_CARD:
-            fisnar_commands[2] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
-        else:
-            pass  # conversion mode error checking happens before in this function
+        # put home coordinates into home dummy point
+        fisnar_commands[1] = ["Dummy Point", self.print_surface.getXMin(), self.print_surface.getYMin(), self.print_surface.getZMax()]
 
-        # removing redundant output commands
-        if self.conversion_mode == Converter.IO_CARD:
-            Converter.optimizeFisnarOutputCommands(fisnar_commands)
+        # removing redundant output and line speed commands
+        Converter.optimizeFisnarOutputCommands(fisnar_commands)
+        Converter.optimizeLineSpeedCommands(fisnar_commands)  # ensures no consectuive line speed commands
 
         return fisnar_commands
-
 
     def boundaryCheck(self, fisnar_commands):
         # check that all coordinates are within the user specified area. If ANY
@@ -262,6 +153,18 @@ class Converter:
                     Logger.log("e", f"command found outside user-defined build volume: {str(command)}")
                     return False
         return True  # functioned hasn't returned False, so all good
+
+    @staticmethod
+    def optimizeLineSpeedCommands(fisnar_commands):
+        i = len(fisnar_commands) - 1
+        while i >= 0:
+            if fisnar_commands[i][0] == "Line Speed":
+                i -= 1
+                while fisnar_commands[i][0] == "Line Speed":
+                    fisnar_commands.pop(i)
+                    i -= 1
+            else:
+                i -= 1
 
     @staticmethod
     def g0g1NoIO(command, next_command, curr_pos):
@@ -398,9 +301,6 @@ class Converter:
                 else:
                     i += 1
 
-            # if output_state is None:
-            #     Logger.log("d", "output " + str(output) + " does not appear in Fisnar commands.")
-
     @staticmethod
     def invertCoords(commands, z_dim):
         # invert all coordinate directions for dummy points (modifies the given list)
@@ -409,7 +309,6 @@ class Converter:
                 commands[i][1] = 200 - commands[i][1]
                 commands[i][2] = 200 - commands[i][2]
                 commands[i][3] = z_dim - commands[i][3]
-
 
     @staticmethod
     def numNestedElements(nested_list):
@@ -423,7 +322,6 @@ class Converter:
             else:
                 ret_sum += 1
         return ret_sum
-
 
     @staticmethod
     def segmentFisnarCommands(fisnar_commands):
@@ -462,7 +360,6 @@ class Converter:
 
         return ret_commands
 
-
     @staticmethod
     def fisnarCommandsToCSVString(fisnar_commands):
         # turn a 2d list of fisnar commands into a csv string
@@ -476,3 +373,80 @@ class Converter:
                     ret_string += ","
 
         return ret_string
+
+    @staticmethod
+    def fisnarCommandsToBytes(fisnar_commands):
+        # from a 2d-array of fisnar commands, get an array of fisnar command bytes
+        # assumes that whichever dipsenser(s) appear in the fisnar commands are
+        # connected
+
+        ret_bytes = []
+        i = 0
+        while i < len(fisnar_commands):
+            if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:
+                output = fisnar_commands[i][1]
+                i += 1
+                consecutive_dummies = 0
+                while i < len(fisnar_commands) and fisnar_commands[i][0] == "Dummy Point":
+                    if consecutive_dummies >= 99:
+                        ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                        ret_bytes.append(FisnarCommands.ID())
+                        ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
+                        consecutive_dummies = 0
+
+                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                    i += 1
+                    consecutive_dummies += 1
+
+                line_speed = fisnar_commands[i][1]
+                i += 2  # skip the output command that comes afterward
+
+                ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                ret_bytes.append(FisnarCommands.ID())
+                ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
+                ret_bytes.append(FisnarCommands.SP(line_speed))
+            else:
+                if fisnar_commands[i][0] == "Dummy Point":
+                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                    ret_bytes.append(FisnarCommands.ID())
+                    i += 1
+                elif fisnar_commands[i][0] == "Line Speed":
+                    ret_bytes.append(FisnarCommands.SP(fisnar_commands[i][1]))
+                    i += 1
+                else:
+                    Logger.log("w", "unaccounted for command in fisnar_commands: " + str(fisnar_commands[i]))
+                    i += 1
+        return ret_bytes
+
+    @staticmethod
+    def readFisnarCommandsFromCSV(csv_string):
+        # given a string in CSV format, return a 2d array of fisnar commands
+
+        # get the csv cells into a 2D array (again, no error checking)
+        commands = [line.split(",") for line in csv_string.split("\n")]
+
+        # converting all 2D array entries into proper types
+        i = 0
+        while i < len(commands):
+            if commands[i][0] == "Output":
+                for j in range(1, 3):
+                    commands[i][j] = int(commands[i][j])
+            elif commands[i][0] == "Dummy Point":
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            elif commands[i][0] == "Line Speed":
+                commands[i][1] = float(commands[i][1])
+            elif commands[i][0] == "Z Clearance":
+                commands[i][1] = int(commands[i][1])
+            elif commands[i][0] == "End Program":
+                pass
+            elif commands[i][0] in ("Line Start", "Line End", "Line Passing"):
+                for j in range(1, 4):
+                    commands[i][j] = float(commands[i][j])
+            else:
+                Logger.log("d", "Unexpected command: '" + str(commands[i][0]) + "'")  # for debugging
+                commands.pop(i)
+                i -= 1  # to be immediately cancelled out by the following line - stay at the same index
+            i += 1
+
+        return copy.deepcopy(commands)

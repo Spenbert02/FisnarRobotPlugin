@@ -1,5 +1,6 @@
 from . import FisnarCSVWriter
 from . import FisnarRobotExtension
+from . import FisnarOutputDevicePlugin
 
 
 def getMetaData():
@@ -18,5 +19,6 @@ def getMetaData():
 def register(app):
     return {
     "extension": FisnarRobotExtension.FisnarRobotExtension(),
-    "mesh_writer": FisnarCSVWriter.FisnarCSVWriter()
+    "mesh_writer": FisnarCSVWriter.FisnarCSVWriter(),
+    "output_device": FisnarOutputDevicePlugin.FisnarOutputDevicePlugin()
     }

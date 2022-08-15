@@ -10,31 +10,21 @@ catalog = i18nCatalog("cura")
 
 
 class FisnarCSVWriter(MeshWriter):
+
     def __init__(self):
         super().__init__(add_to_recent_files = False)  # don't want the spreadsheets to appear in recent files
-        self._application = Application.getInstance()  # I dont need this. might be needed internally, so gonna leave it.
+
+        if FisnarCSVWriter._instance is not None:  # already been created - should never happen
+            Logger.log("e", "FisnarCSVWriter instantiated more than once")
+        else:
+            FisnarCSVWriter._instance = self
+
+        self._fre_instance = FisnarRobotExtension.getInstance()
         self.converter = Converter()
-
-
-    def getEnteredParameters(self):
-        # get the user entered parameters in the Extension part of this plugin
-        # and update the Converter object
-
-        #  getting extension instance
-        ext = FisnarRobotExtension.getInstance()
-
-        # updating fisnar coords
-        self.converter.setPrintSurface(ext.print_surface)
-        # Logger.log("i", "Build area updated in FisnarCSVWriter. New print surface: " + str(self.converter.getPrintSurface()))  # test
-
-        # updating extruder correlations
-        self.converter.setExtruderOutputs(ext.extruder_outputs)
-        # Logger.log("i", "Extruder outputs passed to FisnarCSVWriter. New outputs: " + str(self.converter.getExtruderOutputs()))  # test
-
 
     def write(self, stream, nodes, mode=MeshWriter.OutputMode.TextMode):
         # getting updated extension parameters
-        self.getEnteredParameters()
+        self.converter.setPrintSurface(self._fre_instance.print_surface)
 
         # TODO: figure out a way to get the filename of the saved file, and add it as a parameter in the extension plugin
 
@@ -75,3 +65,10 @@ class FisnarCSVWriter(MeshWriter):
         else:  # gcode list not found, log error
             self.setInformation(catalog.i18nc("@warning:status", "Gcode must be prepared before exporting Fisnar CSV"))
             return False  # error
+
+    _instance = None
+
+    @classmethod
+    def getInstance(cls):
+        # get the singleton instance of the FisnarCSVWriter class
+        return cls._instance

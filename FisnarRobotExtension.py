@@ -8,16 +8,11 @@ import sys
 import threading
 import time
 import zipfile
-
 from typing import Optional, Union, List
-
 from cura.BuildVolume import BuildVolume
 from cura.CuraApplication import CuraApplication
-
 from PyQt6.QtCore import QObject, QUrl, QTimer, pyqtSlot, pyqtProperty, pyqtSignal
 from PyQt6.QtQml import QQmlComponent, QQmlContext
-
-from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Extension import Extension
 from UM.Logger import Logger
@@ -26,18 +21,15 @@ from UM.Message import Message
 from UM.PluginRegistry import PluginRegistry
 from UM.Resources import Resources
 from UM.Scene.Iterator.BreadthFirstIterator import BreadthFirstIterator
-
-from .FisnarController import FisnarController
 from .Converter import Converter
-from .PrinterAttributes import PrintSurface, ExtruderArray
+from .DispenserManager import DispenserManager
+from .PrinterAttributes import PrintSurface
+from .UltimusV import UltimusV
 
+from UM.i18n import i18nCatalog
 catalog = i18nCatalog("cura")
 
 class FisnarRobotExtension(QObject, Extension):
-
-    # for factory methods. This will be set to the instance of this class once initialized.
-    # this class is only instantiated once, when Cura first opens.
-    _instance = None
 
     def __init__(self, parent=None):
         # calling necessary super methods.
@@ -46,66 +38,65 @@ class FisnarRobotExtension(QObject, Extension):
 
         # factory object creation
         if FisnarRobotExtension._instance is not None:  # if object has already been instantiated
-            Logger.log("e", "FisnarRobotExtension instantiated more than once")
+            Logger.log("w", "FisnarRobotExtension instantiated more than once")
         else:  # first time instantiating object
-            # Logger.log("i", "****** FisnarRobotExtension instantiated for the first time")  # test
             FisnarRobotExtension._instance = self
 
         # initializing applications
         self._application = Application.getInstance()
         self._cura_app = CuraApplication.getInstance()
 
-        # signal emitted when ExtrudersModel changes
-        numActiveExtrudersChanged = self._cura_app.getExtrudersModel().modelChanged
-
         # preferences - defining all into a single preference in the form of a dictionary
         self.preferences = self._application.getPreferences()
         default_preferences = {
             "print_surface": [0.0, 200.0, 0.0, 200.0, 150.0],
-            "extruder_outputs": [None, None, None, None],
-            "com_port": None
+            "com_port": None,
+            "dispenser_com_ports": {"dispenser_1": None, "dispenser_2": None},
+            "pick_location": (0.0, 0.0, 0.0),
+            "place_location": (0.0, 0.0, 0.0),
+            "vacuum_pressure": 0.0,
+            "vacuum_units": 0,  # uses enumeration in UltimusV.PressureUnits
+            "xy_speed": 0.0,
+            "pick_z_speed": 0.0,
+            "place_z_speed": 0.0,
+            "pick_dwell": 0.0,
+            "place_dwell": 0.0,
+            "reps": 0,
+            "pick_place_dispenser_id": None
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
-        # internal preference values
+        # internal printing preference values
         self.print_surface = PrintSurface(0.0, 200.0, 0.0, 200.0, 150.0)
-        self.num_active_extruders = None
-        self.extruder_outputs = ExtruderArray(4)  # array of 4 'extruders'
         self.com_port = None
+
+        # internal pick and place preference values
+        self.pick_location = (0.0, 0.0, 0.0)
+        self.place_location = (0.0, 0.0, 0.0)
+        self.vacuum_pressure = 0.0
+        self.vacuum_units = 0
+        self.xy_speed = 0.0
+        self.pick_z_speed = 1.0
+        self.place_z_speed = 1.0
+        self.pick_dwell = 0.0
+        self.place_dwell = 0.0
+        self.reps = 1
+
+        # connection status of fisnar and dispenser for UI
+        self.fisnar_connected = False
 
         # setting up menus
         self.setMenuName("Fisnar Actions")
         self.addMenuItem("Define Setup", self.showDefineSetupWindow)
-        self.addMenuItem("Print", self.showFisnarControlWindow)
 
         # 'lazy loading' windows, so can be called later.
         self.define_setup_window = None
-        self.fisnar_control_window = None
-        self.fisnar_error_window = None
-        self.fisnar_progress_window = None
-
-        # for passing to serial uploader object
-        self.most_recent_fisnar_commands = None
-
-        # initializing FisnarController
-        self.fisnar_controller = FisnarController()
-
-        # timer for updating progress
-        self.progress_update_timer = QTimer()
-        self.progress_update_timer.setInterval(500)
-
-        # timer for resetting FisnarController internal state
-        self.fisnar_reset_timer = QTimer()
-        self.fisnar_reset_timer.setInterval(5000)
-        self.fisnar_reset_timer.setSingleShot(True)  # stops after one timeout
-        self.fisnar_reset_timer.timeout.connect(self.resetFisnarState)
 
         # timer for resetting disallowed areas when a file is loaded
         self.reset_dis_areas_timer = QTimer()
-        self.reset_dis_areas_timer.setInterval(500)
-        self.reset_dis_areas_timer.setSingleShot(True)
+        self.reset_dis_areas_timer.setInterval(1000)  # every one second, update disallowed areas. kind of hacky, but works for now
         self.reset_dis_areas_timer.timeout.connect(self.resetDisallowedAreas)
-        self._cura_app.fileCompleted.connect(self.startResetDisAreasTimer)
+        self.reset_dis_areas_timer.start()
 
         # filepaths to local resources
         self.this_plugin_path = os.path.join(Resources.getStoragePath(Resources.Resources, "plugins", "FisnarRobotPlugin", "FisnarRobotPlugin"))
@@ -128,14 +119,22 @@ class FisnarRobotExtension(QObject, Extension):
             self.installDefFiles()
             Logger.log("i", "All FisnarRobotPlugin files are installed and up-to-date")
 
-        # setting setting values to values stored in preferences, and updating build area view
-        self.startResetDisAreasTimer()
+        # loading tooltip dictionary
+        self.tooltips = json.load(open(os.path.join(self.this_plugin_path, "resources", "tooltips.json"), "r"))
+
+        # setting up dispenser manager
+        self.dispenser_manager = DispenserManager()
+        self.dispenser_manager.addDispenser(UltimusV("dispenser_1"))
+        self.dispenser_manager.getDispenser("dispenser_1").display_name = "Dispenser 1"
+        self.dispenser_manager.addDispenser(UltimusV("dispenser_2"))
+        self.dispenser_manager.getDispenser("dispenser_2").display_name = "Dispenser 2"
+        self.dispenser_manager.dispenserConnectionStatesUpdated.connect(self._onDispenserConnectStateUpdated)
+
+        # setting setting values to values stored in preferences
         self.updateFromPreferencedValues()
 
-    @classmethod
-    def getInstance(cls):
-        # factory method
-        return cls._instance
+    def getDispenserManager(self):
+        return self.dispenser_manager
 
     def defFilesAreUpdated(self):
         # return True if the locally installed def files are up to date,
@@ -192,34 +191,58 @@ class FisnarRobotExtension(QObject, Extension):
             warning = Message(catalog.i18nc("@warning:status", "An error occured while installing Fisnar Robot Plugin files."))
             warning.show()
 
-    def startResetDisAreasTimer(self):
-        # start the reset disallowed areas timer
-        self.reset_dis_areas_timer.start()
-
     def updateFromPreferencedValues(self):
         # set all setting values to the value stored in the application preferences
-        # Logger.log("d", f"preferences retrieved: {self.preferences.getValue("fisnar/setup")}")
 
         pref_dict = json.loads(self.preferences.getValue("fisnar/setup"))
+
         if pref_dict.get("print_surface", None) is not None:
             self.print_surface.updateFromTuple(pref_dict["print_surface"])
-        if pref_dict.get("extruder_outputs", None) is not None:
-            self.extruder_outputs.updateFromTuple(pref_dict["extruder_outputs"])
-        if pref_dict.get("com_port", -1) is not -1:
-            if pref_dict["com_port"] is None or pref_dict["com_port"] == "None":
-                self.com_port = None
-            else:
-                self.com_port = pref_dict["com_port"]
-            self.fisnar_controller.setComPort(self.com_port)
-
-        Logger.log("d", "preference values retrieved: " + str(self.print_surface.getDebugString()) + str(self.extruder_outputs.getDebugString()) + f"com_port: {self.com_port}")
+        if pref_dict.get("com_port", -1) != -1:
+            self.com_port = pref_dict["com_port"]
+        if pref_dict.get("dispenser_com_ports", -1) != -1:
+            self.dispenser_manager.getDispenser("dispenser_1").setComPort(pref_dict["dispenser_com_ports"]["dispenser_1"])
+            self.dispenser_manager.getDispenser("dispenser_2").setComPort(pref_dict["dispenser_com_ports"]["dispenser_2"])
+        if pref_dict.get("pick_location", None) is not None:
+            self.pick_location = pref_dict["pick_location"]
+        if pref_dict.get("place_location", None) is not None:
+            self.place_location = pref_dict["place_location"]
+        if pref_dict.get("vacuum_pressure", None) is not None:
+            self.vacuum_pressure = pref_dict["vacuum_pressure"]
+        if pref_dict.get("vacuum_units", None) is not None:
+            self.vacuum_units = pref_dict["vacuum_units"]
+        if pref_dict.get("xy_speed", None) is not None:
+            self.xy_speed = pref_dict["xy_speed"]
+        if pref_dict.get("pick_z_speed", None) is not None:
+            self.pick_z_speed = pref_dict["pick_z_speed"]
+        if pref_dict.get("place_z_speed", None) is not None:
+            self.place_z_speed = pref_dict["place_z_speed"]
+        if pref_dict.get("pick_dwell", None) is not None:
+            self.pick_dwell = pref_dict["pick_dwell"]
+        if pref_dict.get("place_dwell", None) is not None:
+            self.place_dwell = pref_dict["place_dwell"]
+        if pref_dict.get("reps", None) is not None:
+            self.reps = pref_dict["reps"]
+        if pref_dict.get("pick_place_dispenser_id", -1) is not -1:
+            self.dispenser_manager.setPickPlaceDispenser(pref_dict["pick_place_dispenser_id"])
 
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
         new_pref_dict = {
             "print_surface": self.print_surface.getAsTuple(),
-            "extruder_outputs": self.extruder_outputs.getAsTuple(),
-            "com_port": self.com_port
+            "com_port": self.com_port,
+            "dispenser_com_ports": self.dispenser_manager.getPortNameDict(),
+            "pick_location": self.pick_location,
+            "place_location": self.place_location,
+            "vacuum_pressure": self.vacuum_pressure,
+            "vacuum_units": self.vacuum_units,
+            "xy_speed": self.xy_speed,
+            "pick_z_speed": self.pick_z_speed,
+            "place_z_speed": self.place_z_speed,
+            "pick_dwell": self.pick_dwell,
+            "place_dwell": self.place_dwell,
+            "reps": self.reps,
+            "pick_place_dispenser_id": self.dispenser_manager.getPickPlaceDispenserName()
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -230,62 +253,57 @@ class FisnarRobotExtension(QObject, Extension):
         # NOTE: for some reason, the build volume class takes the origin of the build plate to be at the center
         # NOTE: this code assumes a build volume x-y dimension of (200, 200). Any integers seen in this code are based off of this assumption
 
-        # test
-        # Logger.log("d", "current print surface in resetDisallowedAreas: " + str(self.print_surface.getDebugString()))
+        node = self._cura_app.getBuildVolume()
+        if node is None:  # can happen if the _cura_app._volume is None
+            return
 
-        # adding disallowed areas to each BuildVolume object
-        scene = self._application.getController().getScene()
-        for node in BreadthFirstIterator(scene.getRoot()):
-            if isinstance(node, BuildVolume):
+        # getting build volume dimensions and original disallowed areas, for documentation
+        orig_disallowed_areas = node.getDisallowedAreas()
+        x_dim = node.getWidth()  # NOTE: I think width corresponds to x, not sure
+        y_dim = node.getDepth()  # NOTE: same as above comment. I think this is right
 
-                # getting build volume dimensions and original disallowed areas, for documentation
-                orig_disallowed_areas = node.getDisallowedAreas()
-                x_dim = node.getWidth()  # NOTE: I think width corresponds to x, not sure
-                y_dim = node.getDepth()  # NOTE: same as above comment. I think this is right
+        # converting coord system from fisnar to build volume coord system
+        bv_x_min = 100 - self.print_surface.getXMax()
+        bv_x_max = 100 - self.print_surface.getXMin()
+        bv_y_min = self.print_surface.getYMin() - 100
+        bv_y_max = self.print_surface.getYMax() - 100
+        new_z_dim = self.print_surface.getZMax()
 
-                # converting coord system from fisnar to build volume coord system
-                bv_x_min = 100 - self.print_surface.getXMax()
-                bv_x_max = 100 - self.print_surface.getXMin()
-                bv_y_min = self.print_surface.getYMin() - 100
-                bv_y_max = self.print_surface.getYMax() - 100
-                new_z_dim = self.print_surface.getZMax()
+        # establishing new dissalowed areas (list of Polygon objects)
+        new_disallowed_areas = []
+        new_disallowed_areas.append(self.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
+        new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
+        new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
+        new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
 
-                # establishing new dissalowed areas (list of Polygon objects)
-                new_disallowed_areas = []
-                new_disallowed_areas.append(self.HandledPolygon([[-100, -100], [-100, 100], [bv_x_min, bv_y_max], [bv_x_min, bv_y_min]]))
-                new_disallowed_areas.append(self.HandledPolygon([[-100, 100], [100, 100], [bv_x_max, bv_y_max], [bv_x_min, bv_y_max]]))
-                new_disallowed_areas.append(self.HandledPolygon([[100, 100], [100, -100], [bv_x_max, bv_y_min], [bv_x_max, bv_y_max]]))
-                new_disallowed_areas.append(self.HandledPolygon([[100, -100], [-100, -100], [bv_x_min, bv_y_min], [bv_x_max, bv_y_min]]))
+        # removing zero area polygons from disallowed area polygon list
+        i = 0
+        while i < len(new_disallowed_areas):
+            if new_disallowed_areas[i].isZeroArea():
+                # Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
+                new_disallowed_areas.pop(i)
+            else:
+                i += 1
 
-                # removing zero area polygons from disallowed area polygon list
-                i = 0
-                while i < len(new_disallowed_areas):
-                    if new_disallowed_areas[i].isZeroArea():
-                        Logger.log("i", f"zero area polygon found in disallowed areas: {new_disallowed_areas[i]}")
-                        new_disallowed_areas.pop(i)
-                    else:
-                        i += 1
+        # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
+        node.setDisallowedAreas(new_disallowed_areas)
+        node.setHeight(new_z_dim)
+        node.rebuild()
 
-                # setting new disallowed areas and rebuilding (not sure if the rebuild is necessary)
-                node.setDisallowedAreas(new_disallowed_areas)
-                node.setHeight(new_z_dim)
-                node.rebuild()
+    @pyqtSlot(str, result=str)
+    def getTooltip(self, key):
+        # get a tooltip description via its key
+        if self.tooltips is None:
+            return "<self.tooltips d.n.e.>"
 
-                # logging updated disallowed areas, tests
-                # Logger.log("i", "****** build volume disallowed areas have been reset")
-                # Logger.log("i", "****** original disallowed areas: " + str(orig_disallowed_areas))
-                # Logger.log("i", "****** new disallowed areas: " + str(new_disallowed_areas))
+        if self.tooltips.get(key, None) is None:
+            return "<" + str(key) + "d.n.e. in self.tooltips>"
 
-    def resetFisnarState(self):
-        # reset the internal state of the FisnarController object
-        self.fisnar_controller.resetInternalState()
-
-    def logMessage(self):
-        # logging message when one of the windows is opened
-        Logger.log("i", "Fisnar window opened")
+        return self.tooltips[key]
 
     printSurfaceChanged = pyqtSignal() # signal to notify print surface properties
 
+# ==================== x min property setup =================
     def setXMin(self, x_min):
         # x min setter
         self.print_surface.setXMin(float(x_min))
@@ -296,6 +314,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     x_min = pyqtProperty(str, fset=setXMin, fget=getXMin, notify=printSurfaceChanged)
 
+# ======================== x max property setup ======================
     def setXMax(self, x_max):
         # x max setter
         self.print_surface.setXMax(float(x_max))
@@ -306,6 +325,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     x_max = pyqtProperty(str, fset=setXMax, fget=getXMax, notify=printSurfaceChanged)
 
+# ================== y min property setup ============================
     def setYMin(self, y_min):
         # y min setter
         self.print_surface.setYMin(float(y_min))
@@ -316,6 +336,7 @@ class FisnarRobotExtension(QObject, Extension):
 
     y_min = pyqtProperty(str, fset=setYMin, fget=getYMin, notify=printSurfaceChanged)
 
+# ==================== y max property setup ===========================
     def setYMax(self, y_max):
         # y max setter
         self.print_surface.setYMax(float(y_max))
@@ -326,17 +347,17 @@ class FisnarRobotExtension(QObject, Extension):
 
     y_max = pyqtProperty(str, fset=setYMax, fget=getYMax, notify=printSurfaceChanged)
 
+# ======================== z max property setup =======================
     def setZMax(self, z_max):
         # z max setter
-        Logger.log("d", f"***** z max set: {z_max}")
         self.print_surface.setZMax(float(z_max))
 
     def getZMax(self):
         # z max getter
-        Logger.log("d", f"****** z max got: {self.print_surface.getZMax()}")
         return(str(self.print_surface.getZMax()))
 
     z_max = pyqtProperty(str, fset=setZMax, fget=getZMax, notify=printSurfaceChanged)
+# =========================================================================
 
     @pyqtSlot(str, str)
     def setCoord(self, attribute, coord_val):
@@ -373,228 +394,82 @@ class FisnarRobotExtension(QObject, Extension):
         self.updatePreferencedValues()
         self.resetDisallowedAreas()  # updating disallowed areas on the build plate
 
-    numActiveExtrudersChanged = pyqtSignal()
-    @pyqtProperty(int, notify=numActiveExtrudersChanged)  # connecting to signal emitted when ExtrudersModel changes
-    def num_extruders(self):
-        # called by qml to get the number of active extruders in Cura
-        self.num_active_extruders = len(self._application.getExtrudersModel()._active_machine_extruders)
-        # Logger.log("i", "***** number of extruders: " + str(self.num_active_extruders))  # test
-        return self.num_active_extruders
-
-    # signal for updating extruder values
-    extruderOutputsChanged = pyqtSignal()
-
-    def setExt1Out(self, output):
-        # extruder 1 output setter
-        if output == "None" or output == None or output == 0:
-            self.extruder_outputs.setOutput(1, None)
-        else:
-            self.extruder_outputs.setOutput(1, int(output))
-        Logger.log("d", f"***** extruder 1 set to output: {self.extruder_outputs.getOutput(1)}")
-
-    def getExt1OutInd(self):
-        # extruder 1 output index getter
-        output = self.extruder_outputs.getOutput(1)
-        if output == None:
-            return 0
-        else:
-            return output
-
-    ext_1_output_ind = pyqtProperty(int, fset=setExt1Out, fget=getExt1OutInd, notify=extruderOutputsChanged)
-
-    def setExt2Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(2, None)
-        else:
-            self.extruder_outputs.setOutput(2, int(output))
-        Logger.log("d", f"***** extruder 2 set to output: {self.extruder_outputs.getOutput(2)}")
-
-    def getExt2OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(2)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_2_output_ind = pyqtProperty(int, fset=setExt2Out, fget=getExt2OutInd, notify=extruderOutputsChanged)
-
-    def setExt3Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(3, None)
-        else:
-            self.extruder_outputs.setOutput(3, int(output))
-        Logger.log("d", f"***** extruder 3 set to output: {self.extruder_outputs.getOutput(3)}")
-
-    def getExt3OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(3)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_3_output_ind = pyqtProperty(int, fset=setExt3Out, fget=getExt3OutInd, notify=extruderOutputsChanged)
-
-    def setExt4Out(self, output):
-        # extruder 2 output setter
-        if output == None or output == "None" or output == 0:
-            self.extruder_outputs.setOutput(4, None)
-        else:
-            self.extruder_outputs.setOutput(4, int(output))
-        Logger.log("d", f"***** extruder 4 set to output: {self.extruder_outputs.getOutput(4)}")
-
-    def getExt4OutInd(self):
-        # extruder 2 output index getter
-        output = self.extruder_outputs.getOutput(4)
-        if output is None:
-            return 0
-        else:
-            return output
-
-    ext_4_output_ind = pyqtProperty(int, fset=setExt4Out, fget=getExt4OutInd, notify=extruderOutputsChanged)
-
-    @pyqtSlot(str, str)
-    def setExtruderOutput(self, extruder_num, output_val):
-        # slot for qml to set the output associated with one of the extruders
-        extruder_num = int(extruder_num)
-        if extruder_num == 1:
-            self.setExt1Out(output_val)
-        elif extruder_num == 2:
-            self.setExt2Out(output_val)
-        elif extruder_num == 3:
-            self.setExt3Out(output_val)
-        elif extruder_num == 4:
-            self.setExt4Out(output_val)
-        else:  # throw a warning and return
-            Logger.log("w", "Out of range extruder number set in setExtruderOutput(): " + str(extruder_num))
-            return
-        self.updatePreferencedValues()
-
+# ==================== COM port name setter/getter system ===================
     comPortNameUpdated = pyqtSignal()  # signal emitted when com port name is updated
-
-    def setComPortName(self, new_com_port):
-        # com port name setter
-        if new_com_port == "None" or new_com_port == None:
-            self.com_port = None
-        else:
-            self.com_port = str(new_com_port)
-
-    def getComPortName(self):
-        # com port name getter
+    @pyqtProperty(str, notify=comPortNameUpdated)
+    def com_port_name(self):
         return str(self.com_port)
-
-    com_port_name = pyqtProperty(str, fset=setComPortName, fget=getComPortName, notify=comPortNameUpdated)
 
     @pyqtSlot(str)
     def updateComPort(self, com_port):
-        # set the com port value connected to the Fisnar
-        Logger.log("d", f"com port set to: '{com_port}'")
-        self.setComPortName(com_port)
-        self.fisnar_controller.setComPort(self.com_port)
+        # for qml updating (user entered new value)
+        if com_port == "None":
+            self.com_port = None
+        else:
+            self.com_port = com_port
+        self.comPortNameUpdated.emit()
         self.updatePreferencedValues()
 
-    @pyqtProperty(str, constant=True)
-    def fisnar_control_text(self):
-        # text for fisnar control initial window
-        return "The most recently saved Fisnar CSV will be uploaded to the Fisnar. To go back, press 'Cancel'. To begin the uploading process, press 'Begin'. Once the process begins, a 'terminate' button will appear that can be used to kill the process."
+# =========== dispenser serial ports ======================================
+    dispenserSerialPortUpdated = pyqtSignal()
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
+    def dispenser_1_serial_port(self):
+        return str(self.dispenser_manager.getDispenser("dispenser_1").getComPort())
 
-    updatePrintingProgress = pyqtSignal()
-    @pyqtProperty(str, notify=updatePrintingProgress)
-    def printing_progress(self):
-        # called by qml to get a string representing the printing progress
-        # Logger.log("i", "getPrintingProgress() called")
-        progress = self.fisnar_controller.getPrintingProgress()
-        if progress is None:
-            return "--%"
-        else:
-            return str(round(float(progress) * 100, 2)) + "%"
+    @pyqtProperty(str, notify=dispenserSerialPortUpdated)
+    def dispenser_2_serial_port(self):
+        return str(self.dispenser_manager.getDispenser("dispenser_2").getComPort())
 
-    updateFisnarControlErrorMsg = pyqtSignal()
-    @pyqtProperty(str, notify=updateFisnarControlErrorMsg)
-    def fisnar_control_error_msg(self):
-        # QML property for fisnar control error message
-        return "Error occured while uploading commands: " + self.fisnar_controller.getInformation()
+    @pyqtSlot(str, str)
+    def updateDispenserPortName(self, dispenser_name, port_name):
+        disp = self.dispenser_manager.getDispenser(dispenser_name)
+        if disp is not None:
+            Logger.log("d", f"********** {dispenser_name} set to port {port_name}")
+            if port_name == "None":
+                disp.setComPort(None)
+            else:
+                disp.setComPort(port_name)
+        self.updatePreferencedValues()
 
-    @pyqtSlot()
-    def cancelFisnarControl(self):
-        # called when the user presses cancel on the fisnar control initial window
-        Logger.log("i", "Fisnar control cancelled")
+# ========== fisnar connection status ======================================
+    fisnarConnectionStatusChanged = pyqtSignal()
+    def setFisnarConnectionState(self, state):
+        if state != self.fisnar_connected:
+            self.fisnar_connected = state
+            self.fisnarConnectionStatusChanged.emit()
 
-    @pyqtSlot()
-    def terminateFisnarControl(self):
-        # called by qml when 'terminate' button is pressed during fisnar printing
-        # Logger.log("d", "terminateFisnarControl() called")  # test
-        self.fisnar_controller.setTerminateRunning(True)
+    @pyqtProperty(bool, fset=setFisnarConnectionState, notify=fisnarConnectionStatusChanged)
+    def fisnar_connection_state(self):
+        return self.fisnar_connected
 
-    def trackUploadProgress(self):
-        # check if the print is done or has been terminated or has thrown an error
-        # and update ui. Update progress if print is still going.
+# ========= dispenser connection states =====================================
+    def _onDispenserConnectStateUpdated(self):  # TODO: connect the two signals more cleanly
+        self.dispenserConnectionStatusChanged.emit()
 
-        if (self.fisnar_controller.successful_print is not None) or self.fisnar_controller.getTerminateRunning():  # print either failed or finished or terminated
-            self.progress_update_timer.stop()  # stopping timer because print is done
-            self.fisnar_progress_window.close()  # closing the progress window
+    dispenserConnectionStatusChanged = pyqtSignal()
+    def setDispenserConnectionState(self, dispenser_name, state):
+        if state != self.dispenser_manager.isConnected(dispenser_name):
+            self.dispenser_connected = state
+            self.dispenserConnectionStatusChanged.emit()
 
-            if self.fisnar_controller.getTerminateRunning():  # print was terminated
-                Logger.log("i", "print terminated.")
-            elif self.fisnar_controller.successful_print:  # print finished succesfully
-                Logger.log("i", "Successful fisnar print!")
-            else:  # error occured while uploading
-                self.showFisnarErrorWindow()
-                Logger.log("i", "Fisnar print failed...")
+    @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
+    def dispenser_1_connection_state(self):
+        status = self.dispenser_manager.isConnected("dispenser_1")
+        return False if not isinstance(status, bool) else status
 
-            # resetting FisnarController internal state
-            self.fisnar_reset_timer.start()
+    @pyqtProperty(bool, notify=dispenserConnectionStatusChanged)
+    def dispenser_2_connection_state(self):
+        status = self.dispenser_manager.isConnected("dispenser_2")
+        return False if not isinstance(status, bool) else status
 
-    @pyqtSlot()
-    def beginFisnarControl(self):
-        # called when the user presses begin on the fisnar control initial window
-        Logger.log("i", "Attempting to control Fisnar")
-
-        # showing progress window
-        self.showFisnarProgressWindow()
-
-        # setting commands
-        self.fisnar_controller.setCommands(self.most_recent_fisnar_commands)
-
-        # starting upload thread
-        upload_thread = threading.Thread(target=self.fisnar_controller.runCommands)
-        upload_thread.start()
-
-        # starting update progress timer, which will update the progress window
-        self.progress_update_timer.start()
+# ==========================================================================
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
+
         if not self.define_setup_window:
-            self.define_setup_window = self._createDialogue("define_setup_window.qml")
+            self.define_setup_window = self._createDialogue("DefineSetupWindow.qml")
         self.define_setup_window.show()
-
-    def showFisnarControlWindow(self):
-        # Logger.log("i", "Fisnar control window called")  # test
-        if not self.fisnar_control_window:
-            self.fisnar_control_window = self._createDialogue("fisnar_control_window.qml")
-        self.fisnar_control_window.show()
-
-    def showFisnarErrorWindow(self):
-        # Logger.log("i", "Fisnar error msg window called")  # test
-        if not self.fisnar_error_window:
-            self.fisnar_error_window = self._createDialogue("fisnar_control_error.qml")
-        self.fisnar_error_window.show()
-
-    def showFisnarProgressWindow(self):
-        # Logger.log("i", "Fisnar progress window called")  # test
-
-        # displaying window
-        if not self.fisnar_progress_window:
-            self.fisnar_progress_window = self._createDialogue("fisnar_control_prog.qml")
-        self.fisnar_progress_window.show()
-
-        # connecting timer
-        self.progress_update_timer.timeout.connect(self.fisnar_progress_window.updateProgress)
-        self.progress_update_timer.timeout.connect(self.trackUploadProgress)
 
     def _createDialogue(self, qml_file_name):
         # Logger.log("i", "***** Fisnar CSV Writer dialogue created")  # test
@@ -626,3 +501,10 @@ class FisnarRobotExtension(QObject, Extension):
                     linearly_coincident_y_coords = False  # unequal y's, so area isn't 0 area
 
             return (linearly_coincident_x_coords or linearly_coincident_y_coords)
+
+    _instance = None
+
+    @classmethod
+    def getInstance(cls):
+        # factory method
+        return cls._instance
