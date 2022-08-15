@@ -114,7 +114,6 @@ class FisnarController:
         # set the fisnar commands to be uploaded
         self.fisnar_commands = command_list
 
-
     def runCommands(self):
         # run the previously uploaded fisnar commands to the fisnar
         def setSuccessfulPrint(tf):
@@ -132,7 +131,7 @@ class FisnarController:
         # for testing
         if self.fisnar_machine is None:
             setSuccessfulPrint(False)
-            self.setInformation("no Fisnar COM port selected.")
+            self.setInformation("invalid Fisnar COM port selection.")
             return
 
         # ensuring serial port is/can be opened
