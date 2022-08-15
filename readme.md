@@ -13,7 +13,7 @@ controlling the robot over it's RS232 port.
 - [Contact](#contact)
 
 ## Introduction
-FisnarRobotPlugin is a plugin for [Ultimaker Cura](https://ultimaker.com/software/ultimaker-cura) version 5.1.0. Broadly speaking, it makes the Fisnar F5200N
+FisnarRobotPlugin is a plugin for [Ultimaker Cura](https://ultimaker.com/software/ultimaker-cura) version 5.0.0+. Broadly speaking, it makes the Fisnar F5200N
 robot compatible with Cura and adds some functionality to it. This plugin contains the necessary files to add
 the Fisnar F5200N printer to Cura and enables exporting slicer output in the
 Fisnar .csv format. Additionally, this plugin allows the user to print
@@ -32,7 +32,7 @@ using the info below or use one of the GitHub communication features.
 Lastly, the development of this plugin was funded by the [McAlpine Research Group](https://sites.google.com/view/mcalpineresearchgroup/home) at the University of Minnesota.
 
 ## Installation and Initial Setup
-This plugin has been submitted to the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins) and as of now (8/1/2022) it is under review. Until it is accepted, the only way to install it is by packaging it
+This plugin has been submitted to the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins) and as of now (8/15/2022) it is under review. Until it is accepted, the only way to install it is by packaging it
 from source. Instructions to do so can be found [here](https://community.ultimaker.com/topic/26046-writing-a-custom-cura-package/).
 
 Once the plugin is accepted, it will be easier to download and a more user-friendly description of how to do so
