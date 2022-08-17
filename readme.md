@@ -56,11 +56,9 @@ printer' > 'Fisnar' > 'Fisnar F5200N'.
 
 ## Necessary Physical Printer Configuration
 This plugin assumes that (up to) two [Nordson Ultimus V](https://www.nordson.com/en/divisions/efd/products/fluid-dispensing-systems/ultimus-v-high-precision-dispenser)
-dispensers are being used for pressure control. The fisnar .csv file that is saved
-from slicer output will be the same regardless of the dispensers connected, as
-it assumes the Fisnar [I/O Expansion Module](https://www.fisnar.com/products/robotics/robotic-accessories/robot-add-ons/) is being
-used. Every other feature of the plugin, however, hinges upon the fact that the
-Ultimus V dispensers are being used.
+dispensers are being used for pressure control. The only feature that does not
+require these dispensers to be used is fisnar .csv file saving, which saves
+in the format which uses 'Output <output> <on/off>' commands, and so requires a Fisnar [I/O Expansion Module](https://www.fisnar.com/products/robotics/robotic-accessories/robot-add-ons/) to be used with. Every other feature of the plugin, however, hinges upon the fact that the Ultimus V dispensers are being used.
 
 ## Using the Plugin
 There are two main interfaces of the plugin: the 'Define Setup' window, and the
