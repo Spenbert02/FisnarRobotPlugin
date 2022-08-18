@@ -246,6 +246,7 @@ Component
                   }
 
                   Row {  // jog position subheader and manual control buttons
+                    id: manualControlRow
                     width: parent.width - (2 * UM.Theme.getSize("default_margin").width)
                     height: childrenRect.height + UM.Theme.getSize("default_margin").height
                     anchors.left: parent.left
@@ -300,7 +301,7 @@ Component
                         anchors.leftMargin: xPosButton.width + leftFiller.width
                       }
 
-                      Cura.SecondaryButton {  // 'up' button
+                      ManualControlButton {  // 'up' button
                         id: yNegButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -308,12 +309,13 @@ Component
                         anchors.horizontalCenter: xyLabel.horizontalCenter
                         anchors.top: xyLabel.bottom
                         leftPadding: (width - iconSize) / 2
+
                         onClicked: {
-                          OutputDevice.moveHead(0, -jogRow.selectedDistance, 0)
+                          OutputDevice.moveHead(0, -jogRow.selectedDistance, 0);
                         }
                       }
 
-                      Cura.SecondaryButton {  // 'down' button
+                      ManualControlButton {  // 'down' button
                         id: yPosButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -326,7 +328,7 @@ Component
                         }
                       }
 
-                      Cura.SecondaryButton {  // 'left' button
+                      ManualControlButton {  // 'left' button
                         id: xPosButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -339,7 +341,7 @@ Component
                         }
                       }
 
-                      Cura.SecondaryButton {  // 'right' button
+                      ManualControlButton {  // 'right' button
                         id: xNegButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -370,7 +372,7 @@ Component
                         anchors.topMargin: (base._buttonSize + UM.Theme.getSize("thick_lining").height) / 2  // kind of hacky
                       }
 
-                      Cura.SecondaryButton {
+                      ManualControlButton {
                         id: homeButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -408,7 +410,7 @@ Component
                         anchors.top: parent.top
                       }
 
-                      Cura.SecondaryButton {  // neg z label
+                      ManualControlButton {  // neg z label
                         id: zNegButton
                         width: base._buttonSize
                         height: base._buttonSize
@@ -421,7 +423,7 @@ Component
                         }
                       }
 
-                      Cura.SecondaryButton {
+                      ManualControlButton {
                         id: zPosButton
                         width: base._buttonSize
                         height: base._buttonSize
