@@ -23,6 +23,8 @@ Robot Edit'). There is also a user-interface that allows the user to 'jog' the
 printer, manually type and send RS232 commands, and execute two-point pick-and-place
 maneuvers.
 
+A video demo of the plugin can be found [here](https://www.youtube.com/watch?v=DYjPqfCfP2Y).
+
 A lot of this plugin was written using other existing plugins as guides. This
 includes Ultimaker's [GCodeWriter](https://github.com/Ultimaker/Cura/tree/main/plugins/GCodeWriter) plugin and Tim Schoenmackers' [Dremel Printer](https://github.com/timmehtimmeh/Cura-Dremel-Printer-Plugin) plugin.
 
