@@ -38,11 +38,8 @@ Lastly, the development of this plugin was funded by the [McAlpine Research Grou
 ### Download Instructions
 1. [Download and install Cura](https://ultimaker.com/software/ultimaker-cura) to your computer. The
 plugin should function the same regardless of operating system.
-2. As of now (8/15/2022), the plugin has been submitted to the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins)
-and is under review. Until it is accepted, it can be installed by downloading the 'FisnarRobotPlugin-v8.1.0.curapackage'
-file in the 'plugin_download' folder of this repo and dragging it onto an open Cura window. Once this
-plugin is accepted to the Ultimaker Marketplace, it can be downloaded directly from there.
-
+2. Once Cura is installed, the plugin can be downloaded from the [Ultimaker Marketplace](https://marketplace.ultimaker.com/app/cura/plugins).
+It is listed as 'Fisnar Robot Plugin' and can be installed by pressing the 'Add to Cura' button.
 
 ### Initial Setup
 After installing the plugin, the Fisnar F5200N printer has to be added
