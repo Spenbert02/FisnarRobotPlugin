@@ -794,7 +794,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
     def setPickPlaceDispenser(self, id):
         self._dispenser_manager.setPickPlaceDispenser(id)
         self._fre_instance.updatePreferencedValues()
-        
+
 # ----------------------------------------------------------------------
 
     xPosUpdated = pyqtSignal()

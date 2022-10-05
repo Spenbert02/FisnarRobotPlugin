@@ -54,13 +54,15 @@ class UltimusV(Peripheral):
         self._connection_state = ConnectionState.Closed
 
         self._output_state = False
+        self.busy = False  # quick solution for now - this is to stop DispenerManager.update() from sending a test connection command while the dispenser is involved in a pick and place maneuver
+                                      # long term, should get rid of this and implement available event correctly
 
         self.sending = Event()
         self.available = Event()
         self.available.set()
 
     def testConnection(self):
-        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting):
+        if self._serial is None or self._connection_state not in (ConnectionState.Connected, ConnectionState.Connecting) or self.busy:
             return
 
         command_bytes = UltimusV.setVacuum(0.0, PressureUnits.V_KPA)

@@ -36,7 +36,7 @@ class DispenserManager:
         Logger.log("i", f"DispenserManager connection confirm thread started")
         while len(self._dispensers) > 0:
             for dispenser in self._dispensers:
-                if dispenser.isConnected() and dispenser.available.is_set():
+                if dispenser.isConnected() and dispenser.available.is_set() and not dispenser.busy:
                     still_connected = dispenser.testConnection()
                     if not still_connected:
                         Logger.log("w", str(dispenser.display_name) + " appears to be unresponsive, attempting to confirm connection status")
