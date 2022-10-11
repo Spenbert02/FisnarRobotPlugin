@@ -66,7 +66,11 @@ class UltimusV(Peripheral):
             return
 
         command_bytes = UltimusV.setVacuum(0.0, PressureUnits.V_KPA)
-        self._serial.write(UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + UltimusV.checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT)
+
+        try:  # if fails here, is disconnected
+            self._serial.write(UltimusV.ENQ + UltimusV.STX + UltimusV.intToHexBytes(len(command_bytes)) + command_bytes + UltimusV.checksum(UltimusV.intToHexBytes(len(command_bytes)) + command_bytes) + UltimusV.ETX + UltimusV.EOT)
+        except:
+            return False
 
         ret = self._serial.readline()
         if len(ret) > 5 and ret[4:6] == UltimusV.success():
