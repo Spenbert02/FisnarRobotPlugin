@@ -10,6 +10,7 @@ from UM.Logger import Logger
 class Converter:
     # class that facilitates the translation of commands between gcode and
     # fisnar commands in several different formats
+    #
 
     XYZ_COMMANDS = ("Dummy Point", "Line Start", "Line Passing", "Line End")
 
