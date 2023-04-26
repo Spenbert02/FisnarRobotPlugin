@@ -418,48 +418,67 @@ class Converter:
         return ret_string
 
     @staticmethod
-    def fisnarCommandsToBytes(fisnar_commands):
+    def fisnarCommandsToBytes(fisnar_commands, continuous_extrusion):
         # from a 2d-array of fisnar commands, get an array of fisnar command bytes
         # assumes that whichever dipsenser(s) appear in the fisnar commands are
         # connected
 
+        # TODO: passing continuous_extrusion as a parameter here is really ghetto. In the future,
+        # this should be a member function and it should internally acess self.continuous_extrusion.
+        # Also, doing this separately for continuous/non continuous printing is really ghetto. This
+        # should be a short term fix. The main issue is that the non continuous loop makes assumptions
+        # that don't hold for continuous printing
+
         ret_bytes = []
         i = 0
-        while i < len(fisnar_commands):
-            if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:
-                output = fisnar_commands[i][1]
-                i += 1
-                consecutive_dummies = 0
-                while i < len(fisnar_commands) and fisnar_commands[i][0] == "Dummy Point":
-                    if consecutive_dummies >= 99:
-                        ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
-                        ret_bytes.append(FisnarCommands.ID())
-                        ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
-                        consecutive_dummies = 0
 
-                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
-                    i += 1
-                    consecutive_dummies += 1
-
-                line_speed = fisnar_commands[i][1]
-                i += 2  # skip the output command that comes afterward
-
-                ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
-                ret_bytes.append(FisnarCommands.ID())
-                ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
-                ret_bytes.append(FisnarCommands.SP(line_speed))
-            else:
-                if fisnar_commands[i][0] == "Dummy Point":
-                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
-                    ret_bytes.append(FisnarCommands.ID())
-                    i += 1
+        if continuous_extrusion:  # might lead to shittier prints (ID() leads to delay in movement - similar issue that octoprint faces - consequence of asynchronous printing)
+            while i < len(fisnar_commands):
+                if fisnar_commands[i][0] == "Output":
+                    ret_bytes.append(FisnarCommands.OU(fisnar_commands[i][1], fisnar_commands[i][2]))
                 elif fisnar_commands[i][0] == "Line Speed":
                     ret_bytes.append(FisnarCommands.SP(fisnar_commands[i][1]))
+                elif fisnar_commands[i][0] == "Dummy Point":
+                    ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                    ret_bytes.append(FisnarCommands.ID())
+                i += 1
+            return ret_bytes
+        else:
+            while i < len(fisnar_commands):
+                if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:
+                    output = fisnar_commands[i][1]
                     i += 1
+                    consecutive_dummies = 0
+                    while i < len(fisnar_commands) and fisnar_commands[i][0] == "Dummy Point":
+                        if consecutive_dummies >= 99:
+                            ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                            ret_bytes.append(FisnarCommands.ID())
+                            ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
+                            consecutive_dummies = 0
+
+                        ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                        i += 1
+                        consecutive_dummies += 1
+
+                    line_speed = fisnar_commands[i][1]
+                    i += 2  # skip the output command that comes afterward
+
+                    ret_bytes.append(FisnarCommands.OU(output, 1))  # output on
+                    ret_bytes.append(FisnarCommands.ID())
+                    ret_bytes.append(FisnarCommands.OU(output, 0))  # output off
+                    ret_bytes.append(FisnarCommands.SP(line_speed))
                 else:
-                    Logger.log("w", "unaccounted for command in fisnar_commands: " + str(fisnar_commands[i]))
-                    i += 1
-        return ret_bytes
+                    if fisnar_commands[i][0] == "Dummy Point":
+                        ret_bytes.append(FisnarCommands.VA(fisnar_commands[i][1], fisnar_commands[i][2], fisnar_commands[i][3]))
+                        ret_bytes.append(FisnarCommands.ID())
+                        i += 1
+                    elif fisnar_commands[i][0] == "Line Speed":
+                        ret_bytes.append(FisnarCommands.SP(fisnar_commands[i][1]))
+                        i += 1
+                    else:
+                        Logger.log("w", "unaccounted for command in fisnar_commands: " + str(fisnar_commands[i]))
+                        i += 1
+            return ret_bytes
 
     @staticmethod
     def readFisnarCommandsFromCSV(csv_string):

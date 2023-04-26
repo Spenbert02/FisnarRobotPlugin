@@ -210,7 +210,7 @@ class FisnarOutputDevice(PrinterOutputDevice):
         # updating fisnar command bytes from fisnar_command_csv
         commands = Converter.readFisnarCommandsFromCSV(fisnar_command_csv)
         self._printing_commands.clear()
-        self._printing_commands = Converter.fisnarCommandsToBytes(commands)
+        self._printing_commands = Converter.fisnarCommandsToBytes(commands, self._fre_instance.continuous_extrusion)
 
         self._current_index = 0  # resetting command index
 
