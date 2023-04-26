@@ -5,7 +5,7 @@ import os
 
 if __name__ == "__main__":
     content_folder_path = "../"
-    zip_file_path = "packaging_station\\FisnarRobotPlugin.zip"
+    zip_file_path = os.path.join(os.path.dirname(__file__), "packaging_station", "FisnarRobotPlugin.zip")
 
     with ZipFile(zip_file_path, "w") as zip_obj:
         for top_folder, sub_folders, files in os.walk(content_folder_path):
