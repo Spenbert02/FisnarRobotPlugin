@@ -4,7 +4,7 @@ import os
 
 
 if __name__ == "__main__":
-    content_folder_path = "../"
+    content_folder_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     zip_file_path = os.path.join(os.path.dirname(__file__), "packaging_station", "FisnarRobotPlugin.zip")
 
     with ZipFile(zip_file_path, "w") as zip_obj:

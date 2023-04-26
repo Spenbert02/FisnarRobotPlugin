@@ -193,7 +193,7 @@ def plotCoordinates(coord_segments, coord_limits, window_title):
 
 
 if __name__ == "__main__":
-    fisnar_csv_abspath = "C:\\Users\\spenb\\Downloads\\FF_5x5x5_cube_4.csv"
+    fisnar_csv_abspath = "C:\\Users\\spenb\\Downloads\\FF_3_18_2022_three_line_test_file.csv"
     fisnar_commands = readFisnarCommandsFromFile(fisnar_csv_abspath)
     fisnar_segmented_coords = getFisnarSegmentedExtrusionCoords(fisnar_commands, True)
 
