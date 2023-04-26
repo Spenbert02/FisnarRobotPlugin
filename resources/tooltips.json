@@ -22,5 +22,6 @@
   "place_z_travel_speed": "The speed of travel in the z-direction for place movements",
   "pick_dwell_time": "The time to wait while at the pick location",
   "place_dwell_time": "The time to wait while at the place location",
-  "repitions": "The number of times to repeat the pick and place procedure"
+  "repitions": "The number of times to repeat the pick and place procedure",
+  "continuous extrusion": "Whether or not to continuously extrude during printing"
 }

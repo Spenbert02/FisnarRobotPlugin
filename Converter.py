@@ -20,6 +20,7 @@ class Converter:
         self.last_converted_fisnar_commands = None  # the last converted fisnar command list
 
         self.print_surface = None  # type: PrintSurface
+        self.continuous_extrusion = False
 
         self.information = None  # for error reporting
 
@@ -42,6 +43,15 @@ class Converter:
         # get the Fisnar print surface area as an array of coords in the form:
         # [x min, x max, y min, y max, z max]
         return self.print_surface
+
+    def setContinuousExtrusion(self, state):
+        # set the continuous extrusion state. If state==True, then continuous extruding is used.
+        # if state == False, then continuous extruding is not used
+        self.continuous_extrusion = state
+
+    def getContinuousExtrusion(self):
+        # get the continuous extrusion state (True for continuous extrusion, False if not)
+        return self.continuous_extrusion
 
     def setGcode(self, gcode_str):
         # sets the gcode string (and gcode list)
@@ -135,6 +145,38 @@ class Converter:
         # removing redundant output and line speed commands
         Converter.optimizeFisnarOutputCommands(fisnar_commands)
         Converter.optimizeLineSpeedCommands(fisnar_commands)  # ensures no consectuive line speed commands
+
+        # Logger.log("d", f"Converter: {self.continuous_extrusion}")
+        if self.continuous_extrusion:
+            num_outputs = Converter.getOutputsInFisnarCommands(fisnar_commands).count(True)
+            # Logger.log("d", f"converter num_outputs: {num_outputs}")
+            if num_outputs == 1:  # only one extruder. keep printing continuously
+                first_on_command_ind = None  # first extruding command
+                last_off_command_ind = None  # last command that turns off extrusion (first output off after the last output on)
+
+                for i in range(len(fisnar_commands)):
+                    if fisnar_commands[i][0] == "Output" and fisnar_commands[i][2] == 1:  # output on
+                        if first_on_command_ind is None:  # first extruding command
+                            first_on_command_ind = i
+                        
+                        j = i + 1
+                        next_off_found = False
+                        while j < len(fisnar_commands) and not next_off_found:  # getting next output off after output on
+                            if fisnar_commands[j][0] == "Output" and fisnar_commands[j][2] == 0:
+                                last_off_command_ind = j
+                                next_off_found = True
+                            j += 1
+            
+                # removing all output off and on commands in between the first on and last off commands
+                i = first_on_command_ind + 1  # starting at command after first on command
+                while i < last_off_command_ind:  # ending before last off command
+                    if fisnar_commands[i][0] == "Output":
+                        del fisnar_commands[i]
+                        last_off_command_ind -= 1  # bumping back one index
+                    else:  # not output
+                        i += 1 
+            else:  # more than one output
+                pass  # TODO: implement this                  
 
         return fisnar_commands
 

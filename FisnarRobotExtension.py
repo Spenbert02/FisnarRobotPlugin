@@ -62,7 +62,8 @@ class FisnarRobotExtension(QObject, Extension):
             "pick_dwell": 0.0,
             "place_dwell": 0.0,
             "reps": 0,
-            "pick_place_dispenser_id": None
+            "pick_place_dispenser_id": None,
+            "continuous_extrusion": False
         }
         self.preferences.addPreference("fisnar/setup", json.dumps(default_preferences))
 
@@ -81,6 +82,7 @@ class FisnarRobotExtension(QObject, Extension):
         self.pick_dwell = 0.0
         self.place_dwell = 0.0
         self.reps = 1
+        self.continuous_extrusion = False
 
         # connection status of fisnar and dispenser for UI
         self.fisnar_connected = False
@@ -225,6 +227,9 @@ class FisnarRobotExtension(QObject, Extension):
             self.reps = pref_dict["reps"]
         if pref_dict.get("pick_place_dispenser_id", -1) is not -1:
             self.dispenser_manager.setPickPlaceDispenser(pref_dict["pick_place_dispenser_id"])
+        if pref_dict.get("continuous_extrusion", None) is not None:
+            self.continuous_extrusion = pref_dict["continuous_extrusion"]
+            # Logger.log("d", f"self.continuous_extrusion: {self.continuous_extrusion}, {type(self.continuous_extrusion)}")
 
     def updatePreferencedValues(self):
         # update the stored preference values from the user entered values
@@ -242,7 +247,8 @@ class FisnarRobotExtension(QObject, Extension):
             "pick_dwell": self.pick_dwell,
             "place_dwell": self.place_dwell,
             "reps": self.reps,
-            "pick_place_dispenser_id": self.dispenser_manager.getPickPlaceDispenserName()
+            "pick_place_dispenser_id": self.dispenser_manager.getPickPlaceDispenserName(),
+            "continuous_extrusion": self.continuous_extrusion
         }
         self.preferences.setValue("fisnar/setup", json.dumps(new_pref_dict))
 
@@ -462,11 +468,27 @@ class FisnarRobotExtension(QObject, Extension):
         status = self.dispenser_manager.isConnected("dispenser_2")
         return False if not isinstance(status, bool) else status
 
+# ============= continuous printing checkbox ==============================
+    continuousExtrusionUpdated = pyqtSignal()
+    def setContinuousExtrusion(self, state):
+        # state: 1 for checked, 0 for unchecked
+        Logger.log("d", f"***** state: {state}")
+        if state == 1:
+            self.continuous_extrusion = True
+        else:
+            self.continuous_extrusion = False
+        self.updatePreferencedValues()
+    
+    def getContinuousExtrusion(self):
+        # get checkstate as int (1: checked, 0: unchecked)
+        return 1 if self.continuous_extrusion else 0
+
+    const_extrusion = pyqtProperty(int, fset=setContinuousExtrusion, fget=getContinuousExtrusion, notify=continuousExtrusionUpdated)
+
 # ==========================================================================
 
     def showDefineSetupWindow(self):
         # Logger.log("i", "Define setup window called")  # test
-
         if not self.define_setup_window:
             self.define_setup_window = self._createDialogue("DefineSetupWindow.qml")
         self.define_setup_window.show()

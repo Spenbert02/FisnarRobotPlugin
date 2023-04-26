@@ -18,7 +18,7 @@ UM.Dialog {
     width: minimumWidth
     height: minimumHeight
     minimumWidth: 700 * screenScaleFactor
-    minimumHeight: 350 * screenScaleFactor
+    minimumHeight: 400 * screenScaleFactor
 
     function updateVal(valId, val) {
       if (valId.includes("fisnar")) {
@@ -29,6 +29,8 @@ UM.Dialog {
         main.updateDispenserPortName("dispenser_1", val);
       } else if (valId == "dispenser_2_com_port") {
         main.updateDispenserPortName("dispenser_2", val);
+      } else if (valId == "continuous_extrusion") {
+        main.const_extrusion = val;
       }
     }
 
@@ -38,7 +40,7 @@ UM.Dialog {
 
     Row {
       id: sectionRow
-      height: parent.height - (2 * UM.Theme.getSize("default_margin").height)
+      height: .75 * (parent.height - (3 * UM.Theme.getSize("default_margin").height))
       width: parent.width - (2 * UM.Theme.getSize("default_margin").width)
       anchors.top: parent.top
       anchors.topMargin: UM.Theme.getSize("default_margin").height
@@ -310,6 +312,44 @@ UM.Dialog {
             anchors.right: parent.right
             anchors.top: dispenser2Entry.bottom
             anchors.topMargin: UM.Theme.getSize("default_lining").height
+          }
+        }
+      }
+    }
+
+    Rectangle {
+      height: .25 * (parent.height - (3 * UM.Theme.getSize("default_margin").height))
+      width: parent.width - (2 * UM.Theme.getSize("default_margin").width)
+      anchors.left: parent.left
+      anchors.leftMargin: UM.Theme.getSize("default_margin").width
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: UM.Theme.getSize("default_margin").height
+
+      GroupBox {
+        anchors.fill: parent
+        title: "Print Settings"
+
+        Rectangle {
+          anchors.fill: parent
+
+          UM.Label {  // continuous printing label
+            id: continuousExtrudingLabel
+            text: "Continuous Extruding"
+            font: UM.Theme.getFont("default")
+            height: UM.Theme.getSize("default_margin").height
+            anchors.left: parent.left
+            anchors.top: parent.top
+          }
+
+          UM.CheckBox{
+            id: continuousExtrudingCheckbox
+            checked: main.const_extrusion
+            height: UM.Theme.getSize("default_margin").height
+            anchors.left: continuousExtrudingLabel.right
+            anchors.leftMargin: UM.Theme.getSize("default_margin").width
+            anchors.top: continuousExtrudingLabel.top
+
+            onCheckedChanged: base.updateVal("continuous_extrusion", checked)
           }
         }
       }

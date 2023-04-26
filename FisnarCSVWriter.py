@@ -25,6 +25,7 @@ class FisnarCSVWriter(MeshWriter):
     def write(self, stream, nodes, mode=MeshWriter.OutputMode.TextMode):
         # getting updated extension parameters
         self.converter.setPrintSurface(self._fre_instance.print_surface)
+        self.converter.setContinuousExtrusion(self._fre_instance.continuous_extrusion)
 
         # TODO: figure out a way to get the filename of the saved file, and add it as a parameter in the extension plugin
 
